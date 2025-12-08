@@ -14,4 +14,5 @@ public class photonvision {
     private PhotonCamera camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
     private PhotonCamera camera2 = new PhotonCamera("Intel(R)_RealSense(TM)_Depth_Camera_455__RGB");
 
-}
+    }
+

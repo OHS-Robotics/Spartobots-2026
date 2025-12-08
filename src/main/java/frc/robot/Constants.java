@@ -50,4 +50,28 @@ public final class Constants{
       public static final Matrix<N3, N1> kMultiTagStdDevs = VecBuilder.fill(0.5, 0.5, 1);
     }
 
+    public static class Operator
+  {
+    // Joystick Deadband
+    public static final double deadband = 0.05;
+    public static final double deadbandLeftY = 0.05;
+    public static final double deadbandRightX = 0.05;
+    public static final double turnConstant = 6;
+    public static final double scaleTranslationHighGear = 0.8;
+    public static final double scaleTranslationLowGear = 0.2;
+    public static final double scaleRotationHighGear = 0.8;
+    public static final double scaleRotationLowGear = 0.2;
+    public static final boolean useKeyboardInSim = true; // Whether to expect keyboard or controller controls in sim
+
+    public static final double nudgeSpeed_MetersPerSec = 0.5;
+    public static final double nudgeDistForward_Meters = Units.inchesToMeters(2);
+    public static final double nudgeDistBack_Meters = Units.inchesToMeters(2);
+    public static final double nudgeDistLeft_Meters = Units.inchesToMeters(2);
+    public static final double nudgeDistRight_Meters = Units.inchesToMeters(2);
+
+    public static final boolean useJoystick = false; //false = use xbox
+
+    public static final double expoCurveExponentTranslation = 2;
+    public static final double expoCurveExponentRotation = 2;
+  }
 }

@@ -112,6 +112,16 @@ public class SwerveSubsystem extends SubsystemBase {
         });
     }
 
+     /**
+   * Gets the swerve drive object.
+   *
+   * @return {@link SwerveDrive}
+   */
+  public SwerveDrive getSwerveDrive()
+  {
+    return swerveDrive;
+  }
+    
     public void driveFieldOriented(ChassisSpeeds velocity) {
         swerveDrive.driveFieldOriented(velocity);
     }
