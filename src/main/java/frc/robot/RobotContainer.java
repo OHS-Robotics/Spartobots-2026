@@ -23,7 +23,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer {
-  	final CommandJoystick driverJoystick = new CommandJoystick(0);
+  final CommandJoystick driverJoystick = new CommandJoystick(0);
   final CommandXboxController driverXbox = new CommandXboxController(0);
   final CommandGenericHID driverGenericHID = new CommandGenericHID(0);
 

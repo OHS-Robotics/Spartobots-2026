@@ -13,6 +13,10 @@ public class photonvision {
     // Change this to match the name of your camera
     private PhotonCamera camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
     private PhotonCamera camera2 = new PhotonCamera("Intel(R)_RealSense(TM)_Depth_Camera_455__RGB");
-
+      // Query the latest result from PhotonVision
+      
+      public void update() {
+        var result = camera.getLatestResult(); 
     }
 
+}
