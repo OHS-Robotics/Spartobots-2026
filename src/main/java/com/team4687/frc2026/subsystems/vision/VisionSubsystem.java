@@ -2,70 +2,68 @@ package com.team4687.frc2026.subsystems.vision;
 
 import com.team4687.frc2026.Constants;
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFieldLayout.OriginPosition;
-import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import com.team4687.frc2026.subsystems.vision.estimation.PhotonVisionPoseEstimator;
+import com.team4687.frc2026.subsystems.vision.estimation.VisionPoseEstimator;
+import com.team4687.frc2026.subsystems.vision.fusion.VisionFusionConfig;
+import com.team4687.frc2026.subsystems.vision.fusion.VisionSensorFusion;
+import edu.wpi.first.wpilibj.ADIS16470_IMU;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import java.util.Optional;
-import org.photonvision.EstimatedRobotPose;
-import org.photonvision.PhotonCamera;
-import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
+/**
+ * Vision-facing subsystem.
+ *
+ * <p>Implementation detail note: this class intentionally stays small. PhotonVision estimation and
+ * fusion/gating logic live in separate modules so we can swap vision implementations later.
+ */
 public class VisionSubsystem extends SubsystemBase {
-  private final PhotonCamera camera = new PhotonCamera(Constants.VisionConstants.CAMERA_NAME);
-  private final PhotonPoseEstimator photonEstimator;
   private final SwerveSubsystem swerveSubsystem;
-  private final Matrix<N3, N1> visionStdDevs = Constants.VisionConstants.VISION_MEASUREMENT_STD_DEVS;
-  private Optional<EstimatedRobotPose> latestEstimate = Optional.empty();
-  private Alliance lastAlliance;
+  private final VisionPoseEstimator poseEstimator;
+  private final VisionSensorFusion sensorFusion;
+
+  private Optional<VisionSensorFusion.VisionMeasurement> latestAcceptedMeasurement = Optional.empty();
 
   public VisionSubsystem(SwerveSubsystem swerveSubsystem) {
     this.swerveSubsystem = swerveSubsystem;
 
-    AprilTagFieldLayout fieldLayout = AprilTagFieldLayout.loadField(Constants.VisionConstants.FIELD);
-    fieldLayout.setOrigin(OriginPosition.kBlueAllianceWallRightSide);
+    ADIS16470_IMU rioImu = new ADIS16470_IMU();
+    rioImu.setYawAxis(ADIS16470_IMU.IMUAxis.kZ);
 
-    photonEstimator =
-        new PhotonPoseEstimator(
-            fieldLayout,
-            PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR,
-            Constants.VisionConstants.ROBOT_TO_CAMERA);
-    photonEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
+    poseEstimator =
+        new PhotonVisionPoseEstimator(
+            Constants.VisionConstants.CAMERA_NAME,
+            Constants.VisionConstants.ROBOT_TO_CAMERA,
+            Constants.VisionConstants.FIELD);
 
-    this.swerveSubsystem.swerveDrive.setVisionMeasurementStdDevs(visionStdDevs);
+    sensorFusion =
+        new VisionSensorFusion(
+            () -> Rotation2d.fromDegrees(rioImu.getAngle()),
+            Constants.VisionConstants.VISION_MEASUREMENT_STD_DEVS,
+            new VisionFusionConfig(
+                Constants.VisionConstants.MAX_POSE_AMBIGUITY,
+                Constants.VisionConstants.MAX_TRANSLATION_JUMP_METERS,
+                Constants.VisionConstants.MAX_HEADING_ERROR_RADIANS,
+                Constants.VisionConstants.STD_DEV_SCALE_SINGLE_TAG));
+
+    this.swerveSubsystem.swerveDrive.setVisionMeasurementStdDevs(
+        Constants.VisionConstants.VISION_MEASUREMENT_STD_DEVS);
   }
 
   @Override
   public void periodic() {
-    updateFieldOrigin();
+    latestAcceptedMeasurement =
+        poseEstimator
+            .estimate(swerveSubsystem.getPose())
+            .flatMap(estimate -> sensorFusion.fuse(estimate, swerveSubsystem.getPose()));
 
-    latestEstimate = photonEstimator.update(camera.getLatestResult());
-    latestEstimate.ifPresent(
-        estimate ->
+    latestAcceptedMeasurement.ifPresent(
+        measurement ->
             swerveSubsystem.swerveDrive.addVisionMeasurement(
-                estimate.estimatedPose.toPose2d(), estimate.timestampSeconds));
+                measurement.pose(), measurement.timestampSeconds(), measurement.stdDevs()));
   }
 
-  public Optional<EstimatedRobotPose> getLatestEstimate() {
-    return latestEstimate;
-  }
-
-  private void updateFieldOrigin() {
-    Optional<Alliance> alliance = DriverStation.getAlliance();
-    if (alliance.isEmpty() || alliance.get() == lastAlliance) {
-      return;
-    }
-
-    lastAlliance = alliance.get();
-    OriginPosition origin =
-        lastAlliance == Alliance.Red
-            ? OriginPosition.kRedAllianceWallRightSide
-            : OriginPosition.kBlueAllianceWallRightSide;
-    photonEstimator.getFieldTags().setOrigin(origin);
+  public Optional<VisionSensorFusion.VisionMeasurement> getLatestAcceptedMeasurement() {
+    return latestAcceptedMeasurement;
   }
 }

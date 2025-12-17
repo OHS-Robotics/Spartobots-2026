@@ -40,5 +40,9 @@ public final class Constants {
     public static final AprilTagFields FIELD = AprilTagFields.kDefaultField;
     public static final Matrix<N3, N1> VISION_MEASUREMENT_STD_DEVS =
         VecBuilder.fill(0.7, 0.7, Units.degreesToRadians(45.0));
+    public static final double MAX_POSE_AMBIGUITY = 0.3;
+    public static final double MAX_TRANSLATION_JUMP_METERS = 1.5;
+    public static final double MAX_HEADING_ERROR_RADIANS = Units.degreesToRadians(35.0);
+    public static final double STD_DEV_SCALE_SINGLE_TAG = 2.5;
   }
 }
