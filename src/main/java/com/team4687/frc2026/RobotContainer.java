@@ -4,7 +4,7 @@
 
 package com.team4687.frc2026;
 
-import frc.robot.Constants.OperatorConstants;
+import com.team4687.frc2026.Constants.*;
 
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import swervelib.SwerveInputStream;
