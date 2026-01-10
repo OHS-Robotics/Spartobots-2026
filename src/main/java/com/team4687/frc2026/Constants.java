@@ -21,5 +21,5 @@ public final class Constants {
   }
 
   public static final double MAX_SPEED = Units.feetToMeters(3.0);
-
+  public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(5.0);
 }

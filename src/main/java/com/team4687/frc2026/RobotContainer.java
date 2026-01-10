@@ -56,7 +56,7 @@ public class RobotContainer {
    */
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveFieldOrientedCommand(driveRobotAngularVelocityStream));
-
+    driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
   }
 
   private void configureInputStreams() {

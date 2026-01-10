@@ -5,6 +5,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
@@ -13,11 +14,13 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import java.lang.Math;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import swervelib.SwerveDrive;
 import swervelib.math.SwerveMath;
@@ -30,6 +33,7 @@ import com.team4687.frc2026.Constants;
 public class SwerveSubsystem extends SubsystemBase {
 
     public final SwerveDrive swerveDrive;
+    PathPlannerAuto testPath;
 
     public SwerveSubsystem(File directory) {
         try {
@@ -81,6 +85,19 @@ public class SwerveSubsystem extends SubsystemBase {
             },
             this
         );
+
+        registerNamedCommands();
+        registerPaths();
+    }
+
+    private void registerNamedCommands() {
+        // todo: move this to a subsystem
+        NamedCommands.registerCommand("testOperation", runOnce(() -> System.out.println("Wow doing a dummy operation!")));
+    }
+    
+    private void registerPaths() {
+        // todo: move this to a subsystem
+        testPath = new PathPlannerAuto("testAuto");
     }
 
     public void drive(Translation2d translation, double rotation, boolean fieldRelative) {
@@ -123,15 +140,32 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     /**
-     * Change the position, relative to the robot, by a given translation at a given speed. All units in meters.
+     * Change the position, relative to the robot, by a given translation at a given speed. All units in meters. +X is backwards, +Y is right
      * @param translation The distance on each axis to translate by, in meters
-     * @param speed The speed at which to move, in meters. If this is greater than {@link frc.robot.Constants#MAX_SPEED} it will be clamped
+     * @param speed The speed at which to move, in meters per second. If this is greater than {@link frc.robot.Constants#MAX_SPEED} it will be clamped
      * @return 
      */
     public Command changePosition(Translation2d translation, double speed) {
         final double limitedSpeed = Math.min(speed, Constants.MAX_SPEED);
         return run(() -> drive(translation.times(limitedSpeed/translation.getNorm()), 0.0, false))
         .withTimeout(translation.getNorm()/limitedSpeed);
+    }
+
+    public Command changeRotation(double angle, double speed) {
+      final double limitedSpeed = Math.min(speed, Constants.MAX_ROTATIONAL_SPEED);
+      return run(() -> drive(new Translation2d(0.0, 0.0), limitedSpeed, false)).withTimeout(angle/limitedSpeed);
+    }
+
+    /**
+     * @param endpoint The point at which to move the robot to. The robot will rotate to the rotational component AFTER moving!
+     * @param speed The speed at which to move, in meters per second. If this is greater than {@link frc.robot.Constants#MAX_SPEED} it will be clamped 
+     */
+    public Command driveTo(Pose2d endpoint, double translationSpeed, double rotationSpeed) {
+      final double limitedSpeed = Math.min(translationSpeed, Constants.MAX_SPEED);
+      final Translation2d translation = endpoint.minus(getPose()).getTranslation();
+      return changePosition(translation, limitedSpeed).andThen(changeRotation(
+        endpoint.getRotation().minus(getPose().getRotation()).getDegrees(),
+        rotationSpeed));
     }
 
     public Pose2d getPose() {
@@ -147,6 +181,8 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Command getAutonomousCommand() {
-        return new PathPlannerAuto("simpleauto");
+        //return changePosition(new Translation2d(0.0, 2.0), Constants.MAX_SPEED/2.0);
+        //return driveTo(new Pose2d(0.0, 2.0, new Rotation2d(0.0)), Constants.MAX_SPEED/2.0, Constants.MAX_ROTATIONAL_SPEED/2.0);
+        return testPath;
     }
 }
