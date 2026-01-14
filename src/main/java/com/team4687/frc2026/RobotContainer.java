@@ -5,9 +5,10 @@
 package com.team4687.frc2026;
 
 import com.team4687.frc2026.Constants.*;
-
+import com.team4687.frc2026.simulation.SwerveDriveSim;
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import swervelib.SwerveInputStream;
+import swervelib.simulation.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 
 import java.io.File;
 
@@ -27,7 +28,9 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer {
-  public final SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+  //public final SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+
+  public final SwerveDriveInterface swerveDrive;
 
   SwerveInputStream driveFieldAngularVelocityStream;
   SwerveInputStream driveRobotAngularVelocityStream;
@@ -43,6 +46,13 @@ public class RobotContainer {
     // Configure the trigger bindings
     configureInputStreams();
     configureBindings();
+
+    if(Robot.isReal()) {
+        this.swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve")); // Real implementation
+    }
+    else {
+        this.swerveDrive = new SwerveDriveSim(); // Simulation implementation
+    }
   }
 
   /**
@@ -61,7 +71,7 @@ public class RobotContainer {
 
   private void configureInputStreams() {
     driveFieldAngularVelocityStream = SwerveInputStream.of(
-      swerveDrive.swerveDrive,
+      this.swerveDrive.swerveDrive,
       () -> driverJoystick.getLeftY(),
       () -> (DebugMode == 0 ? driverJoystick.getLeftX() : 0.0)
     ).withControllerRotationAxis(() -> DebugMode == 0 ? driverJoystick.getRightX() : 0.0)

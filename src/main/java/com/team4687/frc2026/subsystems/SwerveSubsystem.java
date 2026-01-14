@@ -12,10 +12,15 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import java.lang.Math;
 
+import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -26,8 +31,9 @@ import swervelib.parser.SwerveParser;
 
 
 import com.team4687.frc2026.Constants;
+import com.team4687.frc2026.SwerveDriveInterface;
 
-public class SwerveSubsystem extends SubsystemBase {
+public class SwerveSubsystem implements SwerveDriveInterface {
 
     public final SwerveDrive swerveDrive;
 
@@ -43,7 +49,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
     }
 
-    private void configureAutoBuilder() {
+    /*private void configureAutoBuilder() {
         final boolean enableFeedForward = true;
 
 
@@ -81,10 +87,11 @@ public class SwerveSubsystem extends SubsystemBase {
             },
             this
         );
-    }
+    }*/
 
-    public void drive(Translation2d translation, double rotation, boolean fieldRelative) {
-        swerveDrive.drive(translation, rotation, fieldRelative, false);
+    @Override
+    public void drive(ChassisSpeeds speeds, boolean fieldRelative, boolean isOpenLoop) {
+        swerveDrive.drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond, fieldRelative, isOpenLoop);
     }
 
     public Command driveCommand(DoubleSupplier translationX, DoubleSupplier translationY,
@@ -114,10 +121,12 @@ public class SwerveSubsystem extends SubsystemBase {
         swerveDrive.driveFieldOriented(velocity);
     }
 
+    @Override
     public Command driveFieldOrientedCommand(ChassisSpeeds velocity) {
         return run(() -> swerveDrive.driveFieldOriented(velocity));
     }
 
+    @Override
     public Command driveFieldOrientedCommand(Supplier<ChassisSpeeds> velocity) {
         return run(() -> swerveDrive.driveFieldOriented(velocity.get()));
     }
@@ -130,16 +139,29 @@ public class SwerveSubsystem extends SubsystemBase {
      */
     public Command changePosition(Translation2d translation, double speed) {
         final double limitedSpeed = Math.min(speed, Constants.MAX_SPEED);
-        return run(() -> drive(translation.times(limitedSpeed/translation.getNorm()), 0.0, false))
+        return run(() -> drive(new ChassisSpeeds(translation.times(limitedSpeed/translation.getNorm()).getX(), translation.times(limitedSpeed/translation.getNorm()).getY(), 0), false, false))
         .withTimeout(translation.getNorm()/limitedSpeed);
     }
 
+    @Override
     public Pose2d getPose() {
         return swerveDrive.getPose();
     }
 
+    @Override
+    public void setPose(Pose2d pose) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setPose'");
+    }
+
+    @Override
     public void resetPose(Pose2d pose) {
         swerveDrive.resetOdometry(pose);
+    }
+
+    @Override
+    public ChassisSpeeds getMeasuredSpeeds() {
+        return swerveDrive.getRobotVelocity();
     }
 
     public ChassisSpeeds getRobotRelativeSpeeds() {
@@ -148,5 +170,36 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public Command getAutonomousCommand() {
         return new PathPlannerAuto("simpleauto");
+    }
+
+    @Override
+    public void setModuleStates(SwerveModuleState[] desiredStates) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setModuleStates'");
+    }
+
+    @Override
+    public Rotation2d getGyroYaw() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getGyroYaw'");
+    }
+
+    @Override
+    public void addVisionMeasurement(Pose2d visionRobotPose, double timeStampSeconds) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'addVisionMeasurement'");
+    }
+
+    @Override
+    public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds,
+            Matrix<N3, N1> visionMeasurementStdDevs) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'addVisionMeasurement'");
+    }
+
+    @Override
+    public void periodic() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'periodic'");
     }
 }
