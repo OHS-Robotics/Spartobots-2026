@@ -8,12 +8,11 @@ import com.team4687.frc2026.Constants.*;
 import com.team4687.frc2026.simulation.SwerveDriveSim;
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import swervelib.SwerveInputStream;
-import swervelib.simulation.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 
 import java.io.File;
+import java.util.function.Supplier;
 
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.util.Units;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 import edu.wpi.first.wpilibj.Filesystem;
 
@@ -30,10 +29,10 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 public class RobotContainer {
   //public final SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
 
-  public final SwerveDriveInterface swerveDrive;
+  public final SwerveDriveInterface drive;
 
   SwerveInputStream driveFieldAngularVelocityStream;
-  SwerveInputStream driveRobotAngularVelocityStream;
+  Supplier<ChassisSpeeds> driveRobotAngularVelocityStream;
 
   int DebugMode = 0;
 
@@ -48,10 +47,10 @@ public class RobotContainer {
     configureBindings();
 
     if(Robot.isReal()) {
-        this.swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve")); // Real implementation
+        this.drive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve")); // Real implementation
     }
     else {
-        this.swerveDrive = new SwerveDriveSim(); // Simulation implementation
+        this.drive = new SwerveDriveSim(); // Simulation implementation
     }
   }
 
@@ -65,22 +64,24 @@ public class RobotContainer {
    * joysticks}.
    */
   private void configureBindings() {
-    swerveDrive.setDefaultCommand(swerveDrive.driveFieldOrientedCommand(driveRobotAngularVelocityStream));
-
+    drive.setDefaultCommand(drive.driveCommand(driveRobotAngularVelocityStream));
+    
   }
 
   private void configureInputStreams() {
-    driveFieldAngularVelocityStream = SwerveInputStream.of(
-      this.swerveDrive.swerveDrive,
+    /*driveFieldAngularVelocityStream = SwerveInputStream.of(
+      this.drive.swerveDrive,
       () -> driverJoystick.getLeftY(),
       () -> (DebugMode == 0 ? driverJoystick.getLeftX() : 0.0)
     ).withControllerRotationAxis(() -> DebugMode == 0 ? driverJoystick.getRightX() : 0.0)
      .deadband(Constants.OperatorConstants.deadband)
-     .allianceRelativeControl(true);
+     .allianceRelativeControl(true);*/
 
-    driveRobotAngularVelocityStream = driveFieldAngularVelocityStream.copy()
+     driveRobotAngularVelocityStream = () -> new ChassisSpeeds(driverJoystick.getLeftX(), driverJoystick.getLeftY(), driverJoystick.getRightX());
+
+    /*driveRobotAngularVelocityStream = driveFieldAngularVelocityStream.copy()
     .robotRelative(true)
-    .allianceRelativeControl(false);
+    .allianceRelativeControl(false);*/
   }
 
   /**
@@ -91,6 +92,6 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
     //return swerveDrive.changePosition(new Translation2d(0.0, 2.0), Units.feetToMeters(3.0));
-    return swerveDrive.getAutonomousCommand();
+    return drive.getAutonomousCommand();
   }
 }

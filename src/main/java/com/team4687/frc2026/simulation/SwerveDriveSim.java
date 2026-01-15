@@ -13,13 +13,13 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
-import swervelib.SwerveDrive;
-import swervelib.SwerveInputStream;
 import swervelib.simulation.ironmaple.simulation.SimulatedArena;
 import swervelib.simulation.ironmaple.simulation.drivesims.SelfControlledSwerveDriveSimulation;
 import swervelib.simulation.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import swervelib.simulation.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 
+import java.util.function.Supplier;
+
+import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.team4687.frc2026.Constants;
 
 public class SwerveDriveSim implements SwerveDriveInterface {
@@ -40,11 +40,12 @@ public class SwerveDriveSim implements SwerveDriveInterface {
 
     @Override
     public void drive(ChassisSpeeds speeds, boolean fieldRelative, boolean isOpenLoop) {
-        this.simulatedDrive.runChassisSpeeds(
-                speeds,
-                new Translation2d(),
-                fieldRelative,
-                true);
+        this.simulatedDrive.runChassisSpeeds(speeds, new Translation2d(), fieldRelative, true);
+    }
+
+    @Override
+    public Command driveCommand(Supplier<ChassisSpeeds> velocity) {
+        return run(() -> this.drive(velocity.get(), true, false));
     }
 
     @Override
@@ -58,8 +59,8 @@ public class SwerveDriveSim implements SwerveDriveInterface {
     }
 
     @Override
-    public Rotation2d getGyroYaw() {
-        return simulatedDrive.getRawGyroAngle();
+    public Command getAutonomousCommand() {
+        return new PathPlannerAuto("simpleauto");
     }
 
     @Override
@@ -98,11 +99,5 @@ public class SwerveDriveSim implements SwerveDriveInterface {
     public void resetPose(Pose2d pose) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'resetPose'");
-    }
-
-    @Override
-    public Command driveFieldOrientedCommand(SwerveInputStream driveRobotAngularVelocityStream) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'driveFieldOrientedCommand'");
     }
 }

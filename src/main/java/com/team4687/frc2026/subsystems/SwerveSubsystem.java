@@ -3,27 +3,19 @@ package com.team4687.frc2026.subsystems;
 import java.io.File;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
-
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
-import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import java.lang.Math;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import swervelib.SwerveDrive;
 import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveParser;
@@ -94,8 +86,7 @@ public class SwerveSubsystem implements SwerveDriveInterface {
         swerveDrive.drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond, fieldRelative, isOpenLoop);
     }
 
-    public Command driveCommand(DoubleSupplier translationX, DoubleSupplier translationY,
-                                DoubleSupplier headingX, DoubleSupplier headingY) {
+    public Command driveCommand(DoubleSupplier translationX, DoubleSupplier translationY, DoubleSupplier headingX, DoubleSupplier headingY) {
         return run(() -> {
             Translation2d scaledInputs = SwerveMath.scaleTranslation(new Translation2d(translationX.getAsDouble(), translationY.getAsDouble()), 0.8);
 
@@ -109,11 +100,11 @@ public class SwerveSubsystem implements SwerveDriveInterface {
         });
     }
 
-    public Command driveCommand(DoubleSupplier translationX, DoubleSupplier translationY, 
-                                DoubleSupplier angularRotationX) {
+    @Override
+    public Command driveCommand(Supplier<ChassisSpeeds> velocity) {
         return run(() -> {
-            swerveDrive.drive(new Translation2d(translationX.getAsDouble() * swerveDrive.getMaximumChassisVelocity(), translationY.getAsDouble() * swerveDrive.getMaximumChassisVelocity()),
-                              angularRotationX.getAsDouble() * swerveDrive.getMaximumChassisAngularVelocity(), true, false);
+            swerveDrive.drive(new Translation2d(velocity.get().vxMetersPerSecond * swerveDrive.getMaximumChassisVelocity(), velocity.get().vyMetersPerSecond * swerveDrive.getMaximumChassisVelocity()),
+                              velocity.get().omegaRadiansPerSecond * swerveDrive.getMaximumChassisAngularVelocity(), true, false);
         });
     }
 
@@ -121,12 +112,10 @@ public class SwerveSubsystem implements SwerveDriveInterface {
         swerveDrive.driveFieldOriented(velocity);
     }
 
-    @Override
     public Command driveFieldOrientedCommand(ChassisSpeeds velocity) {
         return run(() -> swerveDrive.driveFieldOriented(velocity));
     }
-
-    @Override
+    
     public Command driveFieldOrientedCommand(Supplier<ChassisSpeeds> velocity) {
         return run(() -> swerveDrive.driveFieldOriented(velocity.get()));
     }
@@ -168,6 +157,7 @@ public class SwerveSubsystem implements SwerveDriveInterface {
         return swerveDrive.getRobotVelocity();
     }
 
+    @Override
     public Command getAutonomousCommand() {
         return new PathPlannerAuto("simpleauto");
     }
@@ -176,12 +166,6 @@ public class SwerveSubsystem implements SwerveDriveInterface {
     public void setModuleStates(SwerveModuleState[] desiredStates) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'setModuleStates'");
-    }
-
-    @Override
-    public Rotation2d getGyroYaw() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getGyroYaw'");
     }
 
     @Override

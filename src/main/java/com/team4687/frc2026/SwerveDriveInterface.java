@@ -1,5 +1,7 @@
 package com.team4687.frc2026;
 
+import java.util.function.Supplier;
+
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
@@ -8,7 +10,6 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
@@ -16,8 +17,6 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
-import swervelib.SwerveDrive;
-import swervelib.SwerveInputStream;
 
 public interface SwerveDriveInterface extends Subsystem {
     void drive(ChassisSpeeds speeds, boolean fieldRelative, boolean isOpenLoop);
@@ -25,8 +24,6 @@ public interface SwerveDriveInterface extends Subsystem {
     void setModuleStates(SwerveModuleState[] desiredStates);
 
     ChassisSpeeds getMeasuredSpeeds();
-
-    Rotation2d getGyroYaw();
 
     Pose2d getPose();
 
@@ -52,7 +49,7 @@ public interface SwerveDriveInterface extends Subsystem {
     void periodic();
 
     default void configureAutoBuilder() {
-        final boolean enableFeedForward = true;
+        //final boolean enableFeedForward = true;
 
 
         RobotConfig config = null;
@@ -85,5 +82,7 @@ public interface SwerveDriveInterface extends Subsystem {
                 this);
     }
 
-    Command driveFieldOrientedCommand(SwerveInputStream driveRobotAngularVelocityStream);
+    Command getAutonomousCommand();
+
+    Command driveCommand(Supplier<ChassisSpeeds> velocity);
 }
