@@ -4,9 +4,13 @@
 
 package com.team4687.frc2026;
 
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import swervelib.simulation.ironmaple.simulation.SimulatedArena;
+import swervelib.simulation.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
+import swervelib.simulation.ironmaple.simulation.seasonspecific.crescendo2024.CrescendoNoteOnField;
 
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -34,16 +38,19 @@ public class Robot extends LoggedRobot {
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
 
-    Logger.recordMetadata("ProjectName", "MyProject"); // Set a metadata value
+    SimulatedArena.getInstance();
+    SimulatedArena.getInstance().addGamePiece(new CrescendoNoteOnField(new Translation2d(3, 3)));
+
+    Logger.recordMetadata("spartobots2026sim", "idk"); // Set a metadata value
 
 if (isReal()) {
     Logger.addDataReceiver(new WPILOGWriter()); // Log to a USB stick ("/U/logs")
     Logger.addDataReceiver(new NT4Publisher()); // Publish data to NetworkTables
 } else {
-    setUseTiming(false); // Run as fast as possible
-    String logPath = LogFileUtil.findReplayLog(); // Pull the replay log from AdvantageScope (or prompt the user)
-    Logger.setReplaySource(new WPILOGReader(logPath)); // Read replay log
-    Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim"))); // Save outputs to a new log
+    //setUseTiming(false); // Run as fast as possible
+    //String logPath = LogFileUtil.findReplayLog(); // Pull the replay log from AdvantageScope (or prompt the user)
+    //Logger.setReplaySource(new WPILOGReader(logPath)); // Read replay log
+    //Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim"))); // Save outputs to a new log
 }
 
 Logger.start();
@@ -78,9 +85,10 @@ Logger.start();
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     // schedule the autonomous command (example)
-    if (m_autonomousCommand != null) {
+    /*if (m_autonomousCommand != null) {
       m_autonomousCommand.schedule();
-    }
+    }*/
+    CommandScheduler.getInstance().schedule(m_autonomousCommand);
   }
 
   /** This function is called periodically during autonomous. */
@@ -115,10 +123,12 @@ Logger.start();
   /** This function is called once when the robot is first started up. */
   @Override
   public void simulationInit() {
-    SimulatedArena.getInstance();
+    //SimulatedArena.getInstance();
   }
 
   /** This function is called periodically whilst in simulation. */
   @Override
-  public void simulationPeriodic() {}
+  public void simulationPeriodic() {
+    SimulatedArena.getInstance().simulationPeriodic();
+  }
 }

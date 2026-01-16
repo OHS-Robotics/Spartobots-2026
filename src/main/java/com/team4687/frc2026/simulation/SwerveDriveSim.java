@@ -19,6 +19,8 @@ import swervelib.simulation.ironmaple.simulation.drivesims.SwerveDriveSimulation
 
 import java.util.function.Supplier;
 
+import org.littletonrobotics.junction.Logger;
+
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.team4687.frc2026.Constants;
 
@@ -28,7 +30,7 @@ public class SwerveDriveSim implements SwerveDriveInterface {
 
     public SwerveDriveSim() {
         this.simulatedDrive = new SelfControlledSwerveDriveSimulation(
-                new SwerveDriveSimulation(Constants.driveTrainSimulationConfig, new Pose2d(0, 0, new Rotation2d())));
+                new SwerveDriveSimulation(Constants.driveTrainSimulationConfig, new Pose2d(3, 3, new Rotation2d())));
 
         // Register the drivetrain simulation to the simulation world
         SimulatedArena.getInstance().addDriveTrainSimulation(simulatedDrive.getDriveTrainSimulation());
@@ -36,11 +38,13 @@ public class SwerveDriveSim implements SwerveDriveInterface {
         // A field2d widget for debugging
         field2d = new Field2d();
         SmartDashboard.putData("simulation field", field2d);
+
+        configureAutoBuilder();
     }
 
     @Override
     public void drive(ChassisSpeeds speeds, boolean fieldRelative, boolean isOpenLoop) {
-        this.simulatedDrive.runChassisSpeeds(speeds, new Translation2d(), fieldRelative, true);
+        simulatedDrive.runChassisSpeeds(speeds, new Translation2d(), fieldRelative, true);
     }
 
     @Override
@@ -60,7 +64,7 @@ public class SwerveDriveSim implements SwerveDriveInterface {
 
     @Override
     public Command getAutonomousCommand() {
-        return new PathPlannerAuto("simpleauto");
+        return new PathPlannerAuto("test");
     }
 
     @Override

@@ -10,10 +10,11 @@ import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import swervelib.SwerveInputStream;
 
 import java.io.File;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 
 import edu.wpi.first.wpilibj2.command.Command;
@@ -31,7 +32,7 @@ public class RobotContainer {
 
   public final SwerveDriveInterface drive;
 
-  SwerveInputStream driveFieldAngularVelocityStream;
+  //SwerveInputStream driveFieldAngularVelocityStream;
   Supplier<ChassisSpeeds> driveRobotAngularVelocityStream;
 
   int DebugMode = 0;
@@ -42,16 +43,17 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    // Configure the trigger bindings
-    configureInputStreams();
-    configureBindings();
-
+    // determine whether to use real or simulated robot
     if(Robot.isReal()) {
         this.drive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve")); // Real implementation
     }
     else {
         this.drive = new SwerveDriveSim(); // Simulation implementation
     }
+    
+    // Configure the trigger bindings
+    configureInputStreams();
+    configureBindings();
   }
 
   /**
@@ -65,7 +67,6 @@ public class RobotContainer {
    */
   private void configureBindings() {
     drive.setDefaultCommand(drive.driveCommand(driveRobotAngularVelocityStream));
-    
   }
 
   private void configureInputStreams() {
@@ -76,12 +77,30 @@ public class RobotContainer {
     ).withControllerRotationAxis(() -> DebugMode == 0 ? driverJoystick.getRightX() : 0.0)
      .deadband(Constants.OperatorConstants.deadband)
      .allianceRelativeControl(true);*/
-
-     driveRobotAngularVelocityStream = () -> new ChassisSpeeds(driverJoystick.getLeftX(), driverJoystick.getLeftY(), driverJoystick.getRightX());
+     
+     driveRobotAngularVelocityStream = () -> new ChassisSpeeds(driverJoystick.getLeftY() * allianceRelative() * Constants.OperatorConstants.driveAdjust,
+                                                              driverJoystick.getLeftX() * allianceRelative() * Constants.OperatorConstants.driveAdjust,
+                                                              driverJoystick.getRightX() * -1 * Constants.OperatorConstants.steerAdjust);
 
     /*driveRobotAngularVelocityStream = driveFieldAngularVelocityStream.copy()
     .robotRelative(true)
     .allianceRelativeControl(false);*/
+  }
+
+  private int allianceRelative() {
+    if(DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
+      return 1;
+     } else {
+      return -1;
+     }
+  }
+
+  private double deadband(double controllerInput, double deadband) {
+    if(controllerInput != 0) {
+      return (Math.max(0, Math.abs(controllerInput) - deadband) / (1 - deadband)) * (controllerInput / Math.abs(controllerInput));
+    } else {
+      return 0;
+    }
   }
 
   /**
