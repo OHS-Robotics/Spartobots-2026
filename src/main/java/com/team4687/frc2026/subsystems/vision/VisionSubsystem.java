@@ -13,6 +13,7 @@ import org.photonvision.targeting.PhotonTrackedTarget;
 import com.team4687.frc2026.Constants;
 
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.numbers.*;
@@ -28,12 +29,12 @@ public class VisionSubsystem extends SubsystemBase {
     public Matrix<N3, N1> stdDevs;
 
     public void initVision() {
-        poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, Constants.cameraPosition);
+        poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPosition);
         camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
         initialized = true;
     }
 
-    public void updateStdDevs(Pose2d currentPose, List<PhotonTrackedTarget> targets) {
+    public void updateStdDevs(Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {
         /*
          * Get the standard deviations for pipeline results.
          * I'm still not 100% sure what this is *supposed* to be measuring,
@@ -48,25 +49,31 @@ public class VisionSubsystem extends SubsystemBase {
         double averageDistance = 0.0;
         int    measuredTags    = 0;
 
+        if (currentPose.isEmpty()) {
+            stdDevs = VecBuilder.fill(4, 4, 8); // todo: choose good values for these
+            return;
+        }
+
         for (var target : targets) {
             Optional<Pose3d> pose = poseEstimator.getFieldTags().getTagPose(target.getFiducialId());
+
         }
     }
 
     public void updatePoseEstimate(SwerveDrive swerveDrive) {
         if (!initialized) return;
-        
-        //Optional<Pose2d> visionEstimatedPose = poseEstimator.
-
-        Optional<EstimatedRobotPose> visionEst = Optional.empty();
 
         List<PhotonPipelineResult> results = camera.getAllUnreadResults();
+        Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
+        
+        for (var result : results) {
+            visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
+            if (visionEstimatedPose.isEmpty()) visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
 
-        for (var change : results) {
-            visionEst = poseEstimator.update(change);
+            // updateStdDevs(visionEstimatedPose, result.getTargets());
+            // todo: update standard deviations
 
-
-            visionEst.ifPresent(
+            visionEstimatedPose.ifPresent(
                 est -> {
                     
                     swerveDrive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds);
