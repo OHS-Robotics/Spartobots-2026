@@ -6,7 +6,9 @@ package com.team4687.frc2026;
 
 import com.team4687.frc2026.Constants.*;
 import com.team4687.frc2026.simulation.SwerveDriveSim;
-import com.team4687.frc2026.subsystems.SwerveSubsystem;
+import com.team4687.frc2026.subsystems.drive.SwerveDriveIO;
+import com.team4687.frc2026.subsystems.drive.SwerveSubsystem;
+
 import swervelib.SwerveInputStream;
 
 import java.io.File;
@@ -30,7 +32,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 public class RobotContainer {
   //public final SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
 
-  public final SwerveDriveInterface drive;
+  public final SwerveDriveIO drive;
 
   //SwerveInputStream driveFieldAngularVelocityStream;
   Supplier<ChassisSpeeds> driveRobotAngularVelocityStream;
@@ -41,7 +43,7 @@ public class RobotContainer {
   private final CommandXboxController driverJoystick =
       new CommandXboxController(OperatorConstants.kDriverControllerPort);
 
-  /** The container for the robot. Contains subsystems, OI devices, and commands. */
+  /** The container for the robot. Contains subsystems, IO devices, and commands. */
   public RobotContainer() {
     // determine whether to use real or simulated robot
     if(Robot.isReal()) {
@@ -78,28 +80,55 @@ public class RobotContainer {
      .deadband(Constants.OperatorConstants.deadband)
      .allianceRelativeControl(true);*/
      
-     driveRobotAngularVelocityStream = () -> new ChassisSpeeds(driverJoystick.getLeftY() * allianceRelative() * Constants.OperatorConstants.driveAdjust,
-                                                              driverJoystick.getLeftX() * allianceRelative() * Constants.OperatorConstants.driveAdjust,
-                                                              driverJoystick.getRightX() * -1 * Constants.OperatorConstants.steerAdjust);
+     driveRobotAngularVelocityStream = () -> new ChassisSpeeds(deadband(driverJoystick.getLeftY(), "left") * allianceRelative() * Constants.OperatorConstants.driveAdjust,
+                                                              deadband(driverJoystick.getLeftX(), "left") * allianceRelative() * Constants.OperatorConstants.driveAdjust,
+                                                              deadband(driverJoystick.getRightX(), "right") * -1 * Constants.OperatorConstants.steerAdjust);
 
     /*driveRobotAngularVelocityStream = driveFieldAngularVelocityStream.copy()
     .robotRelative(true)
     .allianceRelativeControl(false);*/
   }
 
+  // adjust drive controls based on alliance
   private int allianceRelative() {
-    if(DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
-      return 1;
-     } else {
-      return -1;
-     }
+    if(DriverStation.getAlliance().isPresent()) {
+      if(DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
+        return 1;
+      } else {
+        return -1;
+      }
+    }
+    return 1;
   }
 
-  private double deadband(double controllerInput, double deadband) {
-    if(controllerInput != 0) {
-      return (Math.max(0, Math.abs(controllerInput) - deadband) / (1 - deadband)) * (controllerInput / Math.abs(controllerInput));
+  // adjust joystick input based on deadband value
+  private double deadband(double stickValue, String stick) {
+    int negativeAdjustment;
+    if(stickValue < 0) {
+      negativeAdjustment = -1;
     } else {
-      return 0;
+      negativeAdjustment = 1;
+    }
+    if(stick == "left") {
+      if((Math.pow(driverJoystick.getLeftY(), 2) + Math.pow(driverJoystick.getLeftX(), 2)) < Math.pow(Constants.OperatorConstants.deadband, 2)) {
+        return 0;
+      } else {
+        if(Math.abs(stickValue) < Constants.OperatorConstants.axisDeadband) {
+          return 0;
+        } else {
+          return (Math.abs(stickValue) - Constants.OperatorConstants.deadband) / (1 - Constants.OperatorConstants.deadband) * negativeAdjustment;
+        }
+      }
+    } else {
+      if((Math.pow(driverJoystick.getRightY(), 2) + Math.pow(driverJoystick.getRightX(), 2)) < Math.pow(Constants.OperatorConstants.deadband, 2)) {
+        return 0;
+      } else { 
+        if(Math.abs(stickValue) < Constants.OperatorConstants.axisDeadband) {
+          return 0;
+        } else {
+          return (Math.abs(stickValue) - Constants.OperatorConstants.deadband) / (1 - Constants.OperatorConstants.deadband) * negativeAdjustment;
+        }
+      }
     }
   }
 

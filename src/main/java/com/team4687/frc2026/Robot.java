@@ -38,9 +38,6 @@ public class Robot extends LoggedRobot {
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
 
-    SimulatedArena.getInstance();
-    SimulatedArena.getInstance().addGamePiece(new CrescendoNoteOnField(new Translation2d(3, 3)));
-
     Logger.recordMetadata("spartobots2026sim", "idk"); // Set a metadata value
 
 if (isReal()) {
@@ -123,7 +120,8 @@ Logger.start();
   /** This function is called once when the robot is first started up. */
   @Override
   public void simulationInit() {
-    //SimulatedArena.getInstance();
+    SimulatedArena.getInstance();
+    SimulatedArena.getInstance().addGamePiece(new CrescendoNoteOnField(new Translation2d(3, 3)));
   }
 
   /** This function is called periodically whilst in simulation. */

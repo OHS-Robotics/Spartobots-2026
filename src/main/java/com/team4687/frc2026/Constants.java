@@ -30,12 +30,16 @@ import swervelib.simulation.ironmaple.simulation.drivesims.configs.SwerveModuleS
 public final class Constants {
   public static class OperatorConstants {
     public static final int kDriverControllerPort = 0;
-    public static final double deadband = 0.7;
-    public static final double driveAdjust = 1;
-    public static final double steerAdjust = 0.3;
+    public static final double deadband = 0.1;
+    public static final double axisDeadband = 0.05;
+    public static final double driveAdjust = 3;
+    public static final double steerAdjust = .2;
   }
 
-  public static final double MAX_SPEED = Units.feetToMeters(3.0);
+  public static final double MAX_SPEED = Units.feetToMeters(8);
+
+  // this is in radians
+  public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(10);
 
   public static final SwerveModuleSimulationConfig DEFAULT_SWERVE_SIM_CONFIG = new SwerveModuleSimulationConfig(DCMotor.getNEO(1), DCMotor.getNEO(1), 6.75, 12.8, Volt.of(.2), Volt.of(.3), Inches.of(2), KilogramSquareMeters.of(.05), 1.19);
 

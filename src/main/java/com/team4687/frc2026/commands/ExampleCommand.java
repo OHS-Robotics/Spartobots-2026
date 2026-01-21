@@ -4,7 +4,8 @@
 
 package com.team4687.frc2026.commands;
 
-import com.team4687.frc2026.subsystems.SwerveSubsystem;
+import com.team4687.frc2026.subsystems.drive.SwerveSubsystem;
+
 import edu.wpi.first.wpilibj2.command.Command;
 
 /** An example command that uses an example subsystem. */

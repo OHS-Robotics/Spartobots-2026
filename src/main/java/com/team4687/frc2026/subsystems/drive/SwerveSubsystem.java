@@ -1,4 +1,4 @@
-package com.team4687.frc2026.subsystems;
+package com.team4687.frc2026.subsystems.drive;
 
 import java.io.File;
 import java.util.function.DoubleSupplier;
@@ -18,14 +18,14 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj2.command.Command;
 import swervelib.SwerveDrive;
 import swervelib.math.SwerveMath;
+import swervelib.parser.SwerveDriveConfiguration;
 import swervelib.parser.SwerveParser;
 
 
 
 import com.team4687.frc2026.Constants;
-import com.team4687.frc2026.SwerveDriveInterface;
 
-public class SwerveSubsystem implements SwerveDriveInterface {
+public class SwerveSubsystem implements SwerveDriveIO {
 
     public final SwerveDrive swerveDrive;
 
@@ -83,7 +83,8 @@ public class SwerveSubsystem implements SwerveDriveInterface {
 
     @Override
     public void drive(ChassisSpeeds speeds, boolean fieldRelative, boolean isOpenLoop) {
-        swerveDrive.drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond, fieldRelative, isOpenLoop);
+        ChassisSpeeds newSpeeds = maxSpeedAdjust(speeds);
+        swerveDrive.drive(new Translation2d(newSpeeds.vxMetersPerSecond, newSpeeds.vyMetersPerSecond), newSpeeds.omegaRadiansPerSecond, fieldRelative, isOpenLoop);
     }
 
     public Command driveCommand(DoubleSupplier translationX, DoubleSupplier translationY, DoubleSupplier headingX, DoubleSupplier headingY) {
@@ -116,6 +117,7 @@ public class SwerveSubsystem implements SwerveDriveInterface {
         return run(() -> swerveDrive.driveFieldOriented(velocity));
     }
     
+    @Override
     public Command driveFieldOrientedCommand(Supplier<ChassisSpeeds> velocity) {
         return run(() -> swerveDrive.driveFieldOriented(velocity.get()));
     }
@@ -139,8 +141,6 @@ public class SwerveSubsystem implements SwerveDriveInterface {
 
     @Override
     public void setPose(Pose2d pose) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setPose'");
     }
 
     @Override
@@ -164,8 +164,7 @@ public class SwerveSubsystem implements SwerveDriveInterface {
 
     @Override
     public void setModuleStates(SwerveModuleState[] desiredStates) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setModuleStates'");
+        swerveDrive.kinematics.toSwerveModuleStates(swerveDrive.kinematics.toChassisSpeeds(desiredStates));
     }
 
     @Override

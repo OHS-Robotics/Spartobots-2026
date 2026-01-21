@@ -8,8 +8,8 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 8.071699900017668,
-        "y": 7.212332872479886
+        "x": 8.12332609919867,
+        "y": 7.216720637654705
       },
       "isLocked": false,
       "linkedName": null
@@ -20,8 +20,8 @@
         "y": 7.219723360655737
       },
       "prevControl": {
-        "x": 7.480991674330861,
-        "y": 7.238619574584833
+        "x": 7.441244050778262,
+        "y": 7.232547729561276
       },
       "nextControl": null,
       "isLocked": false,
@@ -42,7 +42,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 0.0
+    "rotation": 34.78887627260413
   },
   "reversed": false,
   "folder": "SimplePaths",

@@ -1,7 +1,5 @@
 package com.team4687.frc2026.simulation;
 
-import com.team4687.frc2026.SwerveDriveInterface;
-
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -23,10 +21,13 @@ import org.littletonrobotics.junction.Logger;
 
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.team4687.frc2026.Constants;
+import com.team4687.frc2026.subsystems.drive.SwerveDriveIO;
 
-public class SwerveDriveSim implements SwerveDriveInterface {
+public class SwerveDriveSim implements SwerveDriveIO {
     private final SelfControlledSwerveDriveSimulation simulatedDrive;
     private final Field2d field2d;
+
+    private final PathPlannerAuto path;
 
     public SwerveDriveSim() {
         this.simulatedDrive = new SelfControlledSwerveDriveSimulation(
@@ -35,20 +36,27 @@ public class SwerveDriveSim implements SwerveDriveInterface {
         // Register the drivetrain simulation to the simulation world
         SimulatedArena.getInstance().addDriveTrainSimulation(simulatedDrive.getDriveTrainSimulation());
 
-        // A field2d widget for debugging
+        // A field2d widget for debugging.c
         field2d = new Field2d();
         SmartDashboard.putData("simulation field", field2d);
 
         configureAutoBuilder();
+
+        path = new PathPlannerAuto("test");
     }
 
     @Override
     public void drive(ChassisSpeeds speeds, boolean fieldRelative, boolean isOpenLoop) {
-        simulatedDrive.runChassisSpeeds(speeds, new Translation2d(), fieldRelative, true);
+        simulatedDrive.runChassisSpeeds(maxSpeedAdjust(speeds), new Translation2d(0, 0), fieldRelative, false);
     }
 
     @Override
     public Command driveCommand(Supplier<ChassisSpeeds> velocity) {
+        return run(() -> this.drive(velocity.get(), false, false));
+    }
+
+    @Override
+    public Command driveFieldOrientedCommand(Supplier<ChassisSpeeds> velocity) {
         return run(() -> this.drive(velocity.get(), true, false));
     }
 
@@ -59,12 +67,12 @@ public class SwerveDriveSim implements SwerveDriveInterface {
 
     @Override
     public ChassisSpeeds getMeasuredSpeeds() {
-        return simulatedDrive.getMeasuredSpeedsFieldRelative(true);
+        return simulatedDrive.getMeasuredSpeedsRobotRelative(true);
     }
 
     @Override
     public Command getAutonomousCommand() {
-        return new PathPlannerAuto("test");
+        return path;
     }
 
     @Override
@@ -101,7 +109,6 @@ public class SwerveDriveSim implements SwerveDriveInterface {
 
     @Override
     public void resetPose(Pose2d pose) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'resetPose'");
+        simulatedDrive.resetOdometry(pose);
     }
 }
