@@ -1,0 +1,1 @@
+Delete this folder when wpilib gets updated to 2026!

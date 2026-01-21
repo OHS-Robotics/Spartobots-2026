@@ -1,8 +1,14 @@
 package com.team4687.frc2026.subsystems;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+
+import org.photonvision.EstimatedRobotPose;
+import org.photonvision.PhotonCamera;
+import org.photonvision.PhotonPoseEstimator;
+import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
@@ -25,17 +31,23 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import swervelib.SwerveDrive;
 import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveParser;
-
-
+import swervelib.telemetry.SwerveDriveTelemetry;
+import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 import com.team4687.frc2026.Constants;
+import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
 
 public class SwerveSubsystem extends SubsystemBase {
 
     public final SwerveDrive swerveDrive;
+    public final VisionSubsystem vision = new VisionSubsystem();
     PathPlannerAuto testPath;
 
     public SwerveSubsystem(File directory) {
+        //VisionSubsystem.initVision();
+
+        SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
+        
         try {
             swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED);
         }
@@ -184,5 +196,10 @@ public class SwerveSubsystem extends SubsystemBase {
         //return changePosition(new Translation2d(0.0, 2.0), Constants.MAX_SPEED/2.0);
         //return driveTo(new Pose2d(0.0, 2.0, new Rotation2d(0.0)), Constants.MAX_SPEED/2.0, Constants.MAX_ROTATIONAL_SPEED/2.0);
         return testPath;
+    }
+
+    public void update() {
+        swerveDrive.updateOdometry();
+        vision.updatePoseEstimate(swerveDrive);
     }
 }

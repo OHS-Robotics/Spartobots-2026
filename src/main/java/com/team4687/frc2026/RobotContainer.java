@@ -7,6 +7,8 @@ package com.team4687.frc2026;
 import com.team4687.frc2026.Constants.*;
 
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
+import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
+
 import swervelib.SwerveInputStream;
 
 import java.io.File;
@@ -15,7 +17,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
 
 import edu.wpi.first.wpilibj.Filesystem;
-
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -27,7 +29,8 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer {
-  public final SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+  public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+  private double startTime = Timer.getFPGATimestamp();
 
   SwerveInputStream driveFieldAngularVelocityStream;
   SwerveInputStream driveRobotAngularVelocityStream;
@@ -43,6 +46,12 @@ public class RobotContainer {
     // Configure the trigger bindings
     configureInputStreams();
     configureBindings();
+  }
+
+  public void robotPeriodic() {
+    if (Timer.getFPGATimestamp() - startTime > 1.2) {
+      //VisionSubsystem.initVision();
+    }
   }
 
   /**

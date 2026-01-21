@@ -4,7 +4,14 @@
 
 package com.team4687.frc2026;
 
+import java.io.File;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Filesystem;
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
@@ -22,4 +29,17 @@ public final class Constants {
 
   public static final double MAX_SPEED = Units.feetToMeters(3.0);
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(5.0);
+  public static AprilTagFieldLayout FIELD_LAYOUT;
+  public static void init() {
+     try {
+      String path = new File(Filesystem.getDeployDirectory(), "field/2026-rebuilt-welded.json").getAbsolutePath();
+      FIELD_LAYOUT = new AprilTagFieldLayout(path);
+     }
+     catch (Exception e) {
+      throw new RuntimeException(e);
+     }
+  }
+
+  public static Transform3d cameraPosition = new Transform3d(new Translation3d(.381, 0.0, .4572), new Rotation3d(0, 0, 0));
+
 }
