@@ -3,8 +3,8 @@ package com.team4687.frc2026.subsystems.drive;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import edu.wpi.first.math.util.Units;
-import frc.robot.util.SparkUtil;
-import org.ironmaple.simulation.drivesims.GyroSimulation;
+import com.team4687.frc2026.util.SparkUtil;
+import swervelib.simulation.ironmaple.simulation.drivesims.GyroSimulation;
 
 public class GyroIOSim implements GyroIO {
     private final GyroSimulation gyroSimulation;

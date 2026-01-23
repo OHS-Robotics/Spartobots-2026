@@ -14,14 +14,14 @@
 package com.team4687.frc2026.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
-import static frc.robot.subsystems.drive.DriveConstants.*;
+import static com.team4687.frc2026.subsystems.drive.DriveConstants.*;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
-import frc.robot.util.SparkUtil;
+import com.team4687.frc2026.util.SparkUtil;
 import java.util.Arrays;
-import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
-import org.ironmaple.simulation.motorsims.SimulatedMotorController;
+import swervelib.simulation.ironmaple.simulation.drivesims.SwerveModuleSimulation;
+import swervelib.simulation.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 /** Physics sim implementation of module IO. */
 public class ModuleIOSim implements ModuleIO {

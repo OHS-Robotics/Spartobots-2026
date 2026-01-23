@@ -13,7 +13,7 @@
 
 package com.team4687.frc2026.subsystems.drive;
 
-import static frc.robot.subsystems.drive.DriveConstants.*;
+import static com.team4687.frc2026.subsystems.drive.DriveConstants.*;
 
 import com.studica.frc.AHRS;
 import com.studica.frc.AHRS.NavXComType;

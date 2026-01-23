@@ -13,7 +13,7 @@
 
 package com.team4687.frc2026.subsystems.drive;
 
-import static frc.robot.subsystems.drive.DriveConstants.*;
+import static com.team4687.frc2026.subsystems.drive.DriveConstants.*;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
