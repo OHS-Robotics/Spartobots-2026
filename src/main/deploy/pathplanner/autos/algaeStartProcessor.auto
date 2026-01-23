@@ -1,0 +1,43 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "getAlgae"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "collectL2Algae"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 1.5
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "algaeDepositProcessor"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "depositAlgaeProcessor"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

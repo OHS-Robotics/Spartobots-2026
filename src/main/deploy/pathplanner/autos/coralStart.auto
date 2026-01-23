@@ -1,0 +1,97 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right-1-Path"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "expelL1"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 0.5
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right-2-Path"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ingestCoral"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 1.0
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right-3-Path"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "expelL1"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 0.5
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right-2-Path"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ingestCoral"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 1.0
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right-3-Path"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "expelL1"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}
