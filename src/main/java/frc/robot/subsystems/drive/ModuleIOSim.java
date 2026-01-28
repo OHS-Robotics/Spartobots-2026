@@ -20,8 +20,8 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import frc.robot.util.SparkUtil;
 import java.util.Arrays;
-import swervelib.simulation.ironmaple.simulation.drivesims.SwerveModuleSimulation;
-import swervelib.simulation.ironmaple.simulation.motorsims.SimulatedMotorController;
+import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
+import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 /** Physics sim implementation of module IO. */
 public class ModuleIOSim implements ModuleIO {
