@@ -7,16 +7,15 @@
 
 package frc.robot.subsystems.drive;
 
+import static edu.wpi.first.units.Units.*;
+
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.RobotConfig;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
-import static edu.wpi.first.units.Units.*;
-
 import org.ironmaple.simulation.drivesims.COTS;
-import org.ironmaple.simulation.drivesims.GyroSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
@@ -115,19 +114,22 @@ public class DriveConstants {
               1),
           moduleTranslations);
 
-    public static final DriveTrainSimulationConfig mapleSimConfig = DriveTrainSimulationConfig.Default()
-            .withCustomModuleTranslations(moduleTranslations)
-            .withRobotMass(Kilogram.of(robotMassKg))
-            .withGyro(COTS.ofNav2X())
-            .withSwerveModule(() -> new SwerveModuleSimulation(
-                new SwerveModuleSimulationConfig(
-                    driveGearbox,
-                    turnGearbox,
-                    driveMotorReduction,
-                    turnMotorReduction,
-                    Volts.of(0.1),
-                    Volts.of(0.1),
-                    Meters.of(wheelRadiusMeters),
-                    KilogramSquareMeters.of(0.02),
-                    wheelCOF)));
+  public static final DriveTrainSimulationConfig mapleSimConfig =
+      DriveTrainSimulationConfig.Default()
+          .withCustomModuleTranslations(moduleTranslations)
+          .withRobotMass(Kilogram.of(robotMassKg))
+          .withGyro(COTS.ofNav2X())
+          .withSwerveModule(
+              () ->
+                  new SwerveModuleSimulation(
+                      new SwerveModuleSimulationConfig(
+                          driveGearbox,
+                          turnGearbox,
+                          driveMotorReduction,
+                          turnMotorReduction,
+                          Volts.of(0.1),
+                          Volts.of(0.1),
+                          Meters.of(wheelRadiusMeters),
+                          KilogramSquareMeters.of(0.02),
+                          wheelCOF)));
 }
