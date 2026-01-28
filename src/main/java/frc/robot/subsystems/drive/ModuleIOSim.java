@@ -10,7 +10,6 @@ package frc.robot.subsystems.drive;
 import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.system.plant.LinearSystemId;
@@ -40,8 +39,14 @@ public class ModuleIOSim implements ModuleIO {
     // Create drive and turn sim models
 
     this.moduleSimulation = moduleSimulation;
-    this.driveMotor = moduleSimulation.useGenericMotorControllerForDrive().withCurrentLimit(Amps.of(driveMotorCurrentLimit));
-    this.turnMotor = moduleSimulation.useGenericControllerForSteer().withCurrentLimit(Amps.of(turnMotorCurrentLimit));
+    this.driveMotor =
+        moduleSimulation
+            .useGenericMotorControllerForDrive()
+            .withCurrentLimit(Amps.of(driveMotorCurrentLimit));
+    this.turnMotor =
+        moduleSimulation
+            .useGenericControllerForSteer()
+            .withCurrentLimit(Amps.of(turnMotorCurrentLimit));
 
     driveSim =
         new DCMotorSim(
@@ -60,12 +65,16 @@ public class ModuleIOSim implements ModuleIO {
   public void updateInputs(ModuleIOInputs inputs) {
     // Run closed-loop control
     if (driveClosedLoop) {
-      driveAppliedVolts = driveFFVolts + driveController.calculate(moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond));
+      driveAppliedVolts =
+          driveFFVolts
+              + driveController.calculate(
+                  moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond));
     } else {
       driveController.reset();
     }
     if (turnClosedLoop) {
-      turnAppliedVolts = turnController.calculate(moduleSimulation.getSteerAbsoluteFacing().getRadians());
+      turnAppliedVolts =
+          turnController.calculate(moduleSimulation.getSteerAbsoluteFacing().getRadians());
     } else {
       turnController.reset();
     }
@@ -84,7 +93,8 @@ public class ModuleIOSim implements ModuleIO {
     // Update turn inputs
     inputs.turnConnected = true;
     inputs.turnPosition = moduleSimulation.getSteerAbsoluteFacing();
-    inputs.turnVelocityRadPerSec = moduleSimulation.getSteerAbsoluteEncoderSpeed().in(RadiansPerSecond);
+    inputs.turnVelocityRadPerSec =
+        moduleSimulation.getSteerAbsoluteEncoderSpeed().in(RadiansPerSecond);
     inputs.turnAppliedVolts = turnAppliedVolts;
     inputs.turnCurrentAmps = Math.abs(moduleSimulation.getSteerMotorStatorCurrent().in(Amps));
 
