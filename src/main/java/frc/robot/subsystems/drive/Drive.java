@@ -66,7 +66,7 @@ public class Drive extends SubsystemBase {
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
-  private PathPlannerAuto testPath;
+  private PathPlannerAuto testPath = new PathPlannerAuto("Example Auto");
 
   public Drive(
       GyroIO gyroIO,
@@ -85,8 +85,6 @@ public class Drive extends SubsystemBase {
 
     // Start odometry thread
     SparkOdometryThread.getInstance().start();
-
-    testPath = new PathPlannerAuto("diddy");
 
     // Configure AutoBuilder for PathPlanner
     AutoBuilder.configure(
@@ -317,5 +315,9 @@ public class Drive extends SubsystemBase {
   /** Returns the maximum angular speed in radians per sec. */
   public double getMaxAngularSpeedRadPerSec() {
     return maxSpeedMetersPerSec / driveBaseRadius;
+  }
+
+  public Command getAutonomousCommand() {
+    return testPath;
   }
 }

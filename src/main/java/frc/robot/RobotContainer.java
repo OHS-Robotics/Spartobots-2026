@@ -139,6 +139,10 @@ public class RobotContainer {
                             new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
                     drive)
                 .ignoringDisable(true));
+
+    controller
+        .y()
+        .onTrue(drive.getAutonomousCommand());
   }
 
   /**
@@ -147,6 +151,7 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    return autoChooser.get();
+    //return autoChooser.get();
+    return drive.getAutonomousCommand();
   }
 }
