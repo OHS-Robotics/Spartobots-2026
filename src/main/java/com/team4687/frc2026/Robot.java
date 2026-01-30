@@ -6,6 +6,8 @@ package com.team4687.frc2026;
 
 import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -29,6 +31,8 @@ public class Robot extends TimedRobot {
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
     Constants.init();
+
+    m_robotContainer.swerveDrive.resetPose(new Pose2d(1.0, 1.0, new Rotation2d()));
   }
 
   /**
@@ -63,7 +67,7 @@ public class Robot extends TimedRobot {
 
     // schedule the autonomous command (example)
     if (m_autonomousCommand != null) {
-      m_autonomousCommand.schedule();
+      CommandScheduler.getInstance().schedule(m_autonomousCommand);
     }
   }
 

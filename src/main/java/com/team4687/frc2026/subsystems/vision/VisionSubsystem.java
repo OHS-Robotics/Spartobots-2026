@@ -44,6 +44,7 @@ public class VisionSubsystem extends SubsystemBase {
          * happens if you measure the average distance between each
          * result and the center point of all of the results.
          * This might not even work, but it could be interesting.
+         * Essentially copied from the PhotonLib example
          */
 
         double averageDistance = 0.0;
@@ -56,7 +57,24 @@ public class VisionSubsystem extends SubsystemBase {
 
         for (var target : targets) {
             Optional<Pose3d> pose = poseEstimator.getFieldTags().getTagPose(target.getFiducialId());
+            if (pose.isPresent()) continue;
+            measuredTags++;
+            averageDistance += pose.get().toPose2d().getTranslation().getDistance(
+                currentPose.get().estimatedPose.toPose2d().getTranslation()
+            );
 
+        }
+
+        if (measuredTags == 0) {
+            stdDevs = VecBuilder.fill(4, 4, 8);
+        }
+        else {
+            averageDistance /= measuredTags;
+
+            if (measuredTags > 1) stdDevs = VecBuilder.fill(0.5, 0.5, 1); // more magic numbers to be replaced later
+
+            if (measuredTags == 1 && averageDistance > 4) VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
+            else stdDevs = stdDevs.times(1 + (averageDistance * averageDistance / 30));
         }
     }
 
@@ -68,14 +86,15 @@ public class VisionSubsystem extends SubsystemBase {
         
         for (var result : results) {
             visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
+            System.out.println(visionEstimatedPose.get().estimatedPose);
             if (visionEstimatedPose.isEmpty()) visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
 
-            // updateStdDevs(visionEstimatedPose, result.getTargets());
+            updateStdDevs(visionEstimatedPose, result.getTargets());
             // todo: update standard deviations
 
             visionEstimatedPose.ifPresent(
                 est -> {
-                    
+                    swerveDrive.setVisionMeasurementStdDevs(stdDevs);
                     swerveDrive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds);
                     
             });

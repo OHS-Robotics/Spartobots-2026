@@ -49,9 +49,6 @@ public class RobotContainer {
   }
 
   public void robotPeriodic() {
-    if (Timer.getFPGATimestamp() - startTime > 1.2) {
-      //VisionSubsystem.initVision();
-    }
   }
 
   /**
