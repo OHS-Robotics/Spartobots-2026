@@ -66,7 +66,7 @@ public class Drive extends SubsystemBase {
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
-  private PathPlannerAuto testPath;
+  public PathPlannerAuto testPath;
 
   public Drive(
       GyroIO gyroIO,
