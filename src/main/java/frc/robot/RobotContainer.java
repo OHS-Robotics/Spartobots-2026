@@ -10,7 +10,6 @@ package frc.robot;
 import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
@@ -162,11 +161,11 @@ public class RobotContainer {
     Pose2d hubPose = new Pose2d();
     if (DriverStation.getAlliance().isPresent()) {
       if (DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
-        hubPose = new Pose2d(new Translation2d(3, 3), new Rotation2d(0));
+        hubPose = new Pose2d(8, 3, Rotation2d.fromDegrees(0));
       } else {
-        hubPose = new Pose2d(new Translation2d(8, 3), new Rotation2d(0));
+        hubPose = new Pose2d(3, 3, Rotation2d.fromDegrees(0));
       }
     }
-    return AutoBuilder.pathfindToPose(hubPose, Constants.PATH_CONSTRAINTS);
+    return AutoBuilder.pathfindToPose(hubPose, Constants.PATH_CONSTRAINTS, 0);
   }
 }
