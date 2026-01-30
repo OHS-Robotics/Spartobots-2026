@@ -140,9 +140,7 @@ public class RobotContainer {
                     drive)
                 .ignoringDisable(true));
 
-    controller
-        .y()
-        .onTrue(drive.getAutonomousCommand());
+    controller.y().onTrue(drive.getAutonomousCommand());
   }
 
   /**
@@ -151,7 +149,7 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    //return autoChooser.get();
+    // return autoChooser.get();
     return drive.getAutonomousCommand();
   }
 }

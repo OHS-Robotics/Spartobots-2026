@@ -7,6 +7,13 @@
 
 package frc.robot;
 
+import java.io.File;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -28,4 +35,17 @@ public final class Constants {
     /** Replaying from a log file. */
     REPLAY
   }
+
+  public static AprilTagFieldLayout FIELD_LAYOUT;
+  public static void init() {
+     try {
+      String path = new File(Filesystem.getDeployDirectory(), "field/2026-rebuilt-welded.json").getAbsolutePath();
+      FIELD_LAYOUT = new AprilTagFieldLayout(path);
+     }
+     catch (Exception e) {
+      throw new RuntimeException(e);
+     }
+  }
+
+  public static Transform3d cameraPosition = new Transform3d(new Translation3d(.381, 0.0, .4572), new Rotation3d(0, 0, 0));
 }
