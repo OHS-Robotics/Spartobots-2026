@@ -25,6 +25,7 @@ import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.vision.VisionSubsystem;
+import frc.robot.subsystems.body.IntakeSubsystem;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -36,6 +37,8 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
+
+  public IntakeSubsystem intake = new IntakeSubsystem();
 
   // Controller
   private final CommandXboxController controller = new CommandXboxController(0);
@@ -145,6 +148,9 @@ public class RobotContainer {
                 .ignoringDisable(true));
 
     controller.y().onTrue(alignToHub());
+
+    controller.rightBumper().whileTrue(intake.increaseSpeed());
+    controller.leftBumper() .whileTrue(intake.decreaseSpeed());
   }
 
   /**
