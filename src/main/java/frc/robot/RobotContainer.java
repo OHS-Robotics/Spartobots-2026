@@ -10,6 +10,7 @@ package frc.robot;
 import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -19,10 +20,11 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
-import frc.robot.subsystems.drive.GyroIONavX;
+import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.vision.VisionSubsystem;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -48,7 +50,7 @@ public class RobotContainer {
         // Real robot, instantiate hardware IO implementations
         drive =
             new Drive(
-                new GyroIONavX(),
+                new GyroIOPigeon2(),
                 new ModuleIOSpark(0),
                 new ModuleIOSpark(1),
                 new ModuleIOSpark(2),
@@ -97,6 +99,8 @@ public class RobotContainer {
     autoChooser.addOption(
         "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
+    VisionSubsystem vision = new VisionSubsystem();
+
     // Configure the button bindings
     configureButtonBindings();
   }
@@ -140,7 +144,7 @@ public class RobotContainer {
                     drive)
                 .ignoringDisable(true));
 
-    controller.y().onTrue(drive.getAutonomousCommand());
+    controller.y().onTrue(alignToHub());
   }
 
   /**
@@ -151,5 +155,17 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // return autoChooser.get();
     return drive.getAutonomousCommand();
+  }
+
+  public Command alignToHub() {
+    Pose2d hubPose = new Pose2d();
+    if (DriverStation.getAlliance().isPresent()) {
+      if (DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
+        hubPose = new Pose2d(8, 3, Rotation2d.fromDegrees(0));
+      } else {
+        hubPose = new Pose2d(3, 3, Rotation2d.fromDegrees(0));
+      }
+    }
+    return AutoBuilder.pathfindToPose(hubPose, Constants.PATH_CONSTRAINTS, 0);
   }
 }

@@ -7,7 +7,15 @@
 
 package frc.robot;
 
+import com.pathplanner.lib.path.PathConstraints;
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
+import java.io.File;
 
 /**
  * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running
@@ -28,4 +36,28 @@ public final class Constants {
     /** Replaying from a log file. */
     REPLAY
   }
+
+  public static AprilTagFieldLayout FIELD_LAYOUT;
+  public static final double MAX_SPEED = Units.feetToMeters(3.0);
+  public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(5.0);
+  public static final double MAX_ACCELERATION = Units.feetToMeters(2);
+  public static final double MAX_ROTATIONAL_ACCELERATION = Units.degreesToRadians(4);
+
+  public static void init() {
+    try {
+      String path =
+          new File(Filesystem.getDeployDirectory(), "field/2026-rebuilt-welded.json")
+              .getAbsolutePath();
+      FIELD_LAYOUT = new AprilTagFieldLayout(path);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static Transform3d cameraPosition =
+      new Transform3d(new Translation3d(.381, 0.0, .4572), new Rotation3d(0, 0, 0));
+
+  public static PathConstraints PATH_CONSTRAINTS =
+      new PathConstraints(
+          MAX_SPEED, MAX_ACCELERATION, MAX_ROTATIONAL_SPEED, MAX_ROTATIONAL_ACCELERATION);
 }
