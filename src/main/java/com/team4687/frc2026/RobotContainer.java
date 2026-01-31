@@ -8,17 +8,12 @@ import com.team4687.frc2026.Constants.*;
 
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
-import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
 
 import swervelib.SwerveInputStream;
 
 import java.io.File;
 
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.util.Units;
-
 import edu.wpi.first.wpilibj.Filesystem;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -31,8 +26,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  */
 public class RobotContainer {
   public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
-  //public IntakeSubsystem intake      = new IntakeSubsystem();
-  private double startTime = Timer.getFPGATimestamp();
+  public IntakeSubsystem intake      = new IntakeSubsystem();
 
   SwerveInputStream driveFieldAngularVelocityStream;
   SwerveInputStream driveRobotAngularVelocityStream;
@@ -67,10 +61,11 @@ public class RobotContainer {
     swerveDrive.setDefaultCommand(swerveDrive.driveFieldOrientedCommand(driveRobotAngularVelocityStream));
     driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
 
-    //driverJoystick.rightBumper().whileTrue(intake.increaseSpeed());
-    //driverJoystick.leftBumper() .whileTrue(intake.decreaseSpeed());
+    driverJoystick.rightBumper().whileTrue(intake.increaseSpeed());
+    driverJoystick.leftBumper() .whileTrue(intake.decreaseSpeed());
 
-    //driverJoystick.
+    driverJoystick.x().onTrue(intake.runCommand());
+    driverJoystick.x().onFalse(intake.stopCommand());
   }
 
   private void configureInputStreams() {

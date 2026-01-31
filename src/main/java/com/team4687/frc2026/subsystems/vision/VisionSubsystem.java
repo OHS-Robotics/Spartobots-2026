@@ -6,7 +6,6 @@ import java.util.Optional;
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
@@ -14,7 +13,6 @@ import com.team4687.frc2026.Constants;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.numbers.*;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -24,7 +22,6 @@ public class VisionSubsystem extends SubsystemBase {
     private PhotonPoseEstimator poseEstimator;
     // todo: change the name of this camera because it's very long
     private PhotonCamera camera;
-    private boolean initialized = false;
 
     public Matrix<N3, N1> stdDevs;
 
@@ -32,9 +29,6 @@ public class VisionSubsystem extends SubsystemBase {
         poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPosition);
         camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
         camera.setPipelineIndex(0);
-
-
-        initialized = true;
     }
 
     public void updateStdDevs(Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {
@@ -82,7 +76,6 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     public void updatePoseEstimate(SwerveDrive swerveDrive) {
-
         List<PhotonPipelineResult> results = camera.getAllUnreadResults();
         Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
 

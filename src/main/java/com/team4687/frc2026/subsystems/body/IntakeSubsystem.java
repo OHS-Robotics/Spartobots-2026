@@ -1,11 +1,14 @@
 package com.team4687.frc2026.subsystems.body;
 
+import com.revrobotics.PersistMode;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.FunctionalCommand;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -14,6 +17,13 @@ public class IntakeSubsystem extends SubsystemBase {
     Command currentRunCommand;
 
     SparkMax mainMotor = new SparkMax(0, MotorType.kBrushed); // dummy values
+
+    public IntakeSubsystem() {
+        SparkBaseConfig config = new SparkMaxConfig().idleMode(IdleMode.kCoast); // important!
+        // if the idle mode is not set to coast the motor will probably get damaged from the flywheel.
+
+        mainMotor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+    }
 
     public void enable() {
         mainMotor.set(targetIntakeSpeed);
@@ -54,10 +64,6 @@ public class IntakeSubsystem extends SubsystemBase {
             currentRunCommand.end(false);
             this.stop();
         });
-    }
-
-    public Command toggle() {
-        return Commands.none();
     }
 
     public Command increaseSpeed() {
