@@ -7,6 +7,7 @@ package com.team4687.frc2026;
 import com.team4687.frc2026.Constants.*;
 
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
+import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
 import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
 
 import swervelib.SwerveInputStream;
@@ -30,6 +31,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  */
 public class RobotContainer {
   public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+  //public IntakeSubsystem intake      = new IntakeSubsystem();
   private double startTime = Timer.getFPGATimestamp();
 
   SwerveInputStream driveFieldAngularVelocityStream;
@@ -49,6 +51,7 @@ public class RobotContainer {
   }
 
   public void robotPeriodic() {
+    swerveDrive.update();
   }
 
   /**
@@ -63,6 +66,11 @@ public class RobotContainer {
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveFieldOrientedCommand(driveRobotAngularVelocityStream));
     driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
+
+    //driverJoystick.rightBumper().whileTrue(intake.increaseSpeed());
+    //driverJoystick.leftBumper() .whileTrue(intake.decreaseSpeed());
+
+    //driverJoystick.
   }
 
   private void configureInputStreams() {

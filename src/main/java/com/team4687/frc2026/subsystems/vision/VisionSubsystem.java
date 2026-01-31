@@ -28,9 +28,12 @@ public class VisionSubsystem extends SubsystemBase {
 
     public Matrix<N3, N1> stdDevs;
 
-    public void initVision() {
+    public VisionSubsystem() {
         poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPosition);
         camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
+        camera.setPipelineIndex(0);
+
+
         initialized = true;
     }
 
@@ -79,24 +82,22 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     public void updatePoseEstimate(SwerveDrive swerveDrive) {
-        if (!initialized) return;
 
         List<PhotonPipelineResult> results = camera.getAllUnreadResults();
         Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
-        
+
+        System.out.printf("results size %d", results.size());
+
         for (var result : results) {
             visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-            System.out.println(visionEstimatedPose.get().estimatedPose);
             if (visionEstimatedPose.isEmpty()) visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
 
             updateStdDevs(visionEstimatedPose, result.getTargets());
             // todo: update standard deviations
-
             visionEstimatedPose.ifPresent(
                 est -> {
                     swerveDrive.setVisionMeasurementStdDevs(stdDevs);
                     swerveDrive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds);
-                    
             });
         }
     }

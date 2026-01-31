@@ -30,7 +30,6 @@ public class Robot extends TimedRobot {
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
-    Constants.init();
 
     m_robotContainer.swerveDrive.resetPose(new Pose2d(1.0, 1.0, new Rotation2d()));
   }
@@ -48,7 +47,7 @@ public class Robot extends TimedRobot {
     // commands, running already-scheduled commands, removing finished or interrupted commands,
     // and running subsystem periodic() methods.  This must be called from the robot's periodic
     // block in order for anything in the Command-based framework to work.
-    m_robotContainer.swerveDrive.update();
+    m_robotContainer.robotPeriodic();
     CommandScheduler.getInstance().run();
   }
 
