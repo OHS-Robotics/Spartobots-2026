@@ -33,7 +33,6 @@ import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import java.util.Queue;
 import java.util.function.DoubleSupplier;
-import edu.wpi.first.units.AngleUnit;
 
 /**
  * Module IO implementation for Spark Flex drive motor controller, Spark Max turn motor controller,
@@ -101,8 +100,7 @@ public class ModuleIOSpark implements ModuleIO {
               case 2 -> backLeftCANcoderId;
               case 3 -> backRightCANcoderId;
               default -> 0;
-            }
-        );
+            });
     driveEncoder = driveSpark.getEncoder();
     turnEncoder = turnSpark.getAbsoluteEncoder();
     driveController = driveSpark.getClosedLoopController();
@@ -181,7 +179,9 @@ public class ModuleIOSpark implements ModuleIO {
     drivePositionQueue =
         SparkOdometryThread.getInstance().registerSignal(driveSpark, driveEncoder::getPosition);
     turnPositionQueue =
-        SparkOdometryThread.getInstance().registerSignal(turnSpark, () -> turnEncoderCAN.getPosition().getValue().in(Radians));
+        SparkOdometryThread.getInstance()
+            .registerSignal(
+                turnSpark, () -> turnEncoderCAN.getAbsolutePosition().getValue().in(Radians));
   }
 
   @Override
@@ -203,7 +203,10 @@ public class ModuleIOSpark implements ModuleIO {
         turnSpark,
         () -> turnEncoderCAN.getPosition().getValue().in(Degrees),
         (value) -> inputs.turnPosition = new Rotation2d(value).minus(zeroRotation));
-    ifOk(turnSpark, () -> turnEncoderCAN.getVelocity().getValue().in(RadiansPerSecond), (value) -> inputs.turnVelocityRadPerSec = value);
+    ifOk(
+        turnSpark,
+        () -> turnEncoderCAN.getVelocity().getValue().in(RadiansPerSecond),
+        (value) -> inputs.turnVelocityRadPerSec = value);
     ifOk(
         turnSpark,
         new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
