@@ -52,7 +52,7 @@ public class DriveConstants {
   public static final double wheelRadiusMeters = Units.inchesToMeters(1.975);
   public static final double driveMotorReduction = 6.75; // Swerve MK4 L2
   // and 22 spur teeth
-  public static final DCMotor driveGearbox = DCMotor.getNeoVortex(1);
+  public static final DCMotor driveGearbox = DCMotor.getNEO(1);
 
   // Drive encoder configuration
   public static final double driveEncoderPositionFactor =
@@ -76,7 +76,7 @@ public class DriveConstants {
   public static final boolean turnInverted = false;
   public static final int turnMotorCurrentLimit = 20;
   public static final double turnMotorReduction = 12.8;
-  public static final DCMotor turnGearbox = DCMotor.getNeo550(1);
+  public static final DCMotor turnGearbox = DCMotor.getNEO(1);
 
   // Turn encoder configuration
   public static final boolean turnEncoderInverted = true;
