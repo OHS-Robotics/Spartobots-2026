@@ -66,7 +66,7 @@ public class Drive extends SubsystemBase {
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
-  private PathPlannerAuto testPath = new PathPlannerAuto("Example Auto");
+  private PathPlannerAuto testPath;
 
   public Drive(
       GyroIO gyroIO,
@@ -106,6 +106,8 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
+
+    testPath = new PathPlannerAuto("Example Auto");
 
     // Configure SysId
     sysId =
