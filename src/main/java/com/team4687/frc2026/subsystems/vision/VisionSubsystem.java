@@ -86,7 +86,6 @@ public class VisionSubsystem extends SubsystemBase {
         List<PhotonPipelineResult> results = camera.getAllUnreadResults();
         Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
 
-        System.out.printf("results size %d", results.size());
 
         for (var result : results) {
             visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);

@@ -51,7 +51,6 @@ public class SwerveSubsystem extends SubsystemBase {
         }
 
         configureAutoBuilder();
-
     }
 
     private void configureAutoBuilder() {

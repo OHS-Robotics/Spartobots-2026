@@ -28,12 +28,16 @@ public final class Constants {
     public static final double deadband = 0.7;
   }
 
-  public static final double MAX_SPEED = Units.feetToMeters(3.0);
+  public static final double MAX_SPEED = Units.feetToMeters(4.5);
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(5.0);
   public static AprilTagFieldLayout FIELD_LAYOUT = AprilTagFieldLayout.loadField(
     AprilTagFields.k2026RebuiltWelded
   );
 
-  public static Transform3d cameraPosition = new Transform3d(new Translation3d(.381, 0.0, .4572), new Rotation3d(0, 0, 0));
+  public static Transform3d cameraPosition = new Transform3d(new Translation3d(
+    Units.inchesToMeters(0),
+    Units.inchesToMeters(-5),
+    Units.inchesToMeters(10.5)),
+    new Rotation3d(0, 0, 0));
 
 }

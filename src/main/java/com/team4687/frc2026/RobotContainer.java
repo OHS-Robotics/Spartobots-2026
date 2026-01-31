@@ -76,9 +76,9 @@ public class RobotContainer {
   private void configureInputStreams() {
     driveFieldAngularVelocityStream = SwerveInputStream.of(
       swerveDrive.swerveDrive,
-      () -> driverJoystick.getLeftY(),
-      () -> (DebugMode == 0 ? driverJoystick.getLeftX() : 0.0)
-    ).withControllerRotationAxis(() -> DebugMode == 0 ? driverJoystick.getRightX() : 0.0)
+      () -> -driverJoystick.getLeftY(),
+      () -> (DebugMode == 0 ? -driverJoystick.getLeftX() : 0.0)
+    ).withControllerRotationAxis(() -> DebugMode == 0 ? -driverJoystick.getRightX() : 0.0)
      .deadband(Constants.OperatorConstants.deadband)
      .allianceRelativeControl(true);
 
