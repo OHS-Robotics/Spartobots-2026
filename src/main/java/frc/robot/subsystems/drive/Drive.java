@@ -331,7 +331,7 @@ public class Drive extends SubsystemBase {
         this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
     double distanceToBlueHub =
         this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
-    if(distanceToRedHub < distanceToBlueHub) {
+    if (distanceToRedHub < distanceToBlueHub) {
       target = Constants.redHub;
     } else {
       target = Constants.blueHub;
