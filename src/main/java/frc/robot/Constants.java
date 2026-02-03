@@ -7,6 +7,9 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -17,6 +20,10 @@ import edu.wpi.first.wpilibj.RobotBase;
 public final class Constants {
   public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+
+  public static final Pose2d redHub =
+      new Pose2d(8, 3.5, new Rotation2d(Units.degreesToRadians(180)));
+  public static final Pose2d blueHub = new Pose2d(3, 3.5, new Rotation2d(0));
 
   public static enum Mode {
     /** Running on a real robot. */

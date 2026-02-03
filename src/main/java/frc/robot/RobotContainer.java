@@ -141,6 +141,8 @@ public class RobotContainer {
                 .ignoringDisable(true));
 
     controller.y().onTrue(drive.getAutonomousCommand());
+
+    controller.povUp().onTrue(drive.alignToHub());
   }
 
   /**

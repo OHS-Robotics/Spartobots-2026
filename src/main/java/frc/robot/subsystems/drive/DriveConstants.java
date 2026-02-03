@@ -9,6 +9,7 @@ package frc.robot.subsystems.drive;
 
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.RobotConfig;
+import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -16,6 +17,10 @@ import edu.wpi.first.math.util.Units;
 
 public class DriveConstants {
   public static final double maxSpeedMetersPerSec = 4.60248;
+  public static final double maxAccelerationMeterPerSecSquared = 3;
+  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(15);
+  public static final double maxRotationalAccelerationRadiansPerSecSquared =
+      Units.degreesToRadians(10);
   public static final double odometryFrequency = 100.0; // Hz
   public static final double trackWidth = Units.inchesToMeters(20.5);
   public static final double wheelBase = Units.inchesToMeters(20.5);
@@ -67,8 +72,8 @@ public class DriveConstants {
   public static final double driveKd = 0.01;
   public static final double driveKs = 0.0;
   public static final double driveKv = 0.0789;
-  public static final double driveSimP = 0.05;
-  public static final double driveSimD = 0.0;
+  public static final double driveSimP = 0.0010645;
+  public static final double driveSimD = 0.01;
   public static final double driveSimKs = 0.0;
   public static final double driveSimKv = 0.0789;
 
@@ -109,4 +114,10 @@ public class DriveConstants {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
+  public static final PathConstraints pathConstraints =
+      new PathConstraints(
+          maxSpeedMetersPerSec,
+          maxAccelerationMeterPerSecSquared,
+          maxRotationalSpeedRadiansPerSec,
+          maxRotationalAccelerationRadiansPerSecSquared);
 }

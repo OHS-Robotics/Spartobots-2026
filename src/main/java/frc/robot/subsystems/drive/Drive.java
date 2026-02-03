@@ -202,6 +202,8 @@ public class Drive extends SubsystemBase {
 
     // Log optimized setpoints (runSetpoint mutates each state)
     Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
+
+    Logger.recordOutput("Pose", this.getPose());
   }
 
   /** Runs the drive in a straight line with the specified drive output. */
@@ -321,5 +323,19 @@ public class Drive extends SubsystemBase {
 
   public Command getAutonomousCommand() {
     return testPath;
+  }
+
+  public Command alignToHub() {
+    Pose2d target = Constants.blueHub;
+    double distanceToRedHub =
+        this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
+    double distanceToBlueHub =
+        this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
+    if(distanceToRedHub < distanceToBlueHub) {
+      target = Constants.redHub;
+    } else {
+      target = Constants.blueHub;
+    }
+    return AutoBuilder.pathfindToPose(target, DriveConstants.pathConstraints, 0);
   }
 }
