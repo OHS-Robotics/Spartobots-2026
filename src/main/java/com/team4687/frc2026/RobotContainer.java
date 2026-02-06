@@ -8,6 +8,7 @@ import com.team4687.frc2026.Constants.*;
 
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
+import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 
 import swervelib.SwerveInputStream;
 
@@ -27,6 +28,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 public class RobotContainer {
   public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
   public IntakeSubsystem intake      = new IntakeSubsystem();
+  public LauncherSubsystem launcher  = new LauncherSubsystem();
 
   SwerveInputStream driveFieldAngularVelocityStream;
   SwerveInputStream driveRobotAngularVelocityStream;
@@ -59,21 +61,33 @@ public class RobotContainer {
    */
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveFieldOrientedCommand(driveRobotAngularVelocityStream));
-    driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
+    //driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
 
+    // intake
     driverJoystick.rightBumper().whileTrue(intake.increaseSpeed());
     driverJoystick.leftBumper() .whileTrue(intake.decreaseSpeed());
+    /*driverJoystick.x().onTrue(intake.runCommand());
+    driverJoystick.x().onFalse(intake.stopCommand());*/
+    driverJoystick.x().onTrue(intake.toggleCommand());
 
-    driverJoystick.x().onTrue(intake.runCommand());
-    driverJoystick.x().onFalse(intake.stopCommand());
+    // launcher
+    // enables both indexer and launcher itself
+    driverJoystick.y().onTrue(launcher.toggleLauncherCommand());
+    driverJoystick.b().onTrue(launcher.toggleIntakeCommand());
+
+    // launch speed controls
+    driverJoystick.povDown().onTrue(launcher.decreaseLaunchSpeed());
+    driverJoystick.povUp().onTrue(launcher.increaseLaunchSpeed());
+    driverJoystick.povLeft().onTrue(launcher.decreaseIntakeSpeed());
+    driverJoystick.povRight().onTrue(launcher.increaseIntakeSpeed());
   }
 
   private void configureInputStreams() {
     driveFieldAngularVelocityStream = SwerveInputStream.of(
       swerveDrive.swerveDrive,
-      () -> -driverJoystick.getLeftY(),
-      () -> (DebugMode == 0 ? -driverJoystick.getLeftX() : 0.0)
-    ).withControllerRotationAxis(() -> DebugMode == 0 ? -driverJoystick.getRightX() : 0.0)
+      () -> driverJoystick.getLeftY(),
+      () -> (DebugMode == 0 ? driverJoystick.getLeftX() : 0.0)
+    ).withControllerRotationAxis(() -> DebugMode == 0 ? driverJoystick.getRightX() : 0.0)
      .deadband(Constants.OperatorConstants.deadband)
      .allianceRelativeControl(true);
 

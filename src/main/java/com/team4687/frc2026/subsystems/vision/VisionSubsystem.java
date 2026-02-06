@@ -25,6 +25,8 @@ public class VisionSubsystem extends SubsystemBase {
 
     public Matrix<N3, N1> stdDevs;
 
+    boolean didWarn = false;
+
     public VisionSubsystem() {
         poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPosition);
         camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
@@ -76,6 +78,13 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     public void updatePoseEstimate(SwerveDrive swerveDrive) {
+        if (!camera.isConnected()) {
+            if (!didWarn) {
+                didWarn = true;
+                System.out.println("*\nCAMERA DISABLED\n*");
+            }
+            return;
+        }
         List<PhotonPipelineResult> results = camera.getAllUnreadResults();
         Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
 
