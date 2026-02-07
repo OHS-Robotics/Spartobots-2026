@@ -199,15 +199,15 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public Command changeRotation(double angle, double speed) {
         final double limitedSpeed = Math.min(speed, Units.radiansToDegrees(Constants.MAX_ROTATIONAL_SPEED));
-        double targetAngle = swerveDrive.getOdometryHeading().plus(new Rotation2d(angle)).getDegrees();
+        double targetAngle = swerveDrive.getOdometryHeading().plus(new Rotation2d(angle)).getRadians();
         return run(() -> drive(
             new Translation2d(0.0, 0.0),
             Math.min(
-                Math.max(targetAngle-swerveDrive.getOdometryHeading().getDegrees(), -limitedSpeed),
+                Math.max(targetAngle-swerveDrive.getOdometryHeading().getRadians(), -limitedSpeed),
                 limitedSpeed
             ),
             false
-        )).until(() -> Math.abs(targetAngle-swerveDrive.getOdometryHeading().getDegrees()) < 2.0);
+        )).until(() -> Math.abs(targetAngle-swerveDrive.getOdometryHeading().getRadians()) < 0.174); // 10 degrees
     }
 
     public Command rotateTo(double angle, double speed) {
@@ -217,7 +217,7 @@ public class SwerveSubsystem extends SubsystemBase {
     public Command pointTowards(Pose2d target, double speed) {
         Transform2d transform = target.minus(getPose());
         
-        return rotateTo(Math.atan2(transform.getY(), transform.getX()) * Math.PI / 180.0, speed);
+        return rotateTo(Math.atan2(transform.getY(), transform.getX()), speed);
     }
 
     public Pose2d getPose() {
@@ -233,7 +233,8 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Command getAutonomousCommand() {
-        return changePosition(new Translation2d(0.0, 2.0), Constants.MAX_SPEED/2.0).andThen(() -> System.out.println("done"));
+        return changePosition(new Translation2d(2.0, 0.0), Constants.MAX_SPEED/2.0).andThen(() -> System.out.println("done"))
+        .andThen(pointTowards(new Pose2d(0.0, 8.0, new Rotation2d()), 5.0)).andThen(() -> System.out.println("rotation done"));
         //return changeRotation(8.0, 3.0).andThen(() -> System.out.println("done"));
         //return driveTo(new Pose2d(0.0, 2.0, new Rotation2d(0.0)), Constants.MAX_SPEED/2.0, Constants.MAX_ROTATIONAL_SPEED/2.0);
         //return testPath;
