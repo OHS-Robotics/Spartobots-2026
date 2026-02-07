@@ -205,8 +205,8 @@ public class ModuleIOSpark implements ModuleIO {
 
     // Update turn inputs
     sparkStickyFault = false;
-    boolean cancoderOk = BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity)
-        .equals(StatusCode.OK);
+    boolean cancoderOk =
+        BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity).equals(StatusCode.OK);
     if (cancoderOk) {
       double positionRad = Units.rotationsToRadians(turnAbsolutePosition.getValueAsDouble());
       if (turnEncoderInverted) {
@@ -277,7 +277,7 @@ public class ModuleIOSpark implements ModuleIO {
   public void setTurnPosition(Rotation2d rotation) {
     double setpointRad = rotation.getRadians();
     if (!turnClosedLoop) {
-      turnController.reset(lastTurnPositionRad);
+      turnController.setSetpoint(lastTurnPositionRad);
       turnClosedLoop = true;
     }
     turnAppliedVolts =

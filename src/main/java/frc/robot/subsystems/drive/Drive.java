@@ -35,17 +35,22 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.commands.DriveCommands;
+import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
+  public final VisionSubsystem vision = new VisionSubsystem();
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
@@ -325,17 +330,67 @@ public class Drive extends SubsystemBase {
     return testPath;
   }
 
-  public Command alignToHub() {
-    Pose2d target = Constants.blueHub;
-    double distanceToRedHub =
-        this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
-    double distanceToBlueHub =
-        this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
-    if (distanceToRedHub < distanceToBlueHub) {
-      target = Constants.redHub;
-    } else {
-      target = Constants.blueHub;
-    }
+  public Command alignTo(Pose2d target) {
     return AutoBuilder.pathfindToPose(target, DriveConstants.pathConstraints, 0);
+  }
+
+  public Command alignToHub(DoubleSupplier x, DoubleSupplier y) {
+    Pose2d target = Constants.blueHub;
+    DoubleSupplier angleSetpoint =
+        () ->
+            Math.atan2(
+                this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX());
+    return DriveCommands.joystickDrive(
+        this,
+        x,
+        y,
+        () ->
+            this.getPose().getRotation().getRadians()
+                - Math.atan2(
+                    this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX()));
+    /*return Commands.run(
+        () -> {
+          DriveCommands.joystickDrive(
+              this,
+              x,
+              y,
+              () ->
+                  this.getPose().getRotation().getRadians()
+                      - Math.atan2(
+                          this.getPose().getY() - target.getY(),
+                          this.getPose().getX() - target.getX()));
+        })
+    .until(
+        () ->
+            Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
+                < DriveConstants.aligned);*/
+  }
+
+  public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
+    Pose2d target = Constants.blueHub;
+    DoubleSupplier angleSetpoint =
+        () ->
+            Math.atan2(
+                this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX());
+    return Commands.run(
+            () -> {
+              DriveCommands.joystickDrive(
+                  this,
+                  x,
+                  y,
+                  () ->
+                      this.getPose().getRotation().getRadians()
+                          - Math.atan2(
+                              this.getPose().getY() - target.getY(),
+                              this.getPose().getX() - target.getX()));
+            })
+        .until(
+            () ->
+                Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
+                    < DriveConstants.aligned);
+  }
+
+  public void update() {
+    vision.updatePoseEstimate(this);
   }
 }
