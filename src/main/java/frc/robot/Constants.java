@@ -7,8 +7,13 @@
 
 package frc.robot;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotBase;
 
@@ -18,12 +23,32 @@ import edu.wpi.first.wpilibj.RobotBase;
  * (log replay from a file).
  */
 public final class Constants {
+  public static AprilTagFieldLayout FIELD_LAYOUT =
+      AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
+
+  public static Transform3d cameraPosition =
+      new Transform3d(
+          new Translation3d(
+              Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
+          new Rotation3d(0, 0, 0));
+
   public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
 
-  public static final Pose2d redHub =
-      new Pose2d(8, 3.5, new Rotation2d(Units.degreesToRadians(180)));
+  public static final double robotBaseLength = 23.5;
+  // auto align poses
+  public static final Pose2d redHub = new Pose2d(14, 3.5, new Rotation2d(Math.PI));
   public static final Pose2d blueHub = new Pose2d(3, 3.5, new Rotation2d(0));
+  public static final Pose2d redOutpost =
+      new Pose2d(
+          Units.inchesToMeters(651.22 - robotBaseLength / 2),
+          Units.inchesToMeters(317.69 - 25),
+          new Rotation2d(0));
+  public static final Pose2d blueOutpost =
+      new Pose2d(
+          Units.inchesToMeters(robotBaseLength / 2),
+          Units.inchesToMeters(25),
+          new Rotation2d(Math.PI));
 
   public static enum Mode {
     /** Running on a real robot. */

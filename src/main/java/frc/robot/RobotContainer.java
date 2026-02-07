@@ -36,7 +36,7 @@ public class RobotContainer {
   private final Drive drive;
 
   // Controller
-  private final CommandXboxController controller = new CommandXboxController(0);
+  public final CommandXboxController controller = new CommandXboxController(0);
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -142,7 +142,11 @@ public class RobotContainer {
 
     controller.y().onTrue(drive.getAutonomousCommand());
 
-    controller.povUp().onTrue(drive.alignToHub());
+    controller.povUp().onTrue(alignToHub());
+
+    controller.povLeft().onTrue(alignToOutpost());
+
+    controller.povDown().onTrue(drive.getDefaultCommand());
   }
 
   /**
@@ -153,5 +157,13 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // return autoChooser.get();
     return drive.getAutonomousCommand();
+  }
+
+  public Command alignToHub() {
+    return drive.alignToHub(() -> 0, () -> 0);
+  }
+
+  public Command alignToOutpost() {
+    return drive.alignToOutpost(() -> -controller.getLeftY(), () -> -controller.getLeftX());
   }
 }
