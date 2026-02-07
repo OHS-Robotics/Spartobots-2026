@@ -72,8 +72,9 @@ public class ModuleIOSpark implements ModuleIO {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
   public ModuleIOSpark(int module) {
+    int hardwareIndex = moduleIndexToHardwareIndex[module];
     zeroRotation =
-        switch (module) {
+        switch (hardwareIndex) {
           case 0 -> frontLeftZeroRotation;
           case 1 -> frontRightZeroRotation;
           case 2 -> backLeftZeroRotation;
@@ -82,7 +83,7 @@ public class ModuleIOSpark implements ModuleIO {
         };
     driveSpark =
         new SparkMax(
-            switch (module) {
+            switch (hardwareIndex) {
               case 0 -> frontLeftDriveCanId;
               case 1 -> frontRightDriveCanId;
               case 2 -> backLeftDriveCanId;
@@ -92,7 +93,7 @@ public class ModuleIOSpark implements ModuleIO {
             MotorType.kBrushless);
     turnSpark =
         new SparkMax(
-            switch (module) {
+            switch (hardwareIndex) {
               case 0 -> frontLeftTurnCanId;
               case 1 -> frontRightTurnCanId;
               case 2 -> backLeftTurnCanId;
@@ -102,7 +103,7 @@ public class ModuleIOSpark implements ModuleIO {
             MotorType.kBrushless);
     turnCanCoder =
         new CANcoder(
-            switch (module) {
+            switch (hardwareIndex) {
               case 0 -> frontLeftCANcoderId;
               case 1 -> frontRightCANcoderId;
               case 2 -> backLeftCANcoderId;

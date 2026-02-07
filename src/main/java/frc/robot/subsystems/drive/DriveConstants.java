@@ -32,6 +32,8 @@ public class DriveConstants {
         new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
       };
+  // Maps logical module index (FL, FR, BL, BR) -> hardware position index
+  public static final int[] moduleIndexToHardwareIndex = {2, 3, 0, 1};
 
   // Zeroed rotation values for each module, see setup instructions
   public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.905 + 1.809);
