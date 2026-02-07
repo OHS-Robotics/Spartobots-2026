@@ -5,11 +5,6 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.auto.NamedCommands;
-import com.pathplanner.lib.commands.PathPlannerAuto;
-import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
 
 import java.lang.Math;
@@ -21,8 +16,6 @@ import edu.wpi.first.math.geometry.Translation2d;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -36,13 +29,10 @@ import com.team4687.frc2026.Constants;
 import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
 
 public class SwerveSubsystem extends SubsystemBase {
-
-    private SendableChooser<Command> pathChooser;
     private SwerveSendables sendables = new SwerveSendables();
 
     public final SwerveDrive swerveDrive;
     public final VisionSubsystem vision = new VisionSubsystem();
-    PathPlannerAuto testPath;
 
     public SwerveSubsystem(File directory) {
         //VisionSubsystem.initVision();
@@ -56,65 +46,9 @@ public class SwerveSubsystem extends SubsystemBase {
             throw new RuntimeException(e);
         }
 
-        configureAutoBuilder();
-        pathChooser = AutoBuilder.buildAutoChooser();
-        SmartDashboard.putData(pathChooser);
-
         SmartDashboard.putData("Swerve Config", sendables);
     }
 
-    private void configureAutoBuilder() {
-        final boolean enableFeedForward = true;
-
-
-        RobotConfig config = null;
-        try {
-            config = RobotConfig.fromGUISettings();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        AutoBuilder.configure(
-            this::getPose,
-            this::resetPose,
-            this::getRobotRelativeSpeeds,
-            (speeds, feedforwards) -> {
-                if (enableFeedForward) {
-                    this.swerveDrive.drive(speeds,
-                    swerveDrive.kinematics.toSwerveModuleStates(speeds),
-                    feedforwards.linearForces());
-                }
-                else {
-                    this.swerveDrive.setChassisSpeeds(speeds);
-                }
-            },
-            new PPHolonomicDriveController(new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
-            config,
-            () -> {
-                var alliance = DriverStation.getAlliance();
-                
-                if (alliance.isPresent()) {
-                    return alliance.get() == DriverStation.Alliance.Red;
-                }
-                return false;
-            },
-            this
-        );
-
-        registerNamedCommands();
-        registerPaths();
-    }
-
-    private void registerNamedCommands() {
-        // todo: move this to a subsystem
-        NamedCommands.registerCommand("testOperation", runOnce(() -> System.out.println("Wow doing a dummy operation!")));
-    }
-    
-    private void registerPaths() {
-        // todo: move this to a subsystem
-        testPath = new PathPlannerAuto("testAuto");
-    }
 
     public void drive(Translation2d translation, double rotation, boolean fieldRelative) {
         swerveDrive.drive(translation, rotation, fieldRelative, false);
@@ -230,14 +164,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public ChassisSpeeds getRobotRelativeSpeeds() {
         return swerveDrive.getRobotVelocity();
-    }
-
-    public Command getAutonomousCommand() {
-        return changePosition(new Translation2d(2.0, 0.0), Constants.MAX_SPEED/2.0).andThen(() -> System.out.println("done"))
-        .andThen(pointTowards(new Pose2d(0.0, 8.0, new Rotation2d()), 5.0)).andThen(() -> System.out.println("rotation done"));
-        //return changeRotation(8.0, 3.0).andThen(() -> System.out.println("done"));
-        //return driveTo(new Pose2d(0.0, 2.0, new Rotation2d(0.0)), Constants.MAX_SPEED/2.0, Constants.MAX_ROTATIONAL_SPEED/2.0);
-        //return testPath;
     }
 
     public void update() {

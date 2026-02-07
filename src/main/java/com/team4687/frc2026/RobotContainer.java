@@ -5,7 +5,7 @@
 package com.team4687.frc2026;
 
 import com.team4687.frc2026.Constants.*;
-
+import com.team4687.frc2026.subsystems.AutoSubsystem;
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
 import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
 import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
@@ -29,6 +29,8 @@ public class RobotContainer {
   public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
   public IntakeSubsystem intake      = new IntakeSubsystem();
   public LauncherSubsystem launcher  = new LauncherSubsystem();
+
+  public AutoSubsystem auto = new AutoSubsystem(swerveDrive, launcher, intake);
 
   SwerveInputStream driveFieldAngularVelocityStream;
   SwerveInputStream driveRobotAngularVelocityStream;
@@ -105,6 +107,6 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
     //return swerveDrive.changePosition(new Translation2d(0.0, 2.0), Units.feetToMeters(3.0));
-    return swerveDrive.getAutonomousCommand();
+    return auto.getAutonomousCommand();
   }
 }
