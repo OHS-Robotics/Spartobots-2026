@@ -32,12 +32,14 @@ public class DriveConstants {
         new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
       };
+  // Maps logical module index (FL, FR, BL, BR) -> hardware position index
+  public static final int[] moduleIndexToHardwareIndex = {2, 3, 0, 1};
 
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(0.905);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(1.309);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(-1.924);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.122);
+  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.905 + 1.809);
+  public static final Rotation2d frontRightZeroRotation = new Rotation2d(-1.309 - 1.021);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(1.924 + 1.779);
+  public static final Rotation2d backRightZeroRotation = new Rotation2d(-1.122 - 0.078);
 
   // Device CAN IDs
   public static final int pigeonCanId = 1;
@@ -83,7 +85,7 @@ public class DriveConstants {
   public static final double driveSimKv = 0.0789;
 
   // Turn motor configuration
-  public static final boolean turnInverted = false;
+  public static final boolean turnInverted = true;
   public static final int turnMotorCurrentLimit = 20;
   public static final double turnMotorReduction = 12.8;
   public static final DCMotor turnGearbox = DCMotor.getNEO(1);
@@ -96,8 +98,9 @@ public class DriveConstants {
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 0.005;
-  public static final double turnKd = 0.15;
+  public static final double turnKp = 2.5;
+  public static final double turnKi = 0.5;
+  public static final double turnKd = 0.1;
   public static final double turnSimP = 1.0;
   public static final double turnSimD = 0.0;
   public static final double turnPIDMinInput = 0; // Radians

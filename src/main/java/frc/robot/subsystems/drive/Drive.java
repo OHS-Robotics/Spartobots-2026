@@ -232,8 +232,10 @@ public class Drive extends SubsystemBase {
     for (int i = 0; i < 4; i++) {
       headings[i] = moduleTranslations[i].getAngle();
     }
-    kinematics.resetHeadings(headings);
-    stop();
+    // Command an X lock without changing kinematics heading offsets
+    for (int i = 0; i < 4; i++) {
+      modules[i].runSetpoint(new SwerveModuleState(0.0, headings[i]));
+    }
   }
 
   /** Returns a command to run a quasistatic test in the specified direction. */
