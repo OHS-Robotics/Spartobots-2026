@@ -335,31 +335,49 @@ public class Drive extends SubsystemBase {
   }
 
   public Command alignToHub() {
-    PIDController rotationController = new PIDController(4.0, 0.0, 0.2);
-    rotationController.enableContinuousInput(-Math.PI, Math.PI);
-    return Commands.run(
-            () -> {
-              Pose2d target = Constants.blueHub;
-              double distanceToRedHub =
-                  this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
-              double distanceToBlueHub =
-                  this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
-              if (distanceToRedHub < distanceToBlueHub) {
-                target = Constants.redHub;
-              } else {
-                target = Constants.blueHub;
-              }
-              Translation2d toTarget =
-                  target.getTranslation().minus(this.getPose().getTranslation());
-              Rotation2d targetRotation =
-                  new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
-              double omega =
-                  rotationController.calculate(
-                      this.getRotation().getRadians(), targetRotation.getRadians());
-              runVelocity(new ChassisSpeeds(0.0, 0.0, omega));
-            },
-            this)
-        .beforeStarting(() -> rotationController.reset(this.getRotation().getRadians()));
+    Pose2d target = Constants.blueHub;
+    double distanceToRedHub =
+        this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
+    double distanceToBlueHub =
+        this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
+    if (distanceToRedHub < distanceToBlueHub) {
+      target = Constants.redHub;
+    } else {
+      target = Constants.blueHub;
+    }
+    return AutoBuilder.pathfindToPose(target, DriveConstants.pathConstraints, 0);
+  }
+
+  public Command alignToHub(DoubleSupplier x, DoubleSupplier y) {
+    Pose2d target = Constants.blueHub;
+    DoubleSupplier angleSetpoint =
+        () ->
+            Math.atan2(
+                this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX());
+    return DriveCommands.joystickDrive(
+        this,
+        x,
+        y,
+        () ->
+            this.getPose().getRotation().getRadians()
+                - Math.atan2(
+                    this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX()));
+    /*return Commands.run(
+        () -> {
+          DriveCommands.joystickDrive(
+              this,
+              x,
+              y,
+              () ->
+                  this.getPose().getRotation().getRadians()
+                      - Math.atan2(
+                          this.getPose().getY() - target.getY(),
+                          this.getPose().getX() - target.getX()));
+        })
+    .until(
+        () ->
+            Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
+                < DriveConstants.aligned);*/
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {

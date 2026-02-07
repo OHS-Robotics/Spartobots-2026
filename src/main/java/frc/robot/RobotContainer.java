@@ -142,7 +142,7 @@ public class RobotContainer {
 
     controller.y().onTrue(drive.getAutonomousCommand());
 
-    controller.povUp().whileTrue(alignToHub());
+    controller.povUp().onTrue(alignToHub());
 
     controller.povLeft().onTrue(alignToOutpost());
 
@@ -160,7 +160,7 @@ public class RobotContainer {
   }
 
   public Command alignToHub() {
-    return drive.alignToHub();
+    return drive.alignToHub(() -> 0, () -> 0);
   }
 
   public Command alignToOutpost() {
