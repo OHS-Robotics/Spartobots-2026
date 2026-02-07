@@ -60,7 +60,8 @@ public class RobotContainer {
    * joysticks}.
    */
   private void configureBindings() {
-    swerveDrive.setDefaultCommand(swerveDrive.driveFieldOrientedCommand(driveRobotAngularVelocityStream));
+    swerveDrive.setDefaultCommand(swerveDrive.driveCommand(driveRobotAngularVelocityStream, driveFieldAngularVelocityStream));
+
     //driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
 
     // intake

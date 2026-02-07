@@ -10,14 +10,20 @@ import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.path.PathConstraints;
 
 import java.lang.Math;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import swervelib.SwerveDrive;
@@ -30,6 +36,9 @@ import com.team4687.frc2026.Constants;
 import com.team4687.frc2026.subsystems.vision.VisionSubsystem;
 
 public class SwerveSubsystem extends SubsystemBase {
+
+    private SendableChooser<Command> pathChooser;
+    private SwerveSendables sendables = new SwerveSendables();
 
     public final SwerveDrive swerveDrive;
     public final VisionSubsystem vision = new VisionSubsystem();
@@ -48,6 +57,10 @@ public class SwerveSubsystem extends SubsystemBase {
         }
 
         configureAutoBuilder();
+        pathChooser = AutoBuilder.buildAutoChooser();
+        SmartDashboard.putData(pathChooser);
+
+        SmartDashboard.putData("Swerve Config", sendables);
     }
 
     private void configureAutoBuilder() {
@@ -142,35 +155,69 @@ public class SwerveSubsystem extends SubsystemBase {
         return run(() -> swerveDrive.driveFieldOriented(velocity.get()));
     }
 
+    public Command driveCommand(Supplier<ChassisSpeeds> robotVelocity, Supplier<ChassisSpeeds> fieldVelocity) {
+        return run(() -> {
+            if (sendables.getFieldOriented()) swerveDrive.driveFieldOriented(fieldVelocity.get());
+            else {
+                ChassisSpeeds speeds = robotVelocity.get();
+                swerveDrive.drive(speeds);
+            }
+        });
+    }
+
+    /**
+     * @param endpoint The point at which to move the robot to.
+     * @param translationSpeed The speed at which to move, in meters per second. If this is greater than {@link frc.robot.Constants#MAX_SPEED} it will be clamped
+     * @param rotationSpeed The speed at which to move, in radians per second. If this is greater than {@link frc.robot.Constants#MAX_ROTATIONAL_SPEED} it will be clamped
+     */
+    public Command driveTo(Pose2d endpoint, double translationSpeed, double rotationSpeed) {
+        translationSpeed = Math.min(translationSpeed, Constants.MAX_SPEED);
+        rotationSpeed = Math.min(rotationSpeed, Constants.MAX_ROTATIONAL_SPEED);
+        PathConstraints constraints = new PathConstraints(Constants.MAX_SPEED, Constants.MAX_ACCELERATION, Constants.MAX_ROTATIONAL_SPEED, Constants.MAX_ROTATIONAL_ACCELERATION);
+        return AutoBuilder.pathfindToPose(endpoint, constraints);
+
+        /*final double limitedSpeed = Math.min(translationSpeed, Constants.MAX_SPEED);
+        final Translation2d translation = endpoint.minus(getPose()).getTranslation();
+        return changePosition(translation, limitedSpeed).andThen(changeRotation(
+            endpoint.getRotation().minus(getPose().getRotation()).getDegrees(),
+            rotationSpeed));*/
+
+        
+    }
+    
     /**
      * Change the position, relative to the robot, by a given translation at a given speed. All units in meters. +X is backwards, +Y is right
      * @param translation The distance on each axis to translate by, in meters
      * @param speed The speed at which to move, in meters per second. If this is greater than {@link frc.robot.Constants#MAX_SPEED} it will be clamped
      * @return 
      */
-    public Command changePosition(Translation2d translation, double speed) {
-        final double limitedSpeed = Math.min(speed, Constants.MAX_SPEED);
-        return run(() -> drive(translation.times(limitedSpeed/translation.getNorm()), 0.0, false))
-        .withTimeout(translation.getNorm()/limitedSpeed);
+    public Command changePosition(Translation2d translation, double translationSpeed) {
+        final Pose2d targetPose = getPose().plus(new Transform2d(translation.getX(), translation.getY(), new Rotation2d()));
+        
+        return driveTo(targetPose, translationSpeed, 1.0);
     }
 
     public Command changeRotation(double angle, double speed) {
-      final double limitedSpeed = Math.min(speed, Constants.MAX_ROTATIONAL_SPEED);
-      return run(() -> drive(new Translation2d(0.0, 0.0), limitedSpeed, false)).withTimeout(angle/limitedSpeed);
+        final double limitedSpeed = Math.min(speed, Units.radiansToDegrees(Constants.MAX_ROTATIONAL_SPEED));
+        double targetAngle = swerveDrive.getOdometryHeading().plus(new Rotation2d(angle)).getDegrees();
+        return run(() -> drive(
+            new Translation2d(0.0, 0.0),
+            Math.min(
+                Math.max(targetAngle-swerveDrive.getOdometryHeading().getDegrees(), -limitedSpeed),
+                limitedSpeed
+            ),
+            false
+        )).until(() -> Math.abs(targetAngle-swerveDrive.getOdometryHeading().getDegrees()) < 2.0);
     }
 
-    // public Command rotateTo() {}
+    public Command rotateTo(double angle, double speed) {
+        return changeRotation(angle - swerveDrive.getYaw().getDegrees(), speed);
+    }
 
-    /**
-     * @param endpoint The point at which to move the robot to. The robot will rotate to the rotational component AFTER moving!
-     * @param speed The speed at which to move, in meters per second. If this is greater than {@link frc.robot.Constants#MAX_SPEED} it will be clamped 
-     */
-    public Command driveTo(Pose2d endpoint, double translationSpeed, double rotationSpeed) {
-      final double limitedSpeed = Math.min(translationSpeed, Constants.MAX_SPEED);
-      final Translation2d translation = endpoint.minus(getPose()).getTranslation();
-      return changePosition(translation, limitedSpeed).andThen(changeRotation(
-        endpoint.getRotation().minus(getPose().getRotation()).getDegrees(),
-        rotationSpeed));
+    public Command pointTowards(Pose2d target, double speed) {
+        Transform2d transform = target.minus(getPose());
+        
+        return rotateTo(Math.atan2(transform.getY(), transform.getX()) * Math.PI / 180.0, speed);
     }
 
     public Pose2d getPose() {
@@ -186,9 +233,10 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Command getAutonomousCommand() {
-        //return changePosition(new Translation2d(0.0, 2.0), Constants.MAX_SPEED/2.0);
+        return changePosition(new Translation2d(0.0, 2.0), Constants.MAX_SPEED/2.0).andThen(() -> System.out.println("done"));
+        //return changeRotation(8.0, 3.0).andThen(() -> System.out.println("done"));
         //return driveTo(new Pose2d(0.0, 2.0, new Rotation2d(0.0)), Constants.MAX_SPEED/2.0, Constants.MAX_ROTATIONAL_SPEED/2.0);
-        return testPath;
+        //return testPath;
     }
 
     public void update() {

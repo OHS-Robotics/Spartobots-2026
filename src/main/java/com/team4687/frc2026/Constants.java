@@ -22,19 +22,22 @@ import edu.wpi.first.math.util.Units;
 public final class Constants {
   public static class OperatorConstants {
     public static final int kDriverControllerPort = 0;
-    public static final double deadband = 0.7;
+    public static final double deadband = 0.05;
   }
 
   public static final double MAX_SPEED = Units.feetToMeters(4.5);
+  public static final double MAX_ACCELERATION = Units.feetToMeters(6.7);
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(5.0);
+  public static final double MAX_ROTATIONAL_ACCELERATION = Units.degreesToRadians(10.0);
   public static AprilTagFieldLayout FIELD_LAYOUT = AprilTagFieldLayout.loadField(
     AprilTagFields.k2026RebuiltWelded
   );
 
-  public static Transform3d cameraPosition = new Transform3d(new Translation3d(
+  public static final Transform3d cameraPosition = new Transform3d(new Translation3d(
     Units.inchesToMeters(0),
     Units.inchesToMeters(-5),
     Units.inchesToMeters(10.5)),
     new Rotation3d(0, 0, 0));
 
+  public static final double poseChangeI = 0.1; // i component of PID for pose changing
 }
