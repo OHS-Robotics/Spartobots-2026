@@ -53,7 +53,7 @@ public class ModuleIOSpark implements ModuleIO {
 
   // Closed loop controllers
   private final SparkClosedLoopController driveController;
-  private final PIDController turnController = new PIDController(turnKp, 0.0, turnKd);
+  private final PIDController turnController = new PIDController(turnKp, turnKi, turnKd);
   private boolean turnClosedLoop = false;
   private double lastTurnPositionRad = 0.0;
   private double turnAppliedVolts = 0.0;
@@ -205,8 +205,8 @@ public class ModuleIOSpark implements ModuleIO {
 
     // Update turn inputs
     sparkStickyFault = false;
-    boolean cancoderOk = BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity)
-        .equals(StatusCode.OK);
+    boolean cancoderOk =
+        BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity).equals(StatusCode.OK);
     if (cancoderOk) {
       double positionRad = Units.rotationsToRadians(turnAbsolutePosition.getValueAsDouble());
       if (turnEncoderInverted) {
@@ -276,10 +276,6 @@ public class ModuleIOSpark implements ModuleIO {
   @Override
   public void setTurnPosition(Rotation2d rotation) {
     double setpointRad = rotation.getRadians();
-    if (!turnClosedLoop) {
-      turnController.reset(lastTurnPositionRad);
-      turnClosedLoop = true;
-    }
     turnAppliedVolts =
         MathUtil.clamp(turnController.calculate(lastTurnPositionRad, setpointRad), -12.0, 12.0);
     turnSpark.setVoltage(turnAppliedVolts);
