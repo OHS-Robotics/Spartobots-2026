@@ -24,10 +24,12 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Twist2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
@@ -35,6 +37,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
@@ -328,16 +331,30 @@ public class Drive extends SubsystemBase {
   }
 
   public Command alignToHub() {
-    Pose2d target = Constants.blueHub;
-    double distanceToRedHub =
-        this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
-    double distanceToBlueHub =
-        this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
-    if (distanceToRedHub < distanceToBlueHub) {
-      target = Constants.redHub;
-    } else {
-      target = Constants.blueHub;
-    }
-    return AutoBuilder.pathfindToPose(target, DriveConstants.pathConstraints, 0);
+    PIDController rotationController = new PIDController(4.0, 0.0, 0.2);
+    rotationController.enableContinuousInput(-Math.PI, Math.PI);
+    return Commands.run(
+            () -> {
+              Pose2d target = Constants.blueHub;
+              double distanceToRedHub =
+                  this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
+              double distanceToBlueHub =
+                  this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
+              if (distanceToRedHub < distanceToBlueHub) {
+                target = Constants.redHub;
+              } else {
+                target = Constants.blueHub;
+              }
+              Translation2d toTarget =
+                  target.getTranslation().minus(this.getPose().getTranslation());
+              Rotation2d targetRotation =
+                  new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+              double omega =
+                  rotationController.calculate(
+                      this.getRotation().getRadians(), targetRotation.getRadians());
+              runVelocity(new ChassisSpeeds(0.0, 0.0, omega));
+            },
+            this)
+        .beforeStarting(() -> rotationController.reset(this.getRotation().getRadians()));
   }
 }
