@@ -39,8 +39,8 @@ public class DriveConstants {
   // Global chassis-frame correction scalars applied in Drive.runVelocity.
   // Keep at 1.0 unless you intentionally need to correct a frame mismatch.
   public static final double chassisXCommandScalar = 1.0;
-  public static final double chassisYCommandScalar = -1.0;
-  public static final double chassisOmegaCommandScalar = -1.0;
+  public static final double chassisYCommandScalar = 1.0;
+  public static final double chassisOmegaCommandScalar = 1.0;
 
   // NavX yaw sign to match WPILib's CCW-positive convention.
   public static final boolean navxYawInverted = true;
