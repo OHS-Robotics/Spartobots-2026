@@ -37,8 +37,11 @@ public final class Constants {
 
   public static final double robotBaseLength = 23.5;
   // auto align poses
-  public static final Pose2d redHub = new Pose2d(14, 3.5, new Rotation2d(Math.PI));
-  public static final Pose2d blueHub = new Pose2d(3, 3.5, new Rotation2d(0));
+  public static final Pose2d redHub =
+      new Pose2d(
+          Units.inchesToMeters(469.111), Units.inchesToMeters(158.844), new Rotation2d(Math.PI));
+  public static final Pose2d blueHub =
+      new Pose2d(Units.inchesToMeters(182.111), Units.inchesToMeters(158.844), new Rotation2d(0));
   public static final Pose2d redOutpost =
       new Pose2d(
           Units.inchesToMeters(651.22 - robotBaseLength / 2),
