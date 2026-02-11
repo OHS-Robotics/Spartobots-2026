@@ -131,4 +131,8 @@ public class DriveConstants {
 
   // alignment config
   public static final double aligned = Units.degreesToRadians(5);
+
+  public static final double alignKp = 0;
+  public static final double alignKi = 0;
+  public static final double alignKd = 0;
 }

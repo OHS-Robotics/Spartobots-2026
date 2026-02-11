@@ -278,7 +278,8 @@ public class ModuleIOSpark implements ModuleIO {
   public void setTurnPosition(Rotation2d rotation) {
     double setpointRad = rotation.getRadians();
     if (!turnClosedLoop) {
-      turnController.reset(lastTurnPositionRad);
+      // turnController.reset(lastTurnPositionRad);
+      turnController.reset();
       turnClosedLoop = true;
     }
     turnAppliedVolts =
