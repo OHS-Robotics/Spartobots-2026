@@ -49,6 +49,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
   public final VisionSubsystem vision = new VisionSubsystem();
@@ -57,8 +58,11 @@ public class Drive extends SubsystemBase {
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final Module[] modules = new Module[4]; // FL, FR, BL, BR
   private final SysIdRoutine sysId;
+  private final LoggedNetworkBoolean logHubAimVector =
+      new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
+  private boolean wasHubAimVectorLoggingEnabled = false;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -129,6 +133,8 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
+    logHubAimVector.periodic();
+
     odometryLock.lock(); // Prevents odometry updates while reading data
     gyroIO.updateInputs(gyroInputs);
     Logger.processInputs("Drive/Gyro", gyroInputs);
@@ -184,6 +190,10 @@ public class Drive extends SubsystemBase {
 
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
+
+    if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
+      clearHubAimLogs();
+    }
   }
 
   /**
@@ -352,14 +362,13 @@ public class Drive extends SubsystemBase {
         fieldRelativeSpeeds.vxMetersPerSecond, fieldRelativeSpeeds.vyMetersPerSecond);
   }
 
-  private Pose2d getCompensatedHub(double shotAirtimeSeconds) {
-    Pose2d nearestHub = getNearestHub();
+  private Pose2d getCompensatedHub(Pose2d targetHub, double shotAirtimeSeconds) {
     double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
 
     // Aim opposite the current robot velocity so shot travel time is compensated in flight.
     Translation2d compensationOffset = getFieldRelativeVelocity().times(-clampedAirtimeSeconds);
     return new Pose2d(
-        nearestHub.getTranslation().plus(compensationOffset), nearestHub.getRotation());
+        targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
   }
 
   private Rotation2d getRotationToHub(Pose2d hub) {
@@ -377,7 +386,54 @@ public class Drive extends SubsystemBase {
         this,
         x,
         y,
-        () -> getRotationToHub(getCompensatedHub(shotAirtimeSecondsSupplier.getAsDouble())));
+        () -> {
+          double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
+          Pose2d baseHub = getNearestHub();
+          Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
+          logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
+          return getRotationToHub(compensatedHub);
+        });
+  }
+
+  private void logHubAimTarget(Pose2d baseHub, Pose2d compensatedHub, double airtimeSeconds) {
+    if (!logHubAimVector.get()) {
+      return;
+    }
+
+    Pose2d robotPose = getPose();
+    Translation2d compensationOffset =
+        compensatedHub.getTranslation().minus(baseHub.getTranslation());
+    Translation2d vectorToTarget =
+        compensatedHub.getTranslation().minus(robotPose.getTranslation());
+
+    Logger.recordOutput("Drive/HubAim/RobotPose", robotPose);
+    Logger.recordOutput("Drive/HubAim/BaseTargetPose", baseHub);
+    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", compensatedHub);
+    Logger.recordOutput(
+        "Drive/HubAim/TargetVectorEndpoints",
+        new Pose2d[] {
+          new Pose2d(robotPose.getTranslation(), Rotation2d.kZero),
+          new Pose2d(compensatedHub.getTranslation(), Rotation2d.kZero)
+        });
+    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", airtimeSeconds);
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", compensationOffset.getX());
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", compensationOffset.getY());
+    Logger.recordOutput("Drive/HubAim/VectorToTargetX", vectorToTarget.getX());
+    Logger.recordOutput("Drive/HubAim/VectorToTargetY", vectorToTarget.getY());
+    wasHubAimVectorLoggingEnabled = true;
+  }
+
+  private void clearHubAimLogs() {
+    Logger.recordOutput("Drive/HubAim/RobotPose", Pose2d.kZero);
+    Logger.recordOutput("Drive/HubAim/BaseTargetPose", Pose2d.kZero);
+    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", Pose2d.kZero);
+    Logger.recordOutput("Drive/HubAim/TargetVectorEndpoints", new Pose2d[] {});
+    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", 0.0);
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", 0.0);
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", 0.0);
+    Logger.recordOutput("Drive/HubAim/VectorToTargetX", 0.0);
+    Logger.recordOutput("Drive/HubAim/VectorToTargetY", 0.0);
+    wasHubAimVectorLoggingEnabled = false;
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
