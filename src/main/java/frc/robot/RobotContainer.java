@@ -23,6 +23,7 @@ import frc.robot.subsystems.drive.GyroIONavX;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.shooter.Shooter;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -34,6 +35,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
+  private final Shooter shooter = new Shooter();
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
@@ -146,6 +148,8 @@ public class RobotContainer {
 
     controller.povLeft().onTrue(alignToOutpost());
 
+    controller.povRight().toggleOnTrue(alignToHub());
+
     controller.povDown().onTrue(drive.getDefaultCommand());
   }
 
@@ -160,7 +164,10 @@ public class RobotContainer {
   }
 
   public Command alignToHub() {
-    return drive.alignToHub();
+    return drive.alignToHub(
+        () -> -controller.getLeftY(),
+        () -> -controller.getLeftX(),
+        () -> shooter.estimateHubShotAirtimeSeconds(drive.getPose(), drive.getNearestHubPose()));
   }
 
   public Command alignToOutpost() {

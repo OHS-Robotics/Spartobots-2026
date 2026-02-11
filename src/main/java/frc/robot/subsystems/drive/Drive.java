@@ -29,7 +29,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
@@ -334,32 +333,51 @@ public class Drive extends SubsystemBase {
     return testPath;
   }
 
+  private Pose2d getNearestHub() {
+    double distanceToRedHub =
+        getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
+    double distanceToBlueHub =
+        getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
+    return distanceToRedHub < distanceToBlueHub ? Constants.redHub : Constants.blueHub;
+  }
+
+  public Pose2d getNearestHubPose() {
+    return getNearestHub();
+  }
+
+  private Translation2d getFieldRelativeVelocity() {
+    ChassisSpeeds fieldRelativeSpeeds =
+        ChassisSpeeds.fromRobotRelativeSpeeds(getChassisSpeeds(), getRotation());
+    return new Translation2d(
+        fieldRelativeSpeeds.vxMetersPerSecond, fieldRelativeSpeeds.vyMetersPerSecond);
+  }
+
+  private Pose2d getCompensatedHub(double shotAirtimeSeconds) {
+    Pose2d nearestHub = getNearestHub();
+    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
+
+    // Aim opposite the current robot velocity so shot travel time is compensated in flight.
+    Translation2d compensationOffset = getFieldRelativeVelocity().times(-clampedAirtimeSeconds);
+    return new Pose2d(
+        nearestHub.getTranslation().plus(compensationOffset), nearestHub.getRotation());
+  }
+
+  private Rotation2d getRotationToHub(Pose2d hub) {
+    Translation2d toTarget = hub.getTranslation().minus(getPose().getTranslation());
+    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+  }
+
   public Command alignToHub() {
-    PIDController rotationController = new PIDController(4.0, 0.0, 0.2);
-    rotationController.enableContinuousInput(-Math.PI, Math.PI);
-    return Commands.run(
-            () -> {
-              Pose2d target = Constants.blueHub;
-              double distanceToRedHub =
-                  this.getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
-              double distanceToBlueHub =
-                  this.getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
-              if (distanceToRedHub < distanceToBlueHub) {
-                target = Constants.redHub;
-              } else {
-                target = Constants.blueHub;
-              }
-              Translation2d toTarget =
-                  target.getTranslation().minus(this.getPose().getTranslation());
-              Rotation2d targetRotation =
-                  new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
-              double omega =
-                  rotationController.calculate(
-                      this.getRotation().getRadians(), targetRotation.getRadians());
-              runVelocity(new ChassisSpeeds(0.0, 0.0, omega));
-            },
-            this)
-        .beforeStarting(() -> rotationController.reset(this.getRotation().getRadians()));
+    return alignToHub(() -> 0.0, () -> 0.0, () -> 0.0);
+  }
+
+  public Command alignToHub(
+      DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
+    return DriveCommands.joystickDriveAtAngle(
+        this,
+        x,
+        y,
+        () -> getRotationToHub(getCompensatedHub(shotAirtimeSecondsSupplier.getAsDouble())));
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
