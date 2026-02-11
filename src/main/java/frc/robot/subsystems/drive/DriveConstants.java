@@ -18,9 +18,9 @@ import edu.wpi.first.math.util.Units;
 public class DriveConstants {
   public static final double maxSpeedMetersPerSec = 4.60248;
   public static final double maxAccelerationMeterPerSecSquared = 3;
-  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(45);
+  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(30);
   public static final double maxRotationalAccelerationRadiansPerSecSquared =
-      Units.degreesToRadians(30);
+      Units.degreesToRadians(15);
   public static final double odometryFrequency = 100.0; // Hz
   public static final double trackWidth = Units.inchesToMeters(20.5);
   public static final double wheelBase = Units.inchesToMeters(20.5);
@@ -76,6 +76,7 @@ public class DriveConstants {
 
   // Drive PID configuration
   public static final double driveKp = 0.0010645;
+  public static final double driveKi = 0.0;
   public static final double driveKd = 0.01;
   public static final double driveKs = 0.0;
   public static final double driveKv = 0.0789;
