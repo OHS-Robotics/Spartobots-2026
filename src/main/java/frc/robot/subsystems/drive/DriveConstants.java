@@ -25,7 +25,8 @@ public class DriveConstants {
   public static final double trackWidth = Units.inchesToMeters(20.5);
   public static final double wheelBase = Units.inchesToMeters(20.5);
   public static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
-  public static final Translation2d[] moduleTranslations =
+  // these are the original ones
+  /*public static final Translation2d[] moduleTranslations =
       new Translation2d[] {
         new Translation2d(trackWidth / 2.0, wheelBase / 2.0),
         new Translation2d(trackWidth / 2.0, -wheelBase / 2.0),
@@ -33,7 +34,17 @@ public class DriveConstants {
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
       };
   // Maps logical module index (FL, FR, BL, BR) -> hardware position index
-  public static final int[] moduleIndexToHardwareIndex = {2, 3, 0, 1};
+  public static final int[] moduleIndexToHardwareIndex = {2, 3, 0, 1};*/
+
+  public static final Translation2d[] moduleTranslations =
+      new Translation2d[] {
+        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
+        new Translation2d(trackWidth / 2.0, wheelBase / 2.0),
+        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0),
+        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0)
+      };
+  // Maps logical module index (FL, FR, BL, BR) -> hardware position index
+  public static final int[] moduleIndexToHardwareIndex = {0, 1, 2, 3};
 
   // Zeroed rotation values for each module, see setup instructions
   public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.905 + 1.809);
