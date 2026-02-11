@@ -33,14 +33,14 @@ public class DriveConstants {
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
       };
   // Maps logical module index (FL, FR, BL, BR) -> hardware position index.
-  // This must stay aligned with moduleTranslations and the physical robot layout.
-  public static final int[] moduleIndexToHardwareIndex = {0, 1, 2, 3};
+  // Keep this aligned with how modules are wired/configured on the real robot.
+  public static final int[] moduleIndexToHardwareIndex = {2, 3, 0, 1};
 
   // Global chassis-frame correction scalars applied in Drive.runVelocity.
   // Keep at 1.0 unless you intentionally need to correct a frame mismatch.
   public static final double chassisXCommandScalar = 1.0;
-  public static final double chassisYCommandScalar = 1.0;
-  public static final double chassisOmegaCommandScalar = 1.0;
+  public static final double chassisYCommandScalar = -1.0;
+  public static final double chassisOmegaCommandScalar = -1.0;
 
   // NavX yaw sign to match WPILib's CCW-positive convention.
   public static final boolean navxYawInverted = true;
