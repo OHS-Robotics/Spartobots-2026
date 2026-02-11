@@ -23,8 +23,8 @@ import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
@@ -375,8 +375,7 @@ public class Drive extends SubsystemBase {
 
     // Aim opposite the current robot velocity so shot travel time is compensated in flight.
     Translation2d compensationOffset = getFieldRelativeVelocity().times(-clampedAirtimeSeconds);
-    return new Pose2d(
-        targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
+    return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
   }
 
   private Rotation2d getRotationToHub(Pose2d hub) {

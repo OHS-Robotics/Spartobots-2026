@@ -29,7 +29,8 @@ public class Shooter extends SubsystemBase {
 
   private double estimateShotAirtimeSeconds(
       double horizontalDistanceMeters, double targetHeightDeltaMeters) {
-    double shotSpeed = Math.max(launchSpeedMetersPerSec, ShooterConstants.minLaunchSpeedMetersPerSec);
+    double shotSpeed =
+        Math.max(launchSpeedMetersPerSec, ShooterConstants.minLaunchSpeedMetersPerSec);
     double vx = shotSpeed * Math.cos(launchAngle.getRadians());
     double vy = shotSpeed * Math.sin(launchAngle.getRadians());
 
