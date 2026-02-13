@@ -25,32 +25,21 @@ public class DriveConstants {
   public static final double trackWidth = Units.inchesToMeters(20.5);
   public static final double wheelBase = Units.inchesToMeters(20.5);
   public static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
-  // these are the original ones
-  /*public static final Translation2d[] moduleTranslations =
-      new Translation2d[] {
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0),
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0),
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
-      };
-  // Maps logical module index (FL, FR, BL, BR) -> hardware position index
-  public static final int[] moduleIndexToHardwareIndex = {2, 3, 0, 1};*/
-
   public static final Translation2d[] moduleTranslations =
       new Translation2d[] {
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0),
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0),
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0)
+        new Translation2d(trackWidth / 2.0, wheelBase / 2.0), // FL
+        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0), // FR
+        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0), // BL
+        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // BR
       };
   // Maps logical module index (FL, FR, BL, BR) -> hardware position index
   public static final int[] moduleIndexToHardwareIndex = {0, 1, 2, 3};
 
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.905 + 1.809);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(-1.309 - 1.021);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(1.924 + 1.779);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(-1.122 - 0.078);
+  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
+  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543);
+  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
 
   // Device CAN IDs
   public static final int pigeonCanId = 1;
@@ -97,13 +86,13 @@ public class DriveConstants {
   public static final double driveSimKv = 0.0789;
 
   // Turn motor configuration
-  public static final boolean turnInverted = true;
+  public static final boolean turnInverted = false;
   public static final int turnMotorCurrentLimit = 20;
   public static final double turnMotorReduction = 12.8;
   public static final DCMotor turnGearbox = DCMotor.getNEO(1);
 
   // Turn encoder configuration
-  public static final boolean turnEncoderInverted = true;
+  public static final boolean turnEncoderInverted = false;
   public static final double turnEncoderPositionFactor =
       2 * Math.PI / turnMotorReduction; // Rotor Rotations -> Wheel Radians
   public static final double turnEncoderVelocityFactor =
