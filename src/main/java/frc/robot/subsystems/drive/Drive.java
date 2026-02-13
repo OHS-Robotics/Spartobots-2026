@@ -20,6 +20,7 @@ import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -52,6 +53,7 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
+
   public final VisionSubsystem vision = new VisionSubsystem();
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
@@ -77,6 +79,8 @@ public class Drive extends SubsystemBase {
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
   private PathPlannerAuto testPath;
+  private final PIDController alignController =
+      new PIDController(DriveConstants.alignKp, DriveConstants.alignKi, DriveConstants.alignKd);
 
   public Drive(
       GyroIO gyroIO,
@@ -103,7 +107,9 @@ public class Drive extends SubsystemBase {
         this::getChassisSpeeds,
         this::runVelocity,
         new PPHolonomicDriveController(
-            new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+            new PIDConstants(
+                DriveConstants.driveKp, DriveConstants.driveKi, DriveConstants.driveKd),
+            new PIDConstants(DriveConstants.turnKp, DriveConstants.turnKi, DriveConstants.turnKd)),
         ppConfig,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
@@ -185,7 +191,8 @@ public class Drive extends SubsystemBase {
       }
 
       // Apply update
-      poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
+      poseEstimator.updateWithTime(
+          sampleTimestamps[i], rawGyroRotation.unaryMinus(), modulePositions);
     }
 
     // Update gyro alert
@@ -466,6 +473,8 @@ public class Drive extends SubsystemBase {
                 Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
                     < DriveConstants.aligned);
   }
+
+  public void alignTo(Pose2d target) {}
 
   public void update() {
     vision.updatePoseEstimate(this);

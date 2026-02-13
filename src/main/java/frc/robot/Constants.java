@@ -26,6 +26,8 @@ public final class Constants {
   public static AprilTagFieldLayout FIELD_LAYOUT =
       AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
 
+  public static double halfOfFieldX = Units.inchesToMeters(561.11 / 2);
+
   public static Transform3d cameraPosition =
       new Transform3d(
           new Translation3d(

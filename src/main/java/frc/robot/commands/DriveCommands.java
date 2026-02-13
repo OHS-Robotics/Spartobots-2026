@@ -87,12 +87,11 @@ public class DriveCommands {
           boolean isFlipped =
               DriverStation.getAlliance().isPresent()
                   && DriverStation.getAlliance().get() == Alliance.Red;
+          // this might be something to look into
           drive.runVelocity(
-              ChassisSpeeds.fromFieldRelativeSpeeds(
-                  speeds,
-                  isFlipped
-                      ? drive.getRotation().plus(new Rotation2d(Math.PI))
-                      : drive.getRotation()));
+              ChassisSpeeds.fromFieldRelativeSpeeds(speeds, /*isFlipped
+                  ? drive.getRotation().plus(new Rotation2d(Math.PI))
+                  : drive.getRotation()*/ drive.getRotation()));
         },
         drive);
   }
@@ -283,6 +282,10 @@ public class DriveCommands {
                               + " inches");
                     })));
   }
+
+  /*public static Command alignTo(Drive drive, String element) {
+    Pose2d target;
+  }*/
 
   private static class WheelRadiusCharacterizationState {
     double[] positions = new double[4];
