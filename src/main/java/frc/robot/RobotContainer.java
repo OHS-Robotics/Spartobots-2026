@@ -15,8 +15,10 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.GenericHID;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -55,6 +57,15 @@ public class RobotContainer {
   private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
   private static final double HUMP_PEAK_HEIGHT_METERS = Units.inchesToMeters(7.0);
   private static final double HUMP_X_CLEARANCE_MARGIN_METERS = 0.15;
+  private static final double FIELD_X_MIN_METERS = 0.0;
+  private static final double FIELD_X_MAX_METERS = 16.54105;
+  private static final double FIELD_Y_MIN_METERS = 0.0;
+  private static final double FIELD_Y_MAX_METERS = 8.06926;
+  private static final double WALL_IMPACT_MARGIN_METERS = 0.08;
+  private static final double WALL_IMPACT_MIN_APPROACH_SPEED_MPS = 0.55;
+  private static final double WALL_IMPACT_ACCEL_THRESHOLD_MPS2 = 9.0;
+  private static final double WALL_RUMBLE_DURATION_SECS = 0.22;
+  private static final double WALL_RUMBLE_STRENGTH = 1.0;
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final HumpPoseSample FLAT_GROUND_SAMPLE =
@@ -72,6 +83,8 @@ public class RobotContainer {
 
   private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
+  private ChassisSpeeds previousSimFieldSpeeds = null;
+  private double rumbleUntilTimestampSeconds = 0.0;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -247,6 +260,9 @@ public class RobotContainer {
 
     drive.setPose(SIM_START_POSE);
     SimulatedArena.getInstance().resetFieldForAuto();
+    previousSimFieldSpeeds = null;
+    rumbleUntilTimestampSeconds = 0.0;
+    controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
   }
 
   public void updateSimulation() {
@@ -256,6 +272,9 @@ public class RobotContainer {
 
     SimulatedArena.getInstance().simulationPeriodic();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
+    ChassisSpeeds simFieldSpeeds =
+        driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
+    updateCollisionRumble(robotPose, simFieldSpeeds);
     HumpPoseSample humpPoseSample = sampleHumpPose(robotPose);
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
     Logger.recordOutput(
@@ -275,6 +294,63 @@ public class RobotContainer {
     Logger.recordOutput(
         "FieldSimulation/GamePieces/Algae",
         SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
+  }
+
+  private void updateCollisionRumble(Pose2d robotPose, ChassisSpeeds currentFieldSpeeds) {
+    double nowSeconds = Timer.getFPGATimestamp();
+
+    if (previousSimFieldSpeeds != null) {
+      double deltaVx =
+          currentFieldSpeeds.vxMetersPerSecond - previousSimFieldSpeeds.vxMetersPerSecond;
+      double deltaVy =
+          currentFieldSpeeds.vyMetersPerSecond - previousSimFieldSpeeds.vyMetersPerSecond;
+      double translationalAccelerationMetersPerSecSquared = Math.hypot(deltaVx, deltaVy) / 0.02;
+
+      boolean approachingWall = isApproachingFieldWall(robotPose, previousSimFieldSpeeds);
+      boolean impactDetected =
+          approachingWall
+              && translationalAccelerationMetersPerSecSquared >= WALL_IMPACT_ACCEL_THRESHOLD_MPS2;
+
+      if (impactDetected) {
+        rumbleUntilTimestampSeconds = nowSeconds + WALL_RUMBLE_DURATION_SECS;
+      }
+
+      Logger.recordOutput("FieldSimulation/WallImpact/ApproachingWall", approachingWall);
+      Logger.recordOutput(
+          "FieldSimulation/WallImpact/TranslationalAccelerationMps2",
+          translationalAccelerationMetersPerSecSquared);
+      Logger.recordOutput("FieldSimulation/WallImpact/Detected", impactDetected);
+    }
+
+    previousSimFieldSpeeds = currentFieldSpeeds;
+    double rumbleStrength = nowSeconds < rumbleUntilTimestampSeconds ? WALL_RUMBLE_STRENGTH : 0.0;
+    controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
+    Logger.recordOutput("FieldSimulation/WallImpact/RumbleStrength", rumbleStrength);
+  }
+
+  private boolean isApproachingFieldWall(Pose2d robotPose, ChassisSpeeds fieldSpeeds) {
+    double halfLength = DriveConstants.bumperLengthXMeters * 0.5;
+    double halfWidth = DriveConstants.bumperWidthYMeters * 0.5;
+
+    boolean nearMinX =
+        robotPose.getX() <= FIELD_X_MIN_METERS + halfLength + WALL_IMPACT_MARGIN_METERS;
+    boolean nearMaxX =
+        robotPose.getX() >= FIELD_X_MAX_METERS - halfLength - WALL_IMPACT_MARGIN_METERS;
+    boolean nearMinY =
+        robotPose.getY() <= FIELD_Y_MIN_METERS + halfWidth + WALL_IMPACT_MARGIN_METERS;
+    boolean nearMaxY =
+        robotPose.getY() >= FIELD_Y_MAX_METERS - halfWidth - WALL_IMPACT_MARGIN_METERS;
+
+    boolean approachingMinX =
+        nearMinX && fieldSpeeds.vxMetersPerSecond < -WALL_IMPACT_MIN_APPROACH_SPEED_MPS;
+    boolean approachingMaxX =
+        nearMaxX && fieldSpeeds.vxMetersPerSecond > WALL_IMPACT_MIN_APPROACH_SPEED_MPS;
+    boolean approachingMinY =
+        nearMinY && fieldSpeeds.vyMetersPerSecond < -WALL_IMPACT_MIN_APPROACH_SPEED_MPS;
+    boolean approachingMaxY =
+        nearMaxY && fieldSpeeds.vyMetersPerSecond > WALL_IMPACT_MIN_APPROACH_SPEED_MPS;
+
+    return approachingMinX || approachingMaxX || approachingMinY || approachingMaxY;
   }
 
   private Pose3d getSimulatedRobotPose3d(Pose2d robotPose, HumpPoseSample humpPoseSample) {
