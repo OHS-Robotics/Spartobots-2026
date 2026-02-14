@@ -250,11 +250,15 @@ public class RobotContainer {
     return drive.alignToHub(
         () -> -controller.getLeftY(),
         () -> -controller.getLeftX(),
-        () -> shooter.estimateHubShotAirtimeSeconds(drive.getPose(), drive.getNearestHubPose()));
+        () -> shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose()).airtimeSeconds());
   }
 
   public Command alignToOutpost() {
     return drive.alignToOutpost(() -> -controller.getLeftX(), () -> -controller.getLeftY());
+  }
+
+  public void updateHubShotSolution() {
+    shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
   }
 
   public void resetSimulationField() {
