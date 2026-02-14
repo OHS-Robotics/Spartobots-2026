@@ -14,12 +14,14 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -41,6 +43,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.commands.AlignToPose;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.util.LocalADStarAK;
@@ -79,6 +82,13 @@ public class Drive extends SubsystemBase {
 
   private PathPlannerAuto testPath;
 
+  private PathPlannerAuto trenchAuto;
+
+  private PathPlannerPath trenchPath;
+
+  private PIDController driveToPoseController =
+      new PIDController(driveToPoseControllerKp, driveToPoseControllerKi, driveToPoseControllerKd);
+
   public Drive(
       GyroIO gyroIO,
       ModuleIO flModuleIO,
@@ -104,9 +114,7 @@ public class Drive extends SubsystemBase {
         this::getChassisSpeeds,
         this::runVelocity,
         new PPHolonomicDriveController(
-            new PIDConstants(
-                DriveConstants.driveKp, DriveConstants.driveKi, DriveConstants.driveKd),
-            new PIDConstants(DriveConstants.turnKp, DriveConstants.turnKi, DriveConstants.turnKd)),
+            new PIDConstants(10.0, 0.0, 1.0), new PIDConstants(7.0, 0.0, 1.0)),
         ppConfig,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
@@ -120,7 +128,14 @@ public class Drive extends SubsystemBase {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
 
-    testPath = new PathPlannerAuto("Example Auto");
+    testPath = new PathPlannerAuto("TrenchTestAuto");
+    trenchAuto = new PathPlannerAuto("TrenchTestAuto");
+    // get trench path
+    try {
+      trenchPath = PathPlannerPath.fromPathFile("TrenchTest");
+    } catch (Exception e) {
+      DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());
+    }
 
     // Configure SysId
     sysId =
@@ -329,7 +344,7 @@ public class Drive extends SubsystemBase {
 
   /** Resets the current odometry pose. */
   public void setPose(Pose2d pose) {
-    poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+    poseEstimator.resetPosition(rawGyroRotation.unaryMinus(), getModulePositions(), pose);
   }
 
   /** Adds a new timestamped vision measurement. */
@@ -352,7 +367,30 @@ public class Drive extends SubsystemBase {
   }
 
   public Command getAutonomousCommand() {
-    return testPath;
+    // return testPath;
+    return trenchDriveAuto();
+    // return outpostLoadAuto();
+  }
+
+  public Command trenchDriveAuto() {
+    return Commands.sequence(
+        AutoBuilder.pathfindToPose(trenchAuto.getStartingPose(), pathConstraints),
+        AutoBuilder.buildAuto("TrenchTestAuto"));
+  }
+
+  public Command alignToPose(Pose2d target) {
+    /*return DriveCommands.joystickDrive(
+    this,
+    () -> driveToPoseController.calculate(this.getPose().getX(), target.getX()),
+    () -> driveToPoseController.calculate(this.getPose().getY(), target.getY()),
+    () ->
+        -driveToPoseController.calculate(
+            this.getPose().getRotation().getRadians(), target.getRotation().getRadians()));*/
+    return new AlignToPose(this, target, driveToPoseController);
+  }
+
+  public Command outpostLoadAuto() {
+    return AutoBuilder.pathfindToPose(getNearestOutpostPose(), pathConstraints);
   }
 
   private Pose2d getNearestHub() {
@@ -363,8 +401,22 @@ public class Drive extends SubsystemBase {
     return distanceToRedHub < distanceToBlueHub ? Constants.redHub : Constants.blueHub;
   }
 
+  private Pose2d getNearestOutpost() {
+    if (DriverStation.getAlliance().isPresent()) {
+      if (DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
+        return Constants.redOutpost;
+      }
+      return Constants.blueOutpost;
+    }
+    return null;
+  }
+
   public Pose2d getNearestHubPose() {
     return getNearestHub();
+  }
+
+  public Pose2d getNearestOutpostPose() {
+    return getNearestOutpost();
   }
 
   private Translation2d getFieldRelativeVelocity() {

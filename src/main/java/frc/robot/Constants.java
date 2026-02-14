@@ -44,16 +44,10 @@ public final class Constants {
           Units.inchesToMeters(469.111), Units.inchesToMeters(158.844), new Rotation2d(Math.PI));
   public static final Pose2d blueHub =
       new Pose2d(Units.inchesToMeters(182.111), Units.inchesToMeters(158.844), new Rotation2d(0));
-  public static final Pose2d redOutpost =
-      new Pose2d(
-          Units.inchesToMeters(651.22 - robotBaseLength / 2),
-          Units.inchesToMeters(317.69 - 25),
-          new Rotation2d(0));
+  public static final Pose2d redOutpost = new Pose2d(15.85, 7.425, new Rotation2d(0));
   public static final Pose2d blueOutpost =
       new Pose2d(
-          Units.inchesToMeters(robotBaseLength / 2),
-          Units.inchesToMeters(25),
-          new Rotation2d(Math.PI));
+          Units.inchesToMeters(robotBaseLength / 2), Units.inchesToMeters(25), new Rotation2d(0));
 
   public static enum Mode {
     /** Running on a real robot. */

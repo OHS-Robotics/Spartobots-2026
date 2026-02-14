@@ -173,7 +173,7 @@ public class RobotContainer {
 
     controller.povUp().whileTrue(alignToHub());
 
-    controller.povLeft().onTrue(alignToOutpost());
+    controller.povLeft().onTrue(drive.alignToPose(Constants.blueOutpost));
 
     controller.povRight().toggleOnTrue(alignToHub());
 
