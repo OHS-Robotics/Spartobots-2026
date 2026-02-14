@@ -39,6 +39,7 @@ public class AlignToPose extends Command {
         () -> driveToPoseController.calculate(drive.getPose().getY(), target.getY()),
         () ->
             -driveToPoseController.calculate(
-                drive.getPose().getRotation().getRadians(), target.getRotation().getRadians()));
+                drive.getPose().getRotation().getRadians(), target.getRotation().getRadians()),
+        () -> false);
   }
 }
