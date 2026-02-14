@@ -8,12 +8,14 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -36,6 +38,7 @@ import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -47,6 +50,14 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  */
 public class RobotContainer {
   private static final Pose2d SIM_START_POSE = new Pose2d(3.0, 3.0, Rotation2d.kZero);
+  private static final double HUB_TOP_LENGTH_Y_METERS = Units.inchesToMeters(47.0);
+  private static final double HUB_RAMP_LENGTH_Y_METERS = Units.inchesToMeters(73.0);
+  private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
+  private static final double HUMP_PEAK_HEIGHT_METERS = Units.inchesToMeters(7.0);
+  private static final double HUMP_X_CLEARANCE_MARGIN_METERS = 0.15;
+  private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
+  private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
+  private static final HumpPoseSample FLAT_GROUND_SAMPLE = new HumpPoseSample(0.0, 0.0);
 
   // Subsystems
   private final Drive drive;
@@ -84,6 +95,7 @@ public class RobotContainer {
 
       case SIM:
         // Sim robot, instantiate MapleSim physics implementations
+        SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
         driveSimulation = new SwerveDriveSimulation(DriveConstants.mapleSimConfig, SIM_START_POSE);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
         drive =
@@ -243,9 +255,13 @@ public class RobotContainer {
 
     SimulatedArena.getInstance().simulationPeriodic();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
+    HumpPoseSample humpPoseSample = sampleHumpPose(robotPose);
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
     Logger.recordOutput(
-        "FieldSimulation/RobotParts/SwerveModules", getSimulatedModulePoses(robotPose));
+        "FieldSimulation/RobotPose3d", getSimulatedRobotPose3d(robotPose, humpPoseSample));
+    Logger.recordOutput(
+        "FieldSimulation/RobotParts/SwerveModules",
+        getSimulatedModulePoses(robotPose, humpPoseSample));
     Logger.recordOutput(
         "FieldSimulation/GamePieces/Fuel",
         SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
@@ -260,7 +276,16 @@ public class RobotContainer {
         SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
   }
 
-  private Pose3d[] getSimulatedModulePoses(Pose2d robotPose) {
+  private Pose3d getSimulatedRobotPose3d(Pose2d robotPose, HumpPoseSample humpPoseSample) {
+    return new Pose3d(
+        new Translation3d(
+            robotPose.getX(),
+            robotPose.getY(),
+            ROBOT_BODY_BASE_HEIGHT_METERS + humpPoseSample.heightMeters()),
+        new Rotation3d(humpPoseSample.rollRadians(), 0.0, robotPose.getRotation().getRadians()));
+  }
+
+  private Pose3d[] getSimulatedModulePoses(Pose2d robotPose, HumpPoseSample humpPoseSample) {
     Pose3d[] modulePoses = new Pose3d[DriveConstants.moduleTranslations.length];
     for (int i = 0; i < modulePoses.length; i++) {
       Translation2d moduleOffset =
@@ -271,9 +296,49 @@ public class RobotContainer {
 
       modulePoses[i] =
           new Pose3d(
-              new Translation3d(modulePosition.getX(), modulePosition.getY(), 0.05),
-              new Rotation3d(0.0, 0.0, moduleRotation.getRadians()));
+              new Translation3d(
+                  modulePosition.getX(),
+                  modulePosition.getY(),
+                  MODULE_HEIGHT_ABOVE_GROUND_METERS + humpPoseSample.heightMeters()),
+              new Rotation3d(humpPoseSample.rollRadians(), 0.0, moduleRotation.getRadians()));
     }
     return modulePoses;
   }
+
+  private HumpPoseSample sampleHumpPose(Pose2d robotPose) {
+    HumpPoseSample blueSample = sampleSingleHump(Constants.blueHub.getX(), robotPose);
+    HumpPoseSample redSample = sampleSingleHump(Constants.redHub.getX(), robotPose);
+    return blueSample.heightMeters() >= redSample.heightMeters() ? blueSample : redSample;
+  }
+
+  private HumpPoseSample sampleSingleHump(double hubCenterXMeters, Pose2d robotPose) {
+    double maxHumpXDistance =
+        (HUB_WIDTH_X_METERS / 2.0)
+            + (DriveConstants.trackWidth / 2.0)
+            + HUMP_X_CLEARANCE_MARGIN_METERS;
+    if (Math.abs(robotPose.getX() - hubCenterXMeters) > maxHumpXDistance) {
+      return FLAT_GROUND_SAMPLE;
+    }
+
+    double yOffsetFromHub = robotPose.getY() - Constants.blueHub.getY();
+    double absYOffset = Math.abs(yOffsetFromHub);
+    double halfTopLength = HUB_TOP_LENGTH_Y_METERS / 2.0;
+    if (absYOffset > (halfTopLength + HUB_RAMP_LENGTH_Y_METERS)) {
+      return FLAT_GROUND_SAMPLE;
+    }
+
+    if (absYOffset <= halfTopLength) {
+      return new HumpPoseSample(HUMP_PEAK_HEIGHT_METERS, 0.0);
+    }
+
+    double rampTravelMeters = absYOffset - halfTopLength;
+    double rampPercent =
+        1.0 - MathUtil.clamp(rampTravelMeters / HUB_RAMP_LENGTH_Y_METERS, 0.0, 1.0);
+    double heightMeters = HUMP_PEAK_HEIGHT_METERS * rampPercent;
+    double maxRollRadians = Math.atan2(HUMP_PEAK_HEIGHT_METERS, HUB_RAMP_LENGTH_Y_METERS);
+    double rollRadians = Math.copySign(maxRollRadians, -yOffsetFromHub);
+    return new HumpPoseSample(heightMeters, rollRadians);
+  }
+
+  private record HumpPoseSample(double heightMeters, double rollRadians) {}
 }
