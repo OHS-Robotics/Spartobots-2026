@@ -57,7 +57,8 @@ public class RobotContainer {
   private static final double HUMP_X_CLEARANCE_MARGIN_METERS = 0.15;
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
-  private static final HumpPoseSample FLAT_GROUND_SAMPLE = new HumpPoseSample(0.0, 0.0);
+  private static final HumpPoseSample FLAT_GROUND_SAMPLE =
+      new HumpPoseSample(new double[] {0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 0.0);
 
   // Subsystems
   private final Drive drive;
@@ -282,7 +283,10 @@ public class RobotContainer {
             robotPose.getX(),
             robotPose.getY(),
             ROBOT_BODY_BASE_HEIGHT_METERS + humpPoseSample.heightMeters()),
-        new Rotation3d(humpPoseSample.rollRadians(), 0.0, robotPose.getRotation().getRadians()));
+        new Rotation3d(
+            humpPoseSample.rollRadians(),
+            humpPoseSample.pitchRadians(),
+            robotPose.getRotation().getRadians()));
   }
 
   private Pose3d[] getSimulatedModulePoses(Pose2d robotPose, HumpPoseSample humpPoseSample) {
@@ -299,46 +303,66 @@ public class RobotContainer {
               new Translation3d(
                   modulePosition.getX(),
                   modulePosition.getY(),
-                  MODULE_HEIGHT_ABOVE_GROUND_METERS + humpPoseSample.heightMeters()),
-              new Rotation3d(humpPoseSample.rollRadians(), 0.0, moduleRotation.getRadians()));
+                  MODULE_HEIGHT_ABOVE_GROUND_METERS + humpPoseSample.moduleHeightsMeters()[i]),
+              new Rotation3d(
+                  humpPoseSample.rollRadians(),
+                  humpPoseSample.pitchRadians(),
+                  moduleRotation.getRadians()));
     }
     return modulePoses;
   }
 
   private HumpPoseSample sampleHumpPose(Pose2d robotPose) {
-    HumpPoseSample blueSample = sampleSingleHump(Constants.blueHub.getX(), robotPose);
-    HumpPoseSample redSample = sampleSingleHump(Constants.redHub.getX(), robotPose);
-    return blueSample.heightMeters() >= redSample.heightMeters() ? blueSample : redSample;
-  }
-
-  private HumpPoseSample sampleSingleHump(double hubCenterXMeters, Pose2d robotPose) {
-    double maxHumpXDistance =
-        (HUB_WIDTH_X_METERS / 2.0)
-            + (DriveConstants.trackWidth / 2.0)
-            + HUMP_X_CLEARANCE_MARGIN_METERS;
-    if (Math.abs(robotPose.getX() - hubCenterXMeters) > maxHumpXDistance) {
-      return FLAT_GROUND_SAMPLE;
+    double[] moduleHeights = new double[DriveConstants.moduleTranslations.length];
+    for (int i = 0; i < moduleHeights.length; i++) {
+      Translation2d moduleFieldPosition =
+          robotPose
+              .getTranslation()
+              .plus(DriveConstants.moduleTranslations[i].rotateBy(robotPose.getRotation()));
+      moduleHeights[i] = sampleGroundHeightAt(moduleFieldPosition);
     }
 
-    double yOffsetFromHub = robotPose.getY() - Constants.blueHub.getY();
+    double frontAverage = (moduleHeights[0] + moduleHeights[1]) * 0.5;
+    double backAverage = (moduleHeights[2] + moduleHeights[3]) * 0.5;
+    double leftAverage = (moduleHeights[0] + moduleHeights[2]) * 0.5;
+    double rightAverage = (moduleHeights[1] + moduleHeights[3]) * 0.5;
+    double averageHeight =
+        (moduleHeights[0] + moduleHeights[1] + moduleHeights[2] + moduleHeights[3]) * 0.25;
+
+    double rollRadians = Math.atan2(leftAverage - rightAverage, DriveConstants.trackWidth);
+    double pitchRadians = Math.atan2(frontAverage - backAverage, DriveConstants.wheelBase);
+    return new HumpPoseSample(moduleHeights, averageHeight, rollRadians, pitchRadians);
+  }
+
+  private double sampleGroundHeightAt(Translation2d position) {
+    double blueHeight = sampleSingleHumpHeight(Constants.blueHub.getX(), position);
+    double redHeight = sampleSingleHumpHeight(Constants.redHub.getX(), position);
+    return Math.max(blueHeight, redHeight);
+  }
+
+  private double sampleSingleHumpHeight(double hubCenterXMeters, Translation2d position) {
+    double maxHumpXDistance = (HUB_WIDTH_X_METERS / 2.0) + HUMP_X_CLEARANCE_MARGIN_METERS;
+    if (Math.abs(position.getX() - hubCenterXMeters) > maxHumpXDistance) {
+      return 0.0;
+    }
+
+    double yOffsetFromHub = position.getY() - Constants.blueHub.getY();
     double absYOffset = Math.abs(yOffsetFromHub);
     double halfTopLength = HUB_TOP_LENGTH_Y_METERS / 2.0;
     if (absYOffset > (halfTopLength + HUB_RAMP_LENGTH_Y_METERS)) {
-      return FLAT_GROUND_SAMPLE;
+      return 0.0;
     }
 
     if (absYOffset <= halfTopLength) {
-      return new HumpPoseSample(HUMP_PEAK_HEIGHT_METERS, 0.0);
+      return HUMP_PEAK_HEIGHT_METERS;
     }
 
     double rampTravelMeters = absYOffset - halfTopLength;
     double rampPercent =
         1.0 - MathUtil.clamp(rampTravelMeters / HUB_RAMP_LENGTH_Y_METERS, 0.0, 1.0);
-    double heightMeters = HUMP_PEAK_HEIGHT_METERS * rampPercent;
-    double maxRollRadians = Math.atan2(HUMP_PEAK_HEIGHT_METERS, HUB_RAMP_LENGTH_Y_METERS);
-    double rollRadians = Math.copySign(maxRollRadians, -yOffsetFromHub);
-    return new HumpPoseSample(heightMeters, rollRadians);
+    return HUMP_PEAK_HEIGHT_METERS * rampPercent;
   }
 
-  private record HumpPoseSample(double heightMeters, double rollRadians) {}
+  private record HumpPoseSample(
+      double[] moduleHeightsMeters, double heightMeters, double rollRadians, double pitchRadians) {}
 }
