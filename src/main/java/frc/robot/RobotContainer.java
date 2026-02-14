@@ -9,7 +9,11 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -18,7 +22,9 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
+import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.GyroIONavX;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
@@ -28,6 +34,9 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -37,6 +46,8 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
+  private static final Pose2d SIM_START_POSE = new Pose2d(3.0, 3.0, Rotation2d.kZero);
+
   // Subsystems
   private final Drive drive;
   private final Shooter shooter = new Shooter();
@@ -48,6 +59,7 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   private final Vision vision;
+  private SwerveDriveSimulation driveSimulation = null;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -71,21 +83,29 @@ public class RobotContainer {
         break;
 
       case SIM:
-        // Sim robot, instantiate physics sim IO implementations
+        // Sim robot, instantiate MapleSim physics implementations
+        driveSimulation = new SwerveDriveSimulation(DriveConstants.mapleSimConfig, SIM_START_POSE);
+        SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
         drive =
             new Drive(
-                new GyroIO() {},
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim());
+                new GyroIOSim(driveSimulation.getGyroSimulation()),
+                new ModuleIOSim(driveSimulation.getModules()[0]),
+                new ModuleIOSim(driveSimulation.getModules()[1]),
+                new ModuleIOSim(driveSimulation.getModules()[2]),
+                new ModuleIOSim(driveSimulation.getModules()[3]),
+                driveSimulation::setSimulationWorldPose);
         vision =
             new Vision(
                 drive::addVisionMeasurement,
                 new VisionIOPhotonVisionSim(
-                    VisionConstants.camera0Name, VisionConstants.robotToCamera0, drive::getPose),
+                    VisionConstants.camera0Name,
+                    VisionConstants.robotToCamera0,
+                    driveSimulation::getSimulatedDriveTrainPose),
                 new VisionIOPhotonVisionSim(
-                    VisionConstants.camera1Name, VisionConstants.robotToCamera1, drive::getPose));
+                    VisionConstants.camera1Name,
+                    VisionConstants.robotToCamera1,
+                    driveSimulation::getSimulatedDriveTrainPose));
+        resetSimulationField();
         break;
 
       default:
@@ -178,6 +198,12 @@ public class RobotContainer {
     controller.povRight().toggleOnTrue(alignToHub());
 
     controller.povDown().onTrue(drive.getDefaultCommand());
+
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      controller
+          .leftBumper()
+          .onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
+    }
   }
 
   /**
@@ -199,5 +225,49 @@ public class RobotContainer {
 
   public Command alignToOutpost() {
     return drive.alignToOutpost(() -> -controller.getLeftX(), () -> -controller.getLeftY());
+  }
+
+  public void resetSimulationField() {
+    if (Constants.currentMode != Constants.Mode.SIM || driveSimulation == null) {
+      return;
+    }
+
+    drive.setPose(SIM_START_POSE);
+    SimulatedArena.getInstance().resetFieldForAuto();
+  }
+
+  public void updateSimulation() {
+    if (Constants.currentMode != Constants.Mode.SIM || driveSimulation == null) {
+      return;
+    }
+
+    SimulatedArena.getInstance().simulationPeriodic();
+    Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
+    Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
+    Logger.recordOutput("FieldSimulation/RobotParts/SwerveModules", getSimulatedModulePoses(robotPose));
+    Logger.recordOutput(
+        "FieldSimulation/GamePieces/Fuel", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
+    Logger.recordOutput(
+        "FieldSimulation/GamePieces/Note", SimulatedArena.getInstance().getGamePiecesArrayByType("Note"));
+    Logger.recordOutput(
+        "FieldSimulation/GamePieces/Coral", SimulatedArena.getInstance().getGamePiecesArrayByType("Coral"));
+    Logger.recordOutput(
+        "FieldSimulation/GamePieces/Algae", SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
+  }
+
+  private Pose3d[] getSimulatedModulePoses(Pose2d robotPose) {
+    Pose3d[] modulePoses = new Pose3d[DriveConstants.moduleTranslations.length];
+    for (int i = 0; i < modulePoses.length; i++) {
+      Translation2d moduleOffset = DriveConstants.moduleTranslations[i].rotateBy(robotPose.getRotation());
+      Translation2d modulePosition = robotPose.getTranslation().plus(moduleOffset);
+      Rotation2d moduleRotation =
+          driveSimulation.getModules()[i].getSteerAbsoluteFacing().plus(robotPose.getRotation());
+
+      modulePoses[i] =
+          new Pose3d(
+              new Translation3d(modulePosition.getX(), modulePosition.getY(), 0.05),
+              new Rotation3d(0.0, 0.0, moduleRotation.getRadians()));
+    }
+    return modulePoses;
   }
 }

@@ -7,6 +7,8 @@
 
 package frc.robot.subsystems.drive;
 
+import static edu.wpi.first.units.Units.*;
+
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.path.PathConstraints;
@@ -14,6 +16,9 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
+import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
+import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 
 public class DriveConstants {
   public static final double maxSpeedMetersPerSec = 4.60248;
@@ -138,6 +143,31 @@ public class DriveConstants {
           maxAccelerationMeterPerSecSquared,
           maxRotationalSpeedRadiansPerSec,
           maxRotationalAccelerationRadiansPerSecSquared);
+
+  // MapleSim configuration
+  public static final double bumperLengthXMeters = Units.inchesToMeters(30.0);
+  public static final double bumperWidthYMeters = Units.inchesToMeters(30.0);
+  public static final double mapleDriveFrictionVolts = 0.1;
+  public static final double mapleTurnFrictionVolts = 0.2;
+  public static final double mapleSteerInertiaKgMetersSq = 0.02;
+
+  public static final DriveTrainSimulationConfig mapleSimConfig =
+      DriveTrainSimulationConfig.Default()
+          .withRobotMass(Kilograms.of(robotMassKg))
+          .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
+          .withCustomModuleTranslations(moduleTranslations)
+          .withGyro(COTS.ofPigeon2())
+          .withSwerveModule(
+              new SwerveModuleSimulationConfig(
+                  driveGearbox,
+                  turnGearbox,
+                  driveMotorReduction,
+                  turnMotorReduction,
+                  Volts.of(mapleDriveFrictionVolts),
+                  Volts.of(mapleTurnFrictionVolts),
+                  Meters.of(wheelRadiusMeters),
+                  KilogramSquareMeters.of(mapleSteerInertiaKgMetersSq),
+                  wheelCOF));
 
   // alignment config
   public static final double aligned = Units.degreesToRadians(5);
