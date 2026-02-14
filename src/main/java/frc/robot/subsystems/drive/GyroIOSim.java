@@ -28,8 +28,10 @@ public class GyroIOSim implements GyroIO {
     double yawSign = navxYawInverted ? -1.0 : 1.0;
 
     inputs.connected = true;
-    inputs.yawPosition = Rotation2d.fromRadians(yawSign * gyroSimulation.getGyroReading().getRadians());
-    inputs.yawVelocityRadPerSec = yawSign * gyroSimulation.getMeasuredAngularVelocity().in(RadiansPerSecond);
+    inputs.yawPosition =
+        Rotation2d.fromRadians(yawSign * gyroSimulation.getGyroReading().getRadians());
+    inputs.yawVelocityRadPerSec =
+        yawSign * gyroSimulation.getMeasuredAngularVelocity().in(RadiansPerSecond);
 
     inputs.odometryYawTimestamps = SparkUtil.getSimulationOdometryTimeStamps();
     inputs.odometryYawPositions =

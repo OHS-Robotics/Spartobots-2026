@@ -24,8 +24,8 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
-import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.GyroIONavX;
+import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
@@ -244,21 +244,27 @@ public class RobotContainer {
     SimulatedArena.getInstance().simulationPeriodic();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
-    Logger.recordOutput("FieldSimulation/RobotParts/SwerveModules", getSimulatedModulePoses(robotPose));
     Logger.recordOutput(
-        "FieldSimulation/GamePieces/Fuel", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
+        "FieldSimulation/RobotParts/SwerveModules", getSimulatedModulePoses(robotPose));
     Logger.recordOutput(
-        "FieldSimulation/GamePieces/Note", SimulatedArena.getInstance().getGamePiecesArrayByType("Note"));
+        "FieldSimulation/GamePieces/Fuel",
+        SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
     Logger.recordOutput(
-        "FieldSimulation/GamePieces/Coral", SimulatedArena.getInstance().getGamePiecesArrayByType("Coral"));
+        "FieldSimulation/GamePieces/Note",
+        SimulatedArena.getInstance().getGamePiecesArrayByType("Note"));
     Logger.recordOutput(
-        "FieldSimulation/GamePieces/Algae", SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
+        "FieldSimulation/GamePieces/Coral",
+        SimulatedArena.getInstance().getGamePiecesArrayByType("Coral"));
+    Logger.recordOutput(
+        "FieldSimulation/GamePieces/Algae",
+        SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
   }
 
   private Pose3d[] getSimulatedModulePoses(Pose2d robotPose) {
     Pose3d[] modulePoses = new Pose3d[DriveConstants.moduleTranslations.length];
     for (int i = 0; i < modulePoses.length; i++) {
-      Translation2d moduleOffset = DriveConstants.moduleTranslations[i].rotateBy(robotPose.getRotation());
+      Translation2d moduleOffset =
+          DriveConstants.moduleTranslations[i].rotateBy(robotPose.getRotation());
       Translation2d modulePosition = robotPose.getTranslation().plus(moduleOffset);
       Rotation2d moduleRotation =
           driveSimulation.getModules()[i].getSteerAbsoluteFacing().plus(robotPose.getRotation());
