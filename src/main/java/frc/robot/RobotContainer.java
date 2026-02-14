@@ -77,6 +77,7 @@ public class RobotContainer {
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
+  private boolean robotOrientedDrive = false;
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -183,13 +184,14 @@ public class RobotContainer {
    * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
    */
   private void configureButtonBindings() {
-    // Default command, normal field-relative drive
+    // Default command, field-relative by default (toggle to robot-oriented with POV down)
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
             () -> controller.getLeftY(),
             () -> controller.getLeftX(),
-            () -> -controller.getRightX()));
+            () -> -controller.getRightX(),
+            () -> robotOrientedDrive));
 
     // Lock to 0° when A button is held
     controller
@@ -223,7 +225,9 @@ public class RobotContainer {
 
     controller.povRight().toggleOnTrue(alignToHub());
 
-    controller.povDown().onTrue(drive.getDefaultCommand());
+    controller
+        .povDown()
+        .onTrue(Commands.runOnce(() -> robotOrientedDrive = !robotOrientedDrive));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       controller

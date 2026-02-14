@@ -477,7 +477,8 @@ public class Drive extends SubsystemBase {
                       this.getPose().getRotation().getRadians()
                           - Math.atan2(
                               this.getPose().getY() - target.getY(),
-                              this.getPose().getX() - target.getX()));
+                              this.getPose().getX() - target.getX()),
+                  () -> false);
             })
         .until(
             () ->
