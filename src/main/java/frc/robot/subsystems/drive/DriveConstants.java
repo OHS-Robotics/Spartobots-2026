@@ -11,55 +11,74 @@ import static edu.wpi.first.units.Units.*;
 
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.RobotConfig;
+import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import org.ironmaple.simulation.drivesims.COTS;
-import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 
 public class DriveConstants {
-  public static final double maxSpeedMetersPerSec = 4.8;
+  public static final double maxSpeedMetersPerSec = 4.60248;
+  public static final double maxAccelerationMeterPerSecSquared = 3;
+  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(30);
+  public static final double maxRotationalAccelerationRadiansPerSecSquared =
+      Units.degreesToRadians(15);
   public static final double odometryFrequency = 100.0; // Hz
-  public static final double trackWidth = Units.inchesToMeters(26.5);
-  public static final double wheelBase = Units.inchesToMeters(26.5);
+  public static final double trackWidth = Units.inchesToMeters(20.5);
+  public static final double wheelBase = Units.inchesToMeters(20.5);
   public static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   public static final Translation2d[] moduleTranslations =
       new Translation2d[] {
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0),
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0),
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
+        new Translation2d(trackWidth / 2.0, wheelBase / 2.0), // FL
+        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0), // FR
+        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0), // BL
+        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // BR
       };
+  // Maps logical module index (FL, FR, BL, BR) -> hardware position index
+  public static final int[] moduleIndexToHardwareIndex = {0, 1, 2, 3};
+
+  // Global chassis-frame correction scalars applied in Drive.runVelocity.
+  // Keep at 1.0 unless you intentionally need to correct a frame mismatch.
+  public static final double chassisXCommandScalar = 1.0;
+  public static final double chassisYCommandScalar = 1.0;
+  public static final double chassisOmegaCommandScalar = 1.0;
+
+  // NavX yaw sign to match WPILib's CCW-positive convention.
+  public static final boolean navxYawInverted = true;
 
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(0.0);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(0.0);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(0.0);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(0.0);
+  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910 - 1.825);
+  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332 - 1.243);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543 + 0.488);
+  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227 + 1.836);
 
   // Device CAN IDs
-  public static final int pigeonCanId = 9;
+  public static final int pigeonCanId = 1;
 
-  public static final int frontLeftDriveCanId = 1;
-  public static final int backLeftDriveCanId = 3;
-  public static final int frontRightDriveCanId = 5;
-  public static final int backRightDriveCanId = 7;
+  public static final int frontLeftDriveCanId = 8;
+  public static final int backLeftDriveCanId = 10;
+  public static final int frontRightDriveCanId = 6;
+  public static final int backRightDriveCanId = 12;
 
-  public static final int frontLeftTurnCanId = 2;
-  public static final int backLeftTurnCanId = 4;
-  public static final int frontRightTurnCanId = 6;
-  public static final int backRightTurnCanId = 8;
+  public static final int frontLeftTurnCanId = 7;
+  public static final int backLeftTurnCanId = 9;
+  public static final int frontRightTurnCanId = 5;
+  public static final int backRightTurnCanId = 11;
+
+  public static final int frontLeftCANcoderId = 21;
+  public static final int frontRightCANcoderId = 22;
+  public static final int backLeftCANcoderId = 20;
+  public static final int backRightCANcoderId = 23;
 
   // Drive motor configuration
   public static final int driveMotorCurrentLimit = 50;
-  public static final double wheelRadiusMeters = Units.inchesToMeters(1.5);
-  public static final double driveMotorReduction =
-      (45.0 * 22.0) / (14.0 * 15.0); // MAXSwerve with 14 pinion teeth
+  public static final double wheelRadiusMeters = Units.inchesToMeters(1.975);
+  public static final double driveMotorReduction = 6.75; // Swerve MK4 L2
   // and 22 spur teeth
-  public static final DCMotor driveGearbox = DCMotor.getNeoVortex(1);
+  public static final DCMotor driveGearbox = DCMotor.getNEO(1);
 
   // Drive encoder configuration
   public static final double driveEncoderPositionFactor =
@@ -70,30 +89,34 @@ public class DriveConstants {
   // Wheel Rad/Sec
 
   // Drive PID configuration
-  public static final double driveKp = 0.0;
-  public static final double driveKd = 0.0;
+  public static final double driveKp = 0.0010645;
+  public static final double driveKi = 0.0;
+  public static final double driveKd = 0.01;
   public static final double driveKs = 0.0;
-  public static final double driveKv = 0.1;
-  public static final double driveSimP = 0.05;
-  public static final double driveSimD = 0.0;
+  public static final double driveKv = 0.0789;
+  public static final double driveSimP = 0.0010645;
+  public static final double driveSimD = 0.01;
   public static final double driveSimKs = 0.0;
   public static final double driveSimKv = 0.0789;
 
   // Turn motor configuration
   public static final boolean turnInverted = false;
   public static final int turnMotorCurrentLimit = 20;
-  public static final double turnMotorReduction = 9424.0 / 203.0;
-  public static final DCMotor turnGearbox = DCMotor.getNeo550(1);
+  public static final double turnMotorReduction = 12.8;
+  public static final DCMotor turnGearbox = DCMotor.getNEO(1);
 
   // Turn encoder configuration
-  public static final boolean turnEncoderInverted = true;
-  public static final double turnEncoderPositionFactor = 2 * Math.PI; // Rotations -> Radians
-  public static final double turnEncoderVelocityFactor = (2 * Math.PI) / 60.0; // RPM -> Rad/Sec
+  public static final boolean turnEncoderInverted = false;
+  public static final double turnEncoderPositionFactor =
+      2 * Math.PI / turnMotorReduction; // Rotor Rotations -> Wheel Radians
+  public static final double turnEncoderVelocityFactor =
+      (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 2.0;
-  public static final double turnKd = 0.0;
-  public static final double turnSimP = 8.0;
+  public static final double turnKp = 2.5;
+  public static final double turnKi = 0.5;
+  public static final double turnKd = 0.1;
+  public static final double turnSimP = 1.0;
   public static final double turnSimD = 0.0;
   public static final double turnPIDMinInput = 0; // Radians
   public static final double turnPIDMaxInput = 2 * Math.PI; // Radians
@@ -114,23 +137,48 @@ public class DriveConstants {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
+  public static final PathConstraints pathConstraints =
+      new PathConstraints(
+          maxSpeedMetersPerSec,
+          maxAccelerationMeterPerSecSquared,
+          maxRotationalSpeedRadiansPerSec,
+          maxRotationalAccelerationRadiansPerSecSquared);
+
+  // MapleSim configuration
+  public static final double bumperLengthXMeters = Units.inchesToMeters(30.0);
+  public static final double bumperWidthYMeters = Units.inchesToMeters(30.0);
+  public static final double mapleDriveFrictionVolts = 0.1;
+  public static final double mapleTurnFrictionVolts = 0.2;
+  public static final double mapleSteerInertiaKgMetersSq = 0.02;
 
   public static final DriveTrainSimulationConfig mapleSimConfig =
       DriveTrainSimulationConfig.Default()
+          .withRobotMass(Kilograms.of(robotMassKg))
+          .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
           .withCustomModuleTranslations(moduleTranslations)
-          .withRobotMass(Kilogram.of(robotMassKg))
-          .withGyro(COTS.ofNav2X())
+          .withGyro(COTS.ofPigeon2())
           .withSwerveModule(
-              () ->
-                  new SwerveModuleSimulation(
-                      new SwerveModuleSimulationConfig(
-                          driveGearbox,
-                          turnGearbox,
-                          driveMotorReduction,
-                          turnMotorReduction,
-                          Volts.of(0.1),
-                          Volts.of(0.1),
-                          Meters.of(wheelRadiusMeters),
-                          KilogramSquareMeters.of(0.02),
-                          wheelCOF)));
+              new SwerveModuleSimulationConfig(
+                  driveGearbox,
+                  turnGearbox,
+                  driveMotorReduction,
+                  turnMotorReduction,
+                  Volts.of(mapleDriveFrictionVolts),
+                  Volts.of(mapleTurnFrictionVolts),
+                  Meters.of(wheelRadiusMeters),
+                  KilogramSquareMeters.of(mapleSteerInertiaKgMetersSq),
+                  wheelCOF));
+
+  // alignment config
+  public static final double aligned = Units.degreesToRadians(5);
+
+  public static final double alignKp = 0;
+  public static final double alignKi = 0;
+  public static final double alignKd = 0;
+
+  public static final double driveToPoseControllerKp = 5.0;
+  public static final double driveToPoseControllerKi = 1.0;
+  public static final double driveToPoseControllerKd = 1.0;
+
+  public static final double alignmentAcceptableDistance = 1; // meters
 }

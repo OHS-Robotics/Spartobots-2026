@@ -23,6 +23,7 @@ import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -35,24 +36,37 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.commands.DriveCommands;
+import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
+
+  public final VisionSubsystem vision = new VisionSubsystem();
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final Module[] modules = new Module[4]; // FL, FR, BL, BR
   private final SysIdRoutine sysId;
+  private final Consumer<Pose2d> setSimulationPoseCallback;
+  private final LoggedNetworkBoolean logHubAimVector =
+      new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
+  private boolean wasHubAimVectorLoggingEnabled = false;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -68,13 +82,26 @@ public class Drive extends SubsystemBase {
     
   private PathPlannerAuto testPath;
 
+  private PathPlannerAuto trenchAuto;
+
   public Drive(
       GyroIO gyroIO,
       ModuleIO flModuleIO,
       ModuleIO frModuleIO,
       ModuleIO blModuleIO,
       ModuleIO brModuleIO) {
+    this(gyroIO, flModuleIO, frModuleIO, blModuleIO, brModuleIO, (pose) -> {});
+  }
+
+  public Drive(
+      GyroIO gyroIO,
+      ModuleIO flModuleIO,
+      ModuleIO frModuleIO,
+      ModuleIO blModuleIO,
+      ModuleIO brModuleIO,
+      Consumer<Pose2d> setSimulationPoseCallback) {
     this.gyroIO = gyroIO;
+    this.setSimulationPoseCallback = setSimulationPoseCallback;
     modules[0] = new Module(flModuleIO, 0);
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
@@ -95,7 +122,7 @@ public class Drive extends SubsystemBase {
         this::getChassisSpeeds,
         this::runVelocity,
         new PPHolonomicDriveController(
-            new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+            new PIDConstants(5.0, 0.0, 1.0), new PIDConstants(5.0, 0.0, 1.0)),
         ppConfig,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
@@ -108,6 +135,8 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
+
+    trenchAuto = new PathPlannerAuto("TrenchTestAuto");
 
     // Configure SysId
     sysId =
@@ -123,6 +152,8 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
+    logHubAimVector.periodic();
+
     odometryLock.lock(); // Prevents odometry updates while reading data
     gyroIO.updateInputs(gyroInputs);
     Logger.processInputs("Drive/Gyro", gyroInputs);
@@ -173,11 +204,16 @@ public class Drive extends SubsystemBase {
       }
 
       // Apply update
-      poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
+      poseEstimator.updateWithTime(
+          sampleTimestamps[i], rawGyroRotation.unaryMinus(), modulePositions);
     }
 
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
+
+    if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
+      clearHubAimLogs();
+    }
   }
 
   /**
@@ -186,12 +222,20 @@ public class Drive extends SubsystemBase {
    * @param speeds Speeds in meters/sec
    */
   public void runVelocity(ChassisSpeeds speeds) {
+    ChassisSpeeds correctedSpeeds =
+        new ChassisSpeeds(
+            speeds.vxMetersPerSecond * chassisXCommandScalar,
+            speeds.vyMetersPerSecond * chassisYCommandScalar,
+            speeds.omegaRadiansPerSecond * chassisOmegaCommandScalar);
+
     // Calculate module setpoints
-    ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
+    ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(correctedSpeeds, 0.02);
     SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, maxSpeedMetersPerSec);
 
     // Log unoptimized setpoints
+    Logger.recordOutput("SwerveChassisSpeeds/Requested", speeds);
+    Logger.recordOutput("SwerveChassisSpeeds/Corrected", correctedSpeeds);
     Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
     Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
 
@@ -202,6 +246,8 @@ public class Drive extends SubsystemBase {
 
     // Log optimized setpoints (runSetpoint mutates each state)
     Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
+
+    Logger.recordOutput("Pose", this.getPose());
   }
 
   /** Runs the drive in a straight line with the specified drive output. */
@@ -225,8 +271,10 @@ public class Drive extends SubsystemBase {
     for (int i = 0; i < 4; i++) {
       headings[i] = moduleTranslations[i].getAngle();
     }
-    kinematics.resetHeadings(headings);
-    stop();
+    // Command an X lock without changing kinematics heading offsets
+    for (int i = 0; i < 4; i++) {
+      modules[i].runSetpoint(new SwerveModuleState(0.0, headings[i]));
+    }
   }
 
   /** Returns a command to run a quasistatic test in the specified direction. */
@@ -297,7 +345,7 @@ public class Drive extends SubsystemBase {
 
   /** Resets the current odometry pose. */
   public void setPose(Pose2d pose) {
-    poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+    poseEstimator.resetPosition(rawGyroRotation.unaryMinus(), getModulePositions(), pose);
   }
 
   /** Adds a new timestamped vision measurement. */
@@ -317,5 +365,220 @@ public class Drive extends SubsystemBase {
   /** Returns the maximum angular speed in radians per sec. */
   public double getMaxAngularSpeedRadPerSec() {
     return maxSpeedMetersPerSec / driveBaseRadius;
+  }
+
+  public Command getAutonomousCommand() {
+    return outpostLoadAuto();
+  }
+
+  public Command autoDriveUnderTrench() {
+    PathPlannerAuto auto = null;
+
+    switch (determineOctant(() -> this.getPose())) {
+      case 0:
+        auto = new PathPlannerAuto("BlueTrenchLeft");
+        break;
+      case 1:
+        break;
+      case 2:
+        break;
+      case 3:
+        break;
+      case 4:
+        auto = new PathPlannerAuto("BlueTrenchRight");
+        break;
+      case 5:
+        break;
+      case 6:
+        break;
+      case 7:
+        break;
+      default:
+        break;
+    }
+
+    return AutoBuilder.pathfindToPose(auto.getStartingPose(), pathConstraints, 0).andThen(auto);
+  }
+
+  public int determineOctant(Supplier<Pose2d> pose) {
+    double x = pose.get().getX();
+    double y = pose.get().getY();
+
+    Logger.recordOutput("pos", pose.get());
+
+    if (y > Constants.midLineY) {
+      if (x < Constants.blueLine) {
+        return 0;
+      } else if (x < Constants.midLineX) {
+        return 1;
+      } else if (x < Constants.redLine) {
+        return 2;
+      } else {
+        return 3;
+      }
+    } else {
+      if (x < Constants.blueLine) {
+        return 4;
+      } else if (x < Constants.midLineX) {
+        return 5;
+      } else if (x < Constants.redLine) {
+        return 6;
+      } else {
+        return 7;
+      }
+    }
+  }
+
+  public Command alignToPose(Pose2d target) {
+    /*return DriveCommands.joystickDrive(
+    this,
+    () -> driveToPoseController.calculate(this.getPose().getX(), target.getX()),
+    () -> driveToPoseController.calculate(this.getPose().getY(), target.getY()),
+    () ->
+        -driveToPoseController.calculate(
+            this.getPose().getRotation().getRadians(), target.getRotation().getRadians()));*/
+    // return new DriveToPose(this, target, driveToPoseController);
+    return AutoBuilder.pathfindToPose(target, pathConstraints);
+  }
+
+  public Command outpostLoadAuto() {
+    return AutoBuilder.pathfindToPose(getNearestOutpostPose(), pathConstraints);
+  }
+
+  private Pose2d getNearestHub() {
+    double distanceToRedHub =
+        getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
+    double distanceToBlueHub =
+        getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
+    return distanceToRedHub < distanceToBlueHub ? Constants.redHub : Constants.blueHub;
+  }
+
+  private Pose2d getNearestOutpost() {
+    if (DriverStation.getAlliance().isPresent()) {
+      if (DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
+        return Constants.redOutpost;
+      }
+      return Constants.blueOutpost;
+    }
+    return null;
+  }
+
+  public Pose2d getNearestHubPose() {
+    return getNearestHub();
+  }
+
+  public Pose2d getNearestOutpostPose() {
+    return getNearestOutpost();
+  }
+
+  private Translation2d getFieldRelativeVelocity() {
+    ChassisSpeeds fieldRelativeSpeeds =
+        ChassisSpeeds.fromRobotRelativeSpeeds(getChassisSpeeds(), getRotation());
+    return new Translation2d(
+        fieldRelativeSpeeds.vxMetersPerSecond, fieldRelativeSpeeds.vyMetersPerSecond);
+  }
+
+  private Pose2d getCompensatedHub(Pose2d targetHub, double shotAirtimeSeconds) {
+    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
+
+    // Aim opposite the current robot velocity so shot travel time is compensated in flight.
+    Translation2d compensationOffset = getFieldRelativeVelocity().times(-clampedAirtimeSeconds);
+    return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
+  }
+
+  private Rotation2d getRotationToHub(Pose2d hub) {
+    Translation2d toTarget = hub.getTranslation().minus(getPose().getTranslation());
+    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+  }
+
+  public Command alignToHub() {
+    return alignToHub(() -> 0.0, () -> 0.0, () -> 0.0);
+  }
+
+  public Command alignToHub(
+      DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
+    return DriveCommands.joystickDriveAtAngle(
+        this,
+        x,
+        y,
+        () -> {
+          double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
+          Pose2d baseHub = getNearestHub();
+          Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
+          logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
+          return getRotationToHub(compensatedHub);
+        });
+  }
+
+  private void logHubAimTarget(Pose2d baseHub, Pose2d compensatedHub, double airtimeSeconds) {
+    if (!logHubAimVector.get()) {
+      return;
+    }
+
+    Pose2d robotPose = getPose();
+    Translation2d compensationOffset =
+        compensatedHub.getTranslation().minus(baseHub.getTranslation());
+    Translation2d vectorToTarget =
+        compensatedHub.getTranslation().minus(robotPose.getTranslation());
+
+    Logger.recordOutput("Drive/HubAim/RobotPose", robotPose);
+    Logger.recordOutput("Drive/HubAim/BaseTargetPose", baseHub);
+    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", compensatedHub);
+    Logger.recordOutput(
+        "Drive/HubAim/TargetVectorEndpoints",
+        new Pose2d[] {
+          new Pose2d(robotPose.getTranslation(), Rotation2d.kZero),
+          new Pose2d(compensatedHub.getTranslation(), Rotation2d.kZero)
+        });
+    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", airtimeSeconds);
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", compensationOffset.getX());
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", compensationOffset.getY());
+    Logger.recordOutput("Drive/HubAim/VectorToTargetX", vectorToTarget.getX());
+    Logger.recordOutput("Drive/HubAim/VectorToTargetY", vectorToTarget.getY());
+    wasHubAimVectorLoggingEnabled = true;
+  }
+
+  private void clearHubAimLogs() {
+    Logger.recordOutput("Drive/HubAim/RobotPose", Pose2d.kZero);
+    Logger.recordOutput("Drive/HubAim/BaseTargetPose", Pose2d.kZero);
+    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", Pose2d.kZero);
+    Logger.recordOutput("Drive/HubAim/TargetVectorEndpoints", new Pose2d[] {});
+    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", 0.0);
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", 0.0);
+    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", 0.0);
+    Logger.recordOutput("Drive/HubAim/VectorToTargetX", 0.0);
+    Logger.recordOutput("Drive/HubAim/VectorToTargetY", 0.0);
+    wasHubAimVectorLoggingEnabled = false;
+  }
+
+  public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
+    Pose2d target = Constants.blueHub;
+    DoubleSupplier angleSetpoint =
+        () ->
+            Math.atan2(
+                this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX());
+    return Commands.run(
+            () -> {
+              DriveCommands.joystickDrive(
+                  this,
+                  x,
+                  y,
+                  () ->
+                      this.getPose().getRotation().getRadians()
+                          - Math.atan2(
+                              this.getPose().getY() - target.getY(),
+                              this.getPose().getX() - target.getX()),
+                  () -> false);
+            })
+        .until(
+            () ->
+                Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
+                    < DriveConstants.aligned);
+  }
+
+  public void alignTo(Pose2d target) {}
+
+  public void update() {
+    vision.updatePoseEstimate(this);
   }
 }

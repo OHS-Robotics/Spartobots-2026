@@ -58,13 +58,13 @@ public class SparkUtil {
     }
   }
 
+  /** Returns simulation timestamps aligned to each MapleSim sub-tick in the latest robot period. */
   public static double[] getSimulationOdometryTimeStamps() {
     final double[] odometryTimeStamps = new double[SimulatedArena.getSimulationSubTicksIn1Period()];
     for (int i = 0; i < odometryTimeStamps.length; i++) {
       odometryTimeStamps[i] =
           Timer.getFPGATimestamp() - 0.02 + i * SimulatedArena.getSimulationDt().in(Seconds);
     }
-
     return odometryTimeStamps;
   }
 }
