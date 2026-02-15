@@ -176,9 +176,9 @@ public class DriveConstants {
   public static final double alignKi = 0;
   public static final double alignKd = 0;
 
-  public static final double driveToPoseControllerKp = 50.0;
-  public static final double driveToPoseControllerKi = 0;
-  public static final double driveToPoseControllerKd = 0;
+  public static final double driveToPoseControllerKp = 5.0;
+  public static final double driveToPoseControllerKi = 1.0;
+  public static final double driveToPoseControllerKd = 1.0;
 
   public static final double alignmentAcceptableDistance = 1; // meters
 }

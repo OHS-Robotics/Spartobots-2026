@@ -59,9 +59,7 @@ public class DriveCommands {
         .getTranslation();
   }
 
-  /**
-   * Drive command using two joysticks (controlling linear and angular velocities).
-   */
+  /** Drive command using two joysticks (controlling linear and angular velocities). */
   public static Command joystickDrive(
       Drive drive,
       DoubleSupplier xSupplier,
