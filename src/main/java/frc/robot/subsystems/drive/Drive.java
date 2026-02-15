@@ -67,6 +67,7 @@ public class Drive extends SubsystemBase {
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
+  private int octant = 0;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -210,6 +211,10 @@ public class Drive extends SubsystemBase {
     if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
       clearHubAimLogs();
     }
+
+    determineOctant();
+
+    Logger.recordOutput("octant", octant);
   }
 
   /**
@@ -367,13 +372,15 @@ public class Drive extends SubsystemBase {
     return outpostLoadAuto();
   }
 
-  public Command autoDriveUnderTrench() {
-    PathPlannerAuto auto = null;
+  public Command autoDriveUnderTrench(Supplier<PathPlannerAuto> auto) {
+    return AutoBuilder.pathfindToPose(auto.get().getStartingPose(), pathConstraints, 0)
+        .andThen(auto.get());
+  }
 
-    switch (determineOctant(() -> this.getPose())) {
+  public PathPlannerAuto determineTrenchAuto() {
+    switch (octant) {
       case 0:
-        auto = new PathPlannerAuto("BlueTrenchLeft");
-        break;
+        return new PathPlannerAuto("BlueTrenchLeft");
       case 1:
         break;
       case 2:
@@ -381,8 +388,7 @@ public class Drive extends SubsystemBase {
       case 3:
         break;
       case 4:
-        auto = new PathPlannerAuto("BlueTrenchRight");
-        break;
+        return new PathPlannerAuto("BlueTrenchRight");
       case 5:
         break;
       case 6:
@@ -392,48 +398,37 @@ public class Drive extends SubsystemBase {
       default:
         break;
     }
-
-    return AutoBuilder.pathfindToPose(auto.getStartingPose(), pathConstraints, 0).andThen(auto);
+    return null;
   }
 
-  public int determineOctant(Supplier<Pose2d> pose) {
-    double x = pose.get().getX();
-    double y = pose.get().getY();
-
-    Logger.recordOutput("pos", pose.get());
+  public void determineOctant() {
+    double x = this.getPose().getX();
+    double y = this.getPose().getY();
 
     if (y > Constants.midLineY) {
       if (x < Constants.blueLine) {
-        return 0;
+        octant = 0;
       } else if (x < Constants.midLineX) {
-        return 1;
+        octant = 1;
       } else if (x < Constants.redLine) {
-        return 2;
+        octant = 2;
       } else {
-        return 3;
+        octant = 3;
       }
     } else {
       if (x < Constants.blueLine) {
-        return 4;
+        octant = 4;
       } else if (x < Constants.midLineX) {
-        return 5;
+        octant = 5;
       } else if (x < Constants.redLine) {
-        return 6;
+        octant = 6;
       } else {
-        return 7;
+        octant = 7;
       }
     }
   }
 
   public Command alignToPose(Pose2d target) {
-    /*return DriveCommands.joystickDrive(
-    this,
-    () -> driveToPoseController.calculate(this.getPose().getX(), target.getX()),
-    () -> driveToPoseController.calculate(this.getPose().getY(), target.getY()),
-    () ->
-        -driveToPoseController.calculate(
-            this.getPose().getRotation().getRadians(), target.getRotation().getRadians()));*/
-    // return new DriveToPose(this, target, driveToPoseController);
     return AutoBuilder.pathfindToPose(target, pathConstraints);
   }
 

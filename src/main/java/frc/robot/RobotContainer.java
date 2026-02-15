@@ -229,7 +229,7 @@ public class RobotContainer {
 
     controller.leftBumper().onTrue(drive.getDefaultCommand());
 
-    controller.rightBumper().onTrue(drive.autoDriveUnderTrench());
+    controller.rightBumper().onTrue(drive.autoDriveUnderTrench(() -> drive.determineTrenchAuto()));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
