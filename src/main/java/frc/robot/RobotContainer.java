@@ -225,14 +225,14 @@ public class RobotContainer {
 
     controller.povRight().toggleOnTrue(alignToHub());
 
-    controller
-        .povDown()
-        .onTrue(Commands.runOnce(() -> robotOrientedDrive = !robotOrientedDrive));
+    controller.povDown().onTrue(Commands.runOnce(() -> robotOrientedDrive = !robotOrientedDrive));
+
+    controller.leftBumper().onTrue(drive.getDefaultCommand());
+
+    controller.rightBumper().onTrue(drive.autoDriveUnderTrench());
 
     if (Constants.currentMode == Constants.Mode.SIM) {
-      controller
-          .leftBumper()
-          .onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
+      // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
     }
   }
 

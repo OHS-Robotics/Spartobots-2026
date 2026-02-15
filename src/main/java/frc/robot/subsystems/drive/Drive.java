@@ -14,14 +14,12 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
-import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -43,7 +41,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
-import frc.robot.commands.AlignToPose;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.util.LocalADStarAK;
@@ -51,6 +48,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
@@ -82,14 +80,7 @@ public class Drive extends SubsystemBase {
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
-  private PathPlannerAuto testPath;
-
   private PathPlannerAuto trenchAuto;
-
-  private PathPlannerPath trenchPath;
-
-  private PIDController driveToPoseController =
-      new PIDController(driveToPoseControllerKp, driveToPoseControllerKi, driveToPoseControllerKd);
 
   public Drive(
       GyroIO gyroIO,
@@ -127,7 +118,7 @@ public class Drive extends SubsystemBase {
         this::getChassisSpeeds,
         this::runVelocity,
         new PPHolonomicDriveController(
-            new PIDConstants(10.0, 0.0, 1.0), new PIDConstants(7.0, 0.0, 1.0)),
+            new PIDConstants(5.0, 0.0, 1.0), new PIDConstants(5.0, 0.0, 1.0)),
         ppConfig,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
@@ -141,14 +132,7 @@ public class Drive extends SubsystemBase {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
 
-    testPath = new PathPlannerAuto("TrenchTestAuto");
     trenchAuto = new PathPlannerAuto("TrenchTestAuto");
-    // get trench path
-    try {
-      trenchPath = PathPlannerPath.fromPathFile("TrenchTest");
-    } catch (Exception e) {
-      DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());
-    }
 
     // Configure SysId
     sysId =
@@ -380,15 +364,65 @@ public class Drive extends SubsystemBase {
   }
 
   public Command getAutonomousCommand() {
-    // return testPath;
-    return trenchDriveAuto();
-    // return outpostLoadAuto();
+    return outpostLoadAuto();
   }
 
-  public Command trenchDriveAuto() {
-    return Commands.sequence(
-        AutoBuilder.pathfindToPose(trenchAuto.getStartingPose(), pathConstraints),
-        AutoBuilder.buildAuto("TrenchTestAuto"));
+  public Command autoDriveUnderTrench() {
+    PathPlannerAuto auto = null;
+
+    switch (determineOctant(() -> this.getPose())) {
+      case 0:
+        auto = new PathPlannerAuto("BlueTrenchLeft");
+        break;
+      case 1:
+        break;
+      case 2:
+        break;
+      case 3:
+        break;
+      case 4:
+        auto = new PathPlannerAuto("BlueTrenchRight");
+        break;
+      case 5:
+        break;
+      case 6:
+        break;
+      case 7:
+        break;
+      default:
+        break;
+    }
+
+    return AutoBuilder.pathfindToPose(auto.getStartingPose(), pathConstraints, 0).andThen(auto);
+  }
+
+  public int determineOctant(Supplier<Pose2d> pose) {
+    double x = pose.get().getX();
+    double y = pose.get().getY();
+
+    Logger.recordOutput("pos", pose.get());
+
+    if (y > Constants.midLineY) {
+      if (x < Constants.blueLine) {
+        return 0;
+      } else if (x < Constants.midLineX) {
+        return 1;
+      } else if (x < Constants.redLine) {
+        return 2;
+      } else {
+        return 3;
+      }
+    } else {
+      if (x < Constants.blueLine) {
+        return 4;
+      } else if (x < Constants.midLineX) {
+        return 5;
+      } else if (x < Constants.redLine) {
+        return 6;
+      } else {
+        return 7;
+      }
+    }
   }
 
   public Command alignToPose(Pose2d target) {
@@ -399,7 +433,8 @@ public class Drive extends SubsystemBase {
     () ->
         -driveToPoseController.calculate(
             this.getPose().getRotation().getRadians(), target.getRotation().getRadians()));*/
-    return new AlignToPose(this, target, driveToPoseController);
+    // return new DriveToPose(this, target, driveToPoseController);
+    return AutoBuilder.pathfindToPose(target, pathConstraints);
   }
 
   public Command outpostLoadAuto() {

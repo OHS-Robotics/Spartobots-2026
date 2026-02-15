@@ -47,7 +47,9 @@ public final class Constants {
   public static final Pose2d redOutpost = new Pose2d(15.85, 7.425, new Rotation2d(0));
   public static final Pose2d blueOutpost =
       new Pose2d(
-          Units.inchesToMeters(robotBaseLength / 2), Units.inchesToMeters(25), new Rotation2d(0));
+          Units.inchesToMeters(robotBaseLength / 2),
+          Units.inchesToMeters(25),
+          new Rotation2d(Math.PI));
 
   public static enum Mode {
     /** Running on a real robot. */
@@ -59,4 +61,13 @@ public final class Constants {
     /** Replaying from a log file. */
     REPLAY
   }
+
+  public static final double fieldLength = Units.inchesToMeters(651.22);
+  public static final double fieldWidth = Units.inchesToMeters(317.69);
+
+  // break the field into 8 sections to determine which trench to drive through
+  public static final double blueLine = Units.inchesToMeters(182.11);
+  public static final double midLineX = fieldLength / 2;
+  public static final double redLine = fieldLength - Units.inchesToMeters(182.11);
+  public static final double midLineY = fieldWidth / 2;
 }
