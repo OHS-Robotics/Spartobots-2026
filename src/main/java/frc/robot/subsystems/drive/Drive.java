@@ -48,7 +48,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
-import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
@@ -67,7 +66,7 @@ public class Drive extends SubsystemBase {
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
-  private int octant = 0;
+  public int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -80,8 +79,6 @@ public class Drive extends SubsystemBase {
       };
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
-
-  private PathPlannerAuto trenchAuto;
 
   public Drive(
       GyroIO gyroIO,
@@ -132,8 +129,6 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
-
-    trenchAuto = new PathPlannerAuto("TrenchTestAuto");
 
     // Configure SysId
     sysId =
@@ -372,33 +367,27 @@ public class Drive extends SubsystemBase {
     return outpostLoadAuto();
   }
 
-  public Command autoDriveUnderTrench(Supplier<PathPlannerAuto> auto) {
-    return AutoBuilder.pathfindToPose(auto.get().getStartingPose(), pathConstraints, 0)
-        .andThen(auto.get());
+  public Command autoDriveUnderTrench(Pose2d[] poses) {
+    return AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
+        .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
   }
 
-  public PathPlannerAuto determineTrenchAuto() {
-    switch (octant) {
-      case 0:
-        return new PathPlannerAuto("BlueTrenchLeft");
-      case 1:
-        break;
-      case 2:
-        break;
-      case 3:
-        break;
-      case 4:
-        return new PathPlannerAuto("BlueTrenchRight");
-      case 5:
-        break;
-      case 6:
-        break;
-      case 7:
-        break;
-      default:
-        break;
-    }
-    return null;
+  public Pose2d[] determineTrenchPoses() {
+    Pose2d[] poses =
+        switch (octant) {
+          case 0 -> new Pose2d[] {Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter};
+          case 1 -> new Pose2d[] {Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner};
+          case 2 -> new Pose2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
+          case 3 -> new Pose2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
+          case 4 -> new Pose2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
+          case 5 -> new Pose2d[] {Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner};
+          case 6 -> new Pose2d[] {Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner};
+          case 7 -> new Pose2d[] {Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter};
+          default -> new Pose2d[] {
+            Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
+          };
+        };
+    return poses;
   }
 
   public void determineOctant() {
@@ -433,7 +422,7 @@ public class Drive extends SubsystemBase {
   }
 
   public Command outpostLoadAuto() {
-    return AutoBuilder.pathfindToPose(getNearestOutpostPose(), pathConstraints);
+    return AutoBuilder.pathfindToPose(getNearestOutpost(), pathConstraints);
   }
 
   private Pose2d getNearestHub() {
@@ -451,15 +440,11 @@ public class Drive extends SubsystemBase {
       }
       return Constants.blueOutpost;
     }
-    return null;
+    return Constants.blueOutpost;
   }
 
   public Pose2d getNearestHubPose() {
     return getNearestHub();
-  }
-
-  public Pose2d getNearestOutpostPose() {
-    return getNearestOutpost();
   }
 
   private Translation2d getFieldRelativeVelocity() {

@@ -34,8 +34,6 @@ public class VisionIOPhotonVision implements VisionIO {
   protected final Transform3d robotToCamera;
   public Matrix<N3, N1> stdDevs;
 
-  private boolean initialized = false;
-
   /**
    * Creates a new VisionIOPhotonVision.
    *
@@ -45,7 +43,6 @@ public class VisionIOPhotonVision implements VisionIO {
   public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
-    initialized = true;
   }
 
   @Override
