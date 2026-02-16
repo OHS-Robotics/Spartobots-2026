@@ -79,6 +79,7 @@ public class RobotContainer {
         swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
       );
 
+      // left/right tower align
       driverJoystick.povLeft().onTrue(DriverStation.getAlliance().get() == Alliance.Blue ?
         swerveDrive.driveTo(new Pose2d(1.0, 5.0, new Rotation2d(-Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED) :
         swerveDrive.driveTo(new Pose2d(15.5, 3.25, new Rotation2d(Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
@@ -87,6 +88,17 @@ public class RobotContainer {
         swerveDrive.driveTo(new Pose2d(1.0, 2.5, new Rotation2d(Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED) :
         swerveDrive.driveTo(new Pose2d(15.5, 5.25, new Rotation2d(Math.PI/-2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
       );
+
+      // blue feeder align
+      driverJoystick.leftTrigger().onTrue(
+        swerveDrive.driveTo(new Pose2d(0.6, 0.65, new Rotation2d(Math.PI)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
+      );
+
+      // red feeder align
+      driverJoystick.rightTrigger().onTrue(
+        swerveDrive.driveTo(new Pose2d(15.9, 7.4, new Rotation2d(0.0)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
+      );
+
       delayedEventsRun = true;
 
         /*swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
@@ -125,7 +137,6 @@ public class RobotContainer {
    */
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveCommand(driveRobotAngularVelocityStream, driveFieldAngularVelocityStream));
-    // todo: align to output feeeder
     // todo: align to alliance zone
     // todo: climber up/down
     // todo: intake/hopper movement
