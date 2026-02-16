@@ -11,7 +11,6 @@ import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
@@ -79,8 +78,6 @@ public class Drive extends SubsystemBase {
       };
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
-    
-  private PathPlannerAuto testPath;
 
   public Drive(
       GyroIO gyroIO,
@@ -110,8 +107,6 @@ public class Drive extends SubsystemBase {
 
     // Start odometry thread
     SparkOdometryThread.getInstance().start();
-
-    testPath = new PathPlannerAuto("diddy");
 
     // Configure AutoBuilder for PathPlanner
     AutoBuilder.configure(
