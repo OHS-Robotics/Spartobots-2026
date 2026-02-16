@@ -67,7 +67,8 @@ public class Shooter extends SubsystemBase {
     return updateHubShotSolution(robotPose, hubPose).airtimeSeconds();
   }
 
-  private HubShotSolution solveHubShot(double horizontalDistanceMeters, double targetHeightDeltaMeters) {
+  private HubShotSolution solveHubShot(
+      double horizontalDistanceMeters, double targetHeightDeltaMeters) {
     Rotation2d preferredAngle = getPreferredAngle(horizontalDistanceMeters);
 
     HubShotSolution bestSolution = null;
@@ -94,7 +95,11 @@ public class Shooter extends SubsystemBase {
         bestScore = score;
         bestSolution =
             createShotSolution(
-                horizontalDistanceMeters, targetHeightDeltaMeters, candidateAngle, launchSpeedMetersPerSec, true);
+                horizontalDistanceMeters,
+                targetHeightDeltaMeters,
+                candidateAngle,
+                launchSpeedMetersPerSec,
+                true);
       }
     }
 
@@ -103,7 +108,8 @@ public class Shooter extends SubsystemBase {
     }
 
     OptionalDouble preferredLaunchSpeed =
-        calculateLaunchSpeedForTarget(horizontalDistanceMeters, targetHeightDeltaMeters, preferredAngle);
+        calculateLaunchSpeedForTarget(
+            horizontalDistanceMeters, targetHeightDeltaMeters, preferredAngle);
     double fallbackLaunchSpeedMetersPerSec =
         preferredLaunchSpeed.orElse(ShooterConstants.defaultLaunchSpeedMetersPerSec);
     fallbackLaunchSpeedMetersPerSec =
@@ -128,7 +134,10 @@ public class Shooter extends SubsystemBase {
       boolean feasible) {
     double airtimeSeconds =
         calculateAirtimeSeconds(
-            horizontalDistanceMeters, targetHeightDeltaMeters, launchSpeedMetersPerSec, launchAngle);
+            horizontalDistanceMeters,
+            targetHeightDeltaMeters,
+            launchSpeedMetersPerSec,
+            launchAngle);
     return new HubShotSolution(
         horizontalDistanceMeters,
         launchAngle,
@@ -142,7 +151,8 @@ public class Shooter extends SubsystemBase {
     double distanceProgress =
         MathUtil.clamp(
             (horizontalDistanceMeters - ShooterConstants.hubShotNearDistanceMeters)
-                / (ShooterConstants.hubShotFarDistanceMeters - ShooterConstants.hubShotNearDistanceMeters),
+                / (ShooterConstants.hubShotFarDistanceMeters
+                    - ShooterConstants.hubShotNearDistanceMeters),
             0.0,
             1.0);
     double preferredAngleDegrees =
@@ -240,7 +250,8 @@ public class Shooter extends SubsystemBase {
   private void logHubShotSolution(HubShotSolution solution) {
     Logger.recordOutput("Shooter/HubShot/DistanceMeters", solution.distanceMeters());
     Logger.recordOutput("Shooter/HubShot/LaunchAngleDegrees", solution.launchAngle().getDegrees());
-    Logger.recordOutput("Shooter/HubShot/LaunchSpeedMetersPerSec", solution.launchSpeedMetersPerSec());
+    Logger.recordOutput(
+        "Shooter/HubShot/LaunchSpeedMetersPerSec", solution.launchSpeedMetersPerSec());
     Logger.recordOutput("Shooter/HubShot/PowerSetpoint", solution.shooterPower());
     Logger.recordOutput("Shooter/HubShot/AirtimeSeconds", solution.airtimeSeconds());
     Logger.recordOutput("Shooter/HubShot/Feasible", solution.feasible());

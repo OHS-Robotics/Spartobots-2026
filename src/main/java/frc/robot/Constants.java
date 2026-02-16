@@ -70,4 +70,24 @@ public final class Constants {
   public static final double midLineX = fieldLength / 2;
   public static final double redLine = fieldLength - Units.inchesToMeters(182.11);
   public static final double midLineY = fieldWidth / 2;
+
+  // define trench entrance positions
+  public static double blueInnerX = 3.225;
+  public static double blueOuterX = 5.9;
+  public static double redOuterX = 10.6;
+  public static double redInnerX = 13.3;
+  public static double topY = 7.42;
+  public static double bottomY = 0.6;
+  public static final Pose2d blueTrenchTopInner = new Pose2d(blueInnerX, topY, new Rotation2d());
+  public static final Pose2d blueTrenchTopOuter = new Pose2d(blueOuterX, topY, new Rotation2d());
+  public static final Pose2d redTrenchTopOuter = new Pose2d(redOuterX, topY, new Rotation2d());
+  public static final Pose2d redTrenchTopInner = new Pose2d(redInnerX, topY, new Rotation2d());
+  public static final Pose2d blueTrenchBottomInner =
+      new Pose2d(blueInnerX, bottomY, new Rotation2d());
+  public static final Pose2d blueTrenchBottomOuter =
+      new Pose2d(blueOuterX, bottomY, new Rotation2d());
+  public static final Pose2d redTrenchBottomOuter =
+      new Pose2d(redOuterX, bottomY, new Rotation2d());
+  public static final Pose2d redTrenchBottomInner =
+      new Pose2d(redInnerX, bottomY, new Rotation2d());
 }

@@ -48,7 +48,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
-import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
@@ -67,6 +66,7 @@ public class Drive extends SubsystemBase {
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
+  public int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -81,8 +81,6 @@ public class Drive extends SubsystemBase {
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
     
   private PathPlannerAuto testPath;
-
-  private PathPlannerAuto trenchAuto;
 
   public Drive(
       GyroIO gyroIO,
@@ -135,8 +133,6 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
-
-    trenchAuto = new PathPlannerAuto("TrenchTestAuto");
 
     // Configure SysId
     sysId =
@@ -214,6 +210,10 @@ public class Drive extends SubsystemBase {
     if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
       clearHubAimLogs();
     }
+
+    determineOctant();
+
+    Logger.recordOutput("octant", octant);
   }
 
   /**
@@ -371,78 +371,62 @@ public class Drive extends SubsystemBase {
     return outpostLoadAuto();
   }
 
-  public Command autoDriveUnderTrench() {
-    PathPlannerAuto auto = null;
-
-    switch (determineOctant(() -> this.getPose())) {
-      case 0:
-        auto = new PathPlannerAuto("BlueTrenchLeft");
-        break;
-      case 1:
-        break;
-      case 2:
-        break;
-      case 3:
-        break;
-      case 4:
-        auto = new PathPlannerAuto("BlueTrenchRight");
-        break;
-      case 5:
-        break;
-      case 6:
-        break;
-      case 7:
-        break;
-      default:
-        break;
-    }
-
-    return AutoBuilder.pathfindToPose(auto.getStartingPose(), pathConstraints, 0).andThen(auto);
+  public Command autoDriveUnderTrench(Pose2d[] poses) {
+    return AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
+        .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
   }
 
-  public int determineOctant(Supplier<Pose2d> pose) {
-    double x = pose.get().getX();
-    double y = pose.get().getY();
+  public Pose2d[] determineTrenchPoses() {
+    Pose2d[] poses =
+        switch (octant) {
+          case 0 -> new Pose2d[] {Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter};
+          case 1 -> new Pose2d[] {Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner};
+          case 2 -> new Pose2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
+          case 3 -> new Pose2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
+          case 4 -> new Pose2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
+          case 5 -> new Pose2d[] {Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner};
+          case 6 -> new Pose2d[] {Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner};
+          case 7 -> new Pose2d[] {Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter};
+          default -> new Pose2d[] {
+            Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
+          };
+        };
+    return poses;
+  }
 
-    Logger.recordOutput("pos", pose.get());
+  public void determineOctant() {
+    double x = this.getPose().getX();
+    double y = this.getPose().getY();
 
     if (y > Constants.midLineY) {
       if (x < Constants.blueLine) {
-        return 0;
+        octant = 0;
       } else if (x < Constants.midLineX) {
-        return 1;
+        octant = 1;
       } else if (x < Constants.redLine) {
-        return 2;
+        octant = 2;
       } else {
-        return 3;
+        octant = 3;
       }
     } else {
       if (x < Constants.blueLine) {
-        return 4;
+        octant = 4;
       } else if (x < Constants.midLineX) {
-        return 5;
+        octant = 5;
       } else if (x < Constants.redLine) {
-        return 6;
+        octant = 6;
       } else {
-        return 7;
+        octant = 7;
       }
     }
   }
 
   public Command alignToPose(Pose2d target) {
-    /*return DriveCommands.joystickDrive(
-    this,
-    () -> driveToPoseController.calculate(this.getPose().getX(), target.getX()),
-    () -> driveToPoseController.calculate(this.getPose().getY(), target.getY()),
-    () ->
-        -driveToPoseController.calculate(
-            this.getPose().getRotation().getRadians(), target.getRotation().getRadians()));*/
-    // return new DriveToPose(this, target, driveToPoseController);
     return AutoBuilder.pathfindToPose(target, pathConstraints);
   }
 
   public Command outpostLoadAuto() {
-    return AutoBuilder.pathfindToPose(getNearestOutpostPose(), pathConstraints);
+    return AutoBuilder.pathfindToPose(getNearestOutpost(), pathConstraints);
   }
 
   private Pose2d getNearestHub() {
@@ -460,15 +444,11 @@ public class Drive extends SubsystemBase {
       }
       return Constants.blueOutpost;
     }
-    return null;
+    return Constants.blueOutpost;
   }
 
   public Pose2d getNearestHubPose() {
     return getNearestHub();
-  }
-
-  public Pose2d getNearestOutpostPose() {
-    return getNearestOutpost();
   }
 
   private Translation2d getFieldRelativeVelocity() {
