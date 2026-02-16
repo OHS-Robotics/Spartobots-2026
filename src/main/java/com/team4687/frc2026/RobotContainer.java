@@ -13,9 +13,15 @@ import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 import swervelib.SwerveInputStream;
 
 import java.io.File;
+import java.util.Optional;
 
+import edu.wpi.first.math.geometry.Transform2d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -37,9 +43,17 @@ public class RobotContainer {
 
   int DebugMode = 0;
 
+  // the auto align command need
+  public boolean delayedEventsRun = false;
+
+  private boolean manipulatorRumbling = false;
+
   // Replace with CommandPS4Controller or CommandJoystick if needed
   private final CommandXboxController driverJoystick =
       new CommandXboxController(OperatorConstants.kDriverControllerPort);
+
+  private final CommandXboxController manipulatorJoystick =
+      new CommandXboxController(OperatorConstants.kManipulatorControllerPort);
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -50,6 +64,44 @@ public class RobotContainer {
 
   public void robotPeriodic() {
     swerveDrive.update();
+  }
+
+  public void teleopInit() {
+    // alignment controls
+    if (!delayedEventsRun) {
+      System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
+      driverJoystick.rightStick().whileTrue(
+        DriverStation.getAlliance().get() == Alliance.Blue ?
+        /*swerveDrive.pointTowardsFixed(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED) :
+        swerveDrive.pointTowardsFixed(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED)*/
+        swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
+        swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
+      );
+      delayedEventsRun = true;
+
+        /*swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
+        swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)*/
+    }
+  }
+
+  public void teleopPeriodic() {
+    double matchTime = DriverStation.getMatchTime();
+    final double rumbleLength = .5;
+    final double rumbleStrength = .3;
+
+    if (matchTime > 130 && matchTime < 130+rumbleLength) {
+      driverJoystick.setRumble(RumbleType.kBothRumble, rumbleStrength);
+    } else if (matchTime > 105 && matchTime < 105+rumbleLength) {
+      driverJoystick.setRumble(RumbleType.kBothRumble, rumbleStrength);
+    } else if (matchTime > 80 && matchTime < 80+rumbleLength) {
+      driverJoystick.setRumble(RumbleType.kBothRumble, rumbleStrength);
+    } else if (matchTime > 55 && matchTime < 55+rumbleLength) {
+      driverJoystick.setRumble(RumbleType.kBothRumble, rumbleStrength);
+    } else if (matchTime > 30 && matchTime < 30+rumbleLength) {
+      driverJoystick.setRumble(RumbleType.kBothRumble, rumbleStrength);
+    } else {
+      driverJoystick.setRumble(RumbleType.kBothRumble, 0.0);
+    }
   }
 
   /**
@@ -63,26 +115,33 @@ public class RobotContainer {
    */
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveCommand(driveRobotAngularVelocityStream, driveFieldAngularVelocityStream));
+    // todo: align to hub
+    // todo: align to output feeeder
+    // todo: align to tower
+    // todo: align to alliance zone
+    // todo: climber up/down
+    // todo: intake/hopper movement
 
-    //driverJoystick.y().onTrue(swerveDrive.getAutonomousCommand());
+    manipulatorJoystick.a().onTrue(intake.toggleIntakeCommand());
+    manipulatorJoystick.b().onTrue(Commands.parallel(intake.toggleBeltCommand(), launcher.toggleIntakeCommand()));
 
-    // intake
-    driverJoystick.rightBumper().whileTrue(intake.increaseSpeed());
-    driverJoystick.leftBumper() .whileTrue(intake.decreaseSpeed());
-    /*driverJoystick.x().onTrue(intake.runCommand());
-    driverJoystick.x().onFalse(intake.stopCommand());*/
-    driverJoystick.x().onTrue(intake.toggleCommand());
+    manipulatorJoystick.b().onTrue(Commands.runOnce(() -> {
+      if (manipulatorRumbling) {
+        manipulatorJoystick.setRumble(RumbleType.kBothRumble, 0.0);
+        manipulatorRumbling = false;
+      }
+      else {
+        manipulatorJoystick.setRumble(RumbleType.kBothRumble, 1.0);
+        manipulatorRumbling = true;
+      }
+    }));
+  
 
-    // launcher
-    // enables both indexer and launcher itself
-    driverJoystick.y().onTrue(launcher.toggleLauncherCommand());
-    driverJoystick.b().onTrue(launcher.toggleIntakeCommand());
+    manipulatorJoystick.rightTrigger().onTrue(Commands.runOnce(() -> launcher.setTargetLaunchSpeed(0.3), launcher).andThen(launcher.runLauncherCommand()));
+    manipulatorJoystick.rightTrigger().onFalse(launcher.stopLauncherCommand());
 
-    // launch speed controls
-    driverJoystick.povDown().onTrue(launcher.decreaseLaunchSpeed());
-    driverJoystick.povUp().onTrue(launcher.increaseLaunchSpeed());
-    driverJoystick.povLeft().onTrue(launcher.decreaseIntakeSpeed());
-    driverJoystick.povRight().onTrue(launcher.increaseIntakeSpeed());
+    manipulatorJoystick.leftTrigger().onTrue(Commands.runOnce(() -> launcher.setTargetLaunchSpeed(0.5), launcher).andThen(launcher.runLauncherCommand()));
+    manipulatorJoystick.leftTrigger().onFalse(launcher.stopLauncherCommand());
   }
 
   private void configureInputStreams() {
@@ -108,5 +167,65 @@ public class RobotContainer {
     // An example command will be run in autonomous
     //return swerveDrive.changePosition(new Translation2d(0.0, 2.0), Units.feetToMeters(3.0));
     return auto.getAutonomousCommand();
+  }
+
+  // from https://docs.wpilib.org/en/stable/docs/yearly-overview/2026-game-data.html
+  public boolean isHubActive() {
+    Optional<Alliance> alliance = DriverStation.getAlliance();
+    // If we have no alliance, we cannot be enabled, therefore no hub.
+    if (alliance.isEmpty()) {
+      return false;
+    }
+    // Hub is always enabled in autonomous.
+    if (DriverStation.isAutonomousEnabled()) {
+      return true;
+    }
+    // At this point, if we're not teleop enabled, there is no hub.
+    if (!DriverStation.isTeleopEnabled()) {
+      return false;
+    }
+
+    // We're teleop enabled, compute.
+    double matchTime = DriverStation.getMatchTime();
+    String gameData = DriverStation.getGameSpecificMessage();
+    // If we have no game data, we cannot compute, assume hub is active, as its likely early in teleop.
+    if (gameData.isEmpty()) {
+      return true;
+    }
+    boolean redInactiveFirst = false;
+    switch (gameData.charAt(0)) {
+      case 'R' -> redInactiveFirst = true;
+      case 'B' -> redInactiveFirst = false;
+      default -> {
+        // If we have invalid game data, assume hub is active.
+        return true;
+      }
+    }
+
+    // Shift was is active for blue if red won auto, or red if blue won auto.
+    boolean shift1Active = switch (alliance.get()) {
+      case Red -> !redInactiveFirst;
+      case Blue -> redInactiveFirst;
+    };
+
+    if (matchTime > 130) {
+      // Transition shift, hub is active.
+      return true;
+    } else if (matchTime > 105) {
+      // Shift 1
+      return shift1Active;
+    } else if (matchTime > 80) {
+      // Shift 2
+      return !shift1Active;
+    } else if (matchTime > 55) {
+      // Shift 3
+      return shift1Active;
+    } else if (matchTime > 30) {
+      // Shift 4
+      return !shift1Active;
+    } else {
+      // End game, hub always active.
+      return true;
+    }
   }
 }

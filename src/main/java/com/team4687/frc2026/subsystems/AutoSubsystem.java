@@ -73,7 +73,7 @@ public class AutoSubsystem {
     }
 
     private void registerNamedCommands() {
-        NamedCommands.registerCommand("ingestFuel", intake.toggleCommand());
+        NamedCommands.registerCommand("ingestFuel", intake.toggleIntakeCommand());
         NamedCommands.registerCommand("expelFuel", launcher.toggleIntakeCommand().andThen(launcher.toggleLauncherCommand()));
     }
 

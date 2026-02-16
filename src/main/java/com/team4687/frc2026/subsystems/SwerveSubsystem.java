@@ -144,18 +144,59 @@ public class SwerveSubsystem extends SubsystemBase {
         )).until(() -> Math.abs(targetAngle-swerveDrive.getOdometryHeading().getRadians()) < 0.174); // 10 degrees
     }
 
-    public Command rotateTo(double angle, double speed) {
-        return changeRotation(angle - swerveDrive.getYaw().getDegrees(), speed);
+    public Command pointTowardsAndDrive(Pose2d target, double speed, Supplier<ChassisSpeeds> robotVelocity, Supplier<ChassisSpeeds> fieldVelocity) {
+        return run(() -> {
+            Pose2d current = getPose();
+            double angle = Math.atan2((current.getY()-target.getY()), (current.getX()-target.getX())) + Math.PI;
+            double change = swerveDrive.getOdometryHeading().minus(new Rotation2d(angle)).getRadians();
+            System.out.printf("Target angle: %f, current %f, diff %f\nCurrent position: %f %f\n",
+            angle, swerveDrive.getOdometryHeading().getRadians(), change,
+            current.getX(), current.getY());
+            double finalVelocity = Math.copySign(speed, -change);
+            if (Math.abs(change) < speed) finalVelocity = -change;
+            if (Math.abs(change) < Constants.MIN_AUTO_ROTATIONAL_SPEED*0.75) finalVelocity = Math.copySign(Constants.MIN_AUTO_ROTATIONAL_SPEED*0.75, -change);
+
+            this.drive(
+                sendables.getFieldOriented() ?
+                new Translation2d(fieldVelocity.get().vxMetersPerSecond, fieldVelocity.get().vyMetersPerSecond) :
+                new Translation2d(robotVelocity.get().vxMetersPerSecond, robotVelocity.get().vyMetersPerSecond),
+                finalVelocity, sendables.getFieldOriented());
+        });
     }
 
-    public Command pointTowards(Pose2d target, double speed) {
-        Transform2d transform = target.minus(getPose());
-        
-        return rotateTo(Math.atan2(transform.getY(), transform.getX()), speed);
+    public Command rotateTo(double angle, double speed) {
+        return changeRotation(angle - swerveDrive.getOdometryHeading().getRadians(), speed);
+    }
+
+    /**
+     * Like pointTowardsAndDrive, except it doesn't drive.
+     * @param target
+     * @param speed
+     * @return
+     */
+    public Command pointTowardsFixed(Pose2d target, double speed) {
+        return run(() -> {
+            Pose2d current = getPose();
+            double angle = Math.atan2((current.getY()-target.getY()), (current.getX()-target.getX())) + Math.PI;
+            double change = swerveDrive.getOdometryHeading().minus(new Rotation2d(angle)).getRadians();
+            System.out.printf("Target angle: %f, current %f, diff %f\nCurrent position: %f %f\n",
+            angle, swerveDrive.getOdometryHeading().getRadians(), change,
+            current.getX(), current.getY());
+            double finalVelocity = Math.copySign(speed, -change);
+            if (Math.abs(change) < speed) finalVelocity = -change;
+            if (Math.abs(change) < Constants.MIN_AUTO_ROTATIONAL_SPEED) finalVelocity = Math.copySign(Constants.MIN_AUTO_ROTATIONAL_SPEED, -change);
+
+            this.drive(new Translation2d(), finalVelocity, false);
+        }).until(() -> {
+            Pose2d current = getPose();
+            double angle = Math.atan2((current.getY()-target.getY()), (current.getX()-target.getX())) + Math.PI;
+            double change = swerveDrive.getOdometryHeading().minus(new Rotation2d(angle)).getRadians();
+            return (Math.abs(change) < Units.degreesToRadians(4.5));
+        });
     }
 
     public Pose2d getPose() {
-        return swerveDrive.getPose();
+        return swerveDrive.field.getRobotPose();
     }
 
     public void resetPose(Pose2d pose) {
