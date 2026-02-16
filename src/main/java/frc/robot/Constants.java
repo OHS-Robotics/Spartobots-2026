@@ -13,6 +13,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -78,16 +79,12 @@ public final class Constants {
   public static double redInnerX = 13.3;
   public static double topY = 7.42;
   public static double bottomY = 0.6;
-  public static final Pose2d blueTrenchTopInner = new Pose2d(blueInnerX, topY, new Rotation2d());
-  public static final Pose2d blueTrenchTopOuter = new Pose2d(blueOuterX, topY, new Rotation2d());
-  public static final Pose2d redTrenchTopOuter = new Pose2d(redOuterX, topY, new Rotation2d());
-  public static final Pose2d redTrenchTopInner = new Pose2d(redInnerX, topY, new Rotation2d());
-  public static final Pose2d blueTrenchBottomInner =
-      new Pose2d(blueInnerX, bottomY, new Rotation2d());
-  public static final Pose2d blueTrenchBottomOuter =
-      new Pose2d(blueOuterX, bottomY, new Rotation2d());
-  public static final Pose2d redTrenchBottomOuter =
-      new Pose2d(redOuterX, bottomY, new Rotation2d());
-  public static final Pose2d redTrenchBottomInner =
-      new Pose2d(redInnerX, bottomY, new Rotation2d());
+  public static final Translation2d blueTrenchTopInner = new Translation2d(blueInnerX, topY);
+  public static final Translation2d blueTrenchTopOuter = new Translation2d(blueOuterX, topY);
+  public static final Translation2d redTrenchTopOuter = new Translation2d(redOuterX, topY);
+  public static final Translation2d redTrenchTopInner = new Translation2d(redInnerX, topY);
+  public static final Translation2d blueTrenchBottomInner = new Translation2d(blueInnerX, bottomY);
+  public static final Translation2d blueTrenchBottomOuter = new Translation2d(blueOuterX, bottomY);
+  public static final Translation2d redTrenchBottomOuter = new Translation2d(redOuterX, bottomY);
+  public static final Translation2d redTrenchBottomInner = new Translation2d(redInnerX, bottomY);
 }

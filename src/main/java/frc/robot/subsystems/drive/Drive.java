@@ -366,23 +366,38 @@ public class Drive extends SubsystemBase {
     return outpostLoadAuto();
   }
 
-  public Command autoDriveUnderTrench(Pose2d[] poses) {
-    return AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
-        .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
+  public Command autoDriveUnderTrench(Translation2d[] poses, double angle) {
+    return AutoBuilder.pathfindToPose(
+            new Pose2d(poses[0], new Rotation2d(angle)), pathConstraints, 0)
+        .andThen(
+            AutoBuilder.pathfindToPose(
+                new Pose2d(poses[1], new Rotation2d(angle)), pathConstraints, 0));
   }
 
-  public Pose2d[] determineTrenchPoses() {
-    Pose2d[] poses =
+  public Translation2d[] determineTrenchPoses() {
+    Translation2d[] poses =
         switch (octant) {
-          case 0 -> new Pose2d[] {Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter};
-          case 1 -> new Pose2d[] {Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner};
-          case 2 -> new Pose2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
-          case 3 -> new Pose2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
-          case 4 -> new Pose2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
-          case 5 -> new Pose2d[] {Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner};
-          case 6 -> new Pose2d[] {Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner};
-          case 7 -> new Pose2d[] {Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter};
-          default -> new Pose2d[] {
+          case 0 -> new Translation2d[] {
+            Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter
+          };
+          case 1 -> new Translation2d[] {
+            Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner
+          };
+          case 2 -> new Translation2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
+          case 3 -> new Translation2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
+          case 4 -> new Translation2d[] {
+            Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
+          };
+          case 5 -> new Translation2d[] {
+            Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner
+          };
+          case 6 -> new Translation2d[] {
+            Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner
+          };
+          case 7 -> new Translation2d[] {
+            Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter
+          };
+          default -> new Translation2d[] {
             Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
           };
         };

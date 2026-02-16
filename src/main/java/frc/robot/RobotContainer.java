@@ -255,8 +255,10 @@ public class RobotContainer {
   }
 
   public void autoDriveUnderTrench() {
-    Pose2d[] poses = drive.determineTrenchPoses();
-    CommandScheduler.getInstance().schedule(drive.autoDriveUnderTrench(poses));
+    Translation2d[] poses = drive.determineTrenchPoses();
+    double robotAngleRadians = drive.getRotation().getRadians();
+    double angleRadians = (Math.PI / 2) * Math.round(robotAngleRadians / (Math.PI / 2));
+    CommandScheduler.getInstance().schedule(drive.autoDriveUnderTrench(poses, angleRadians));
   }
 
   public Command alignToHub() {
