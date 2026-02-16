@@ -15,7 +15,8 @@ import swervelib.SwerveInputStream;
 import java.io.File;
 import java.util.Optional;
 
-import edu.wpi.first.math.geometry.Transform2d;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
@@ -77,6 +78,15 @@ public class RobotContainer {
         swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
         swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
       );
+
+      driverJoystick.povLeft().onTrue(DriverStation.getAlliance().get() == Alliance.Blue ?
+        swerveDrive.driveTo(new Pose2d(1.0, 5.0, new Rotation2d(-Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED) :
+        swerveDrive.driveTo(new Pose2d(15.5, 3.25, new Rotation2d(Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
+      );
+      driverJoystick.povRight().onTrue(DriverStation.getAlliance().get() == Alliance.Blue ?
+        swerveDrive.driveTo(new Pose2d(1.0, 2.5, new Rotation2d(Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED) :
+        swerveDrive.driveTo(new Pose2d(15.5, 5.25, new Rotation2d(Math.PI/-2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
+      );
       delayedEventsRun = true;
 
         /*swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
@@ -115,9 +125,7 @@ public class RobotContainer {
    */
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveCommand(driveRobotAngularVelocityStream, driveFieldAngularVelocityStream));
-    // todo: align to hub
     // todo: align to output feeeder
-    // todo: align to tower
     // todo: align to alliance zone
     // todo: climber up/down
     // todo: intake/hopper movement

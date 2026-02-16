@@ -108,7 +108,7 @@ public class SwerveSubsystem extends SubsystemBase {
         translationSpeed = Math.min(translationSpeed, Constants.MAX_SPEED);
         rotationSpeed = Math.min(rotationSpeed, Constants.MAX_ROTATIONAL_SPEED);
         PathConstraints constraints = new PathConstraints(Constants.MAX_SPEED, Constants.MAX_ACCELERATION, Constants.MAX_ROTATIONAL_SPEED, Constants.MAX_ROTATIONAL_ACCELERATION);
-        return AutoBuilder.pathfindToPose(endpoint, constraints);
+        return AutoBuilder.pathfindToPose(endpoint, constraints)/*.andThen(rotateTo(endpoint.getRotation().getRadians(), rotationSpeed))*/;
 
         /*final double limitedSpeed = Math.min(translationSpeed, Constants.MAX_SPEED);
         final Translation2d translation = endpoint.minus(getPose()).getTranslation();
@@ -132,6 +132,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Command changeRotation(double angle, double speed) {
+        // todo: this is broken
         final double limitedSpeed = Math.min(speed, Units.radiansToDegrees(Constants.MAX_ROTATIONAL_SPEED));
         double targetAngle = swerveDrive.getOdometryHeading().plus(new Rotation2d(angle)).getRadians();
         return run(() -> drive(
@@ -165,7 +166,13 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Command rotateTo(double angle, double speed) {
-        return changeRotation(angle - swerveDrive.getOdometryHeading().getRadians(), speed);
+        // todo: make this more accurate
+        final double limitedSpeed = Math.min(speed, Units.radiansToDegrees(Constants.MAX_ROTATIONAL_SPEED));
+        return run(() -> drive(
+            new Translation2d(0.0, 0.0),
+            Math.copySign(limitedSpeed, angle-swerveDrive.getOdometryHeading().getRadians()),
+            false
+        )).until(() -> Math.abs(angle-swerveDrive.getOdometryHeading().getRadians()) < Units.degreesToRadians(4.0));
     }
 
     /**
