@@ -25,6 +25,7 @@ import java.util.Set;
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
+import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
 /** IO implementation for real PhotonVision hardware. */
@@ -33,6 +34,7 @@ public class VisionIOPhotonVision implements VisionIO {
   protected final PhotonCamera camera;
   protected final Transform3d robotToCamera;
   public Matrix<N3, N1> stdDevs;
+  private boolean initialized = false;
 
   /**
    * Creates a new VisionIOPhotonVision.
@@ -43,6 +45,7 @@ public class VisionIOPhotonVision implements VisionIO {
   public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
+    initialized = true;
   }
 
   @Override
@@ -135,9 +138,6 @@ public class VisionIOPhotonVision implements VisionIO {
   }
 
   @Override
-  public void updatePoseEstimate(Drive drive) {}
-
-  /*@Override
   public void updatePoseEstimate(Drive drive) {
     if (!initialized) return;
 
@@ -159,7 +159,7 @@ public class VisionIOPhotonVision implements VisionIO {
             drive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds, stdDevs);
           });
     }
-  }*/
+  }
 
   public void updateStdDevs(
       Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {

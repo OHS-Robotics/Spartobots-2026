@@ -239,6 +239,15 @@ public class RobotContainer {
                 },
                 drive));
 
+    controller
+        .rightTrigger()
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  drive.setPose(new Pose2d(3.5, .6, new Rotation2d()));
+                },
+                drive));
+
     if (Constants.currentMode == Constants.Mode.SIM) {
       // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
     }
