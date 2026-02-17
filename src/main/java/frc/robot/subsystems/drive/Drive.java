@@ -35,6 +35,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -363,7 +364,16 @@ public class Drive extends SubsystemBase {
     return outpostLoadAuto();
   }
 
-  public Command autoDriveUnderTrench(Translation2d[] poses, double angle) {
+  public void autoDriveUnderTrench() {
+    Translation2d[] poses = determineTrenchPoses();
+    double robotAngleRadians = getRotation().getRadians();
+    double angleRadians =
+        (DriveConstants.trenchSnapTo)
+            * Math.round(robotAngleRadians / (DriveConstants.trenchSnapTo));
+    CommandScheduler.getInstance().schedule(autoDriveUnderTrenchCommand(poses, angleRadians));
+  }
+
+  public Command autoDriveUnderTrenchCommand(Translation2d[] poses, double angle) {
     return AutoBuilder.pathfindToPose(
             new Pose2d(poses[0], new Rotation2d(angle)), pathConstraints, 0)
         .andThen(
@@ -399,6 +409,22 @@ public class Drive extends SubsystemBase {
           };
         };
     return poses;
+  }
+
+  public void driveToOutpost() {
+    Pose2d[] poses;
+    if (DriverStation.getAlliance().isPresent()
+        && DriverStation.getAlliance().get() == Alliance.Red) {
+      poses = new Pose2d[] {Constants.redOutpostBefore, Constants.redOutpost};
+    } else {
+      poses = new Pose2d[] {Constants.blueOutpostBefore, Constants.blueOutpost};
+    }
+    CommandScheduler.getInstance().schedule(driveToOutpostCommand(poses));
+  }
+
+  public Command driveToOutpostCommand(Pose2d[] poses) {
+    return AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
+        .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
   }
 
   public void determineOctant() {

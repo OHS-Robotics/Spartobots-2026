@@ -8,6 +8,7 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -21,7 +22,6 @@ import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -174,6 +174,9 @@ public class RobotContainer {
     autoChooser.addOption(
         "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
+    // register commmands to be used in PathPlanner autos
+    NamedCommands.registerCommand("trench", autoDriveUnderTrenchCommand());
+
     // Configure the button bindings
     configureButtonBindings();
   }
@@ -222,7 +225,7 @@ public class RobotContainer {
 
     controller.povUp().whileTrue(alignToHub());
 
-    controller.povLeft().onTrue(drive.alignToPose(Constants.blueOutpost));
+    controller.povLeft().onTrue(driveToOutpostCommand());
 
     controller.povRight().toggleOnTrue(alignToHub());
 
@@ -230,15 +233,9 @@ public class RobotContainer {
 
     controller.leftBumper().onTrue(drive.getDefaultCommand());
 
-    controller
-        .rightBumper()
-        .onTrue(
-            Commands.runOnce(
-                () -> {
-                  autoDriveUnderTrench();
-                },
-                drive));
+    controller.rightBumper().onTrue(autoDriveUnderTrenchCommand());
 
+    // trench drive testing stuff
     controller
         .rightTrigger()
         .onTrue(
@@ -263,11 +260,20 @@ public class RobotContainer {
     return drive.getAutonomousCommand();
   }
 
-  public void autoDriveUnderTrench() {
-    Translation2d[] poses = drive.determineTrenchPoses();
-    double robotAngleRadians = drive.getRotation().getRadians();
-    double angleRadians = (Math.PI / 2) * Math.round(robotAngleRadians / (Math.PI / 2));
-    CommandScheduler.getInstance().schedule(drive.autoDriveUnderTrench(poses, angleRadians));
+  public Command autoDriveUnderTrenchCommand() {
+    return Commands.runOnce(
+        () -> {
+          drive.autoDriveUnderTrench();
+        },
+        drive);
+  }
+
+  public Command driveToOutpostCommand() {
+    return Commands.runOnce(
+        () -> {
+          drive.driveToOutpost();
+        },
+        drive);
   }
 
   public Command alignToHub() {
