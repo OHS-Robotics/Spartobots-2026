@@ -181,4 +181,6 @@ public class DriveConstants {
   public static final double driveToPoseControllerKd = 1.0;
 
   public static final double alignmentAcceptableDistance = 1; // meters
+
+  public static final double trenchSnapTo = Units.degreesToRadians(180);
 }

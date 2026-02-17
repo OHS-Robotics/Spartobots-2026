@@ -13,6 +13,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -44,12 +45,6 @@ public final class Constants {
           Units.inchesToMeters(469.111), Units.inchesToMeters(158.844), new Rotation2d(Math.PI));
   public static final Pose2d blueHub =
       new Pose2d(Units.inchesToMeters(182.111), Units.inchesToMeters(158.844), new Rotation2d(0));
-  public static final Pose2d redOutpost = new Pose2d(15.85, 7.425, new Rotation2d(0));
-  public static final Pose2d blueOutpost =
-      new Pose2d(
-          Units.inchesToMeters(robotBaseLength / 2),
-          Units.inchesToMeters(25),
-          new Rotation2d(Math.PI));
 
   public static enum Mode {
     /** Running on a real robot. */
@@ -72,22 +67,24 @@ public final class Constants {
   public static final double midLineY = fieldWidth / 2;
 
   // define trench entrance positions
-  public static double blueInnerX = 3.225;
-  public static double blueOuterX = 5.9;
-  public static double redOuterX = 10.6;
-  public static double redInnerX = 13.3;
-  public static double topY = 7.42;
-  public static double bottomY = 0.6;
-  public static final Pose2d blueTrenchTopInner = new Pose2d(blueInnerX, topY, new Rotation2d());
-  public static final Pose2d blueTrenchTopOuter = new Pose2d(blueOuterX, topY, new Rotation2d());
-  public static final Pose2d redTrenchTopOuter = new Pose2d(redOuterX, topY, new Rotation2d());
-  public static final Pose2d redTrenchTopInner = new Pose2d(redInnerX, topY, new Rotation2d());
-  public static final Pose2d blueTrenchBottomInner =
-      new Pose2d(blueInnerX, bottomY, new Rotation2d());
-  public static final Pose2d blueTrenchBottomOuter =
-      new Pose2d(blueOuterX, bottomY, new Rotation2d());
-  public static final Pose2d redTrenchBottomOuter =
-      new Pose2d(redOuterX, bottomY, new Rotation2d());
-  public static final Pose2d redTrenchBottomInner =
-      new Pose2d(redInnerX, bottomY, new Rotation2d());
+  public static final double blueInnerX = 3.225;
+  public static final double blueOuterX = 5.9;
+  public static final double redOuterX = 10.6;
+  public static final double redInnerX = 13.3;
+  public static final double topY = 7.42;
+  public static final double bottomY = 0.6;
+  public static final Translation2d blueTrenchTopInner = new Translation2d(blueInnerX, topY);
+  public static final Translation2d blueTrenchTopOuter = new Translation2d(blueOuterX, topY);
+  public static final Translation2d redTrenchTopOuter = new Translation2d(redOuterX, topY);
+  public static final Translation2d redTrenchTopInner = new Translation2d(redInnerX, topY);
+  public static final Translation2d blueTrenchBottomInner = new Translation2d(blueInnerX, bottomY);
+  public static final Translation2d blueTrenchBottomOuter = new Translation2d(blueOuterX, bottomY);
+  public static final Translation2d redTrenchBottomOuter = new Translation2d(redOuterX, bottomY);
+  public static final Translation2d redTrenchBottomInner = new Translation2d(redInnerX, bottomY);
+
+  // define outpost positions
+  public static final Pose2d blueOutpost = new Pose2d(.5, .66, new Rotation2d(0));
+  public static final Pose2d blueOutpostBefore = new Pose2d(1, .66, new Rotation2d(0));
+  public static final Pose2d redOutpost = new Pose2d(16, 7.38, new Rotation2d(Units.degreesToRadians(180)));
+  public static final Pose2d redOutpostBefore = new Pose2d(15.5, 7.38, new Rotation2d(Units.degreesToRadians(180)));
 }

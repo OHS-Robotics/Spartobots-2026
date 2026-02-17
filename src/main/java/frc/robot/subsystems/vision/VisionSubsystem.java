@@ -24,7 +24,7 @@ public class VisionSubsystem extends SubsystemBase {
   public Matrix<N3, N1> stdDevs;
 
   public void initVision() {
-    poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPosition);
+    poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, VisionConstants.robotToCamera0);
     camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
     initialized = true;
   }
