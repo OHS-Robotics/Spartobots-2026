@@ -7,6 +7,10 @@
 
 package frc.robot;
 
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Radians;
+
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.MathUtil;
@@ -18,14 +22,28 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.subsystems.body.AgitatorsConstants;
 import frc.robot.commands.DriveCommands;
+import frc.robot.subsystems.body.Agitators;
+import frc.robot.subsystems.body.Hopper;
+import frc.robot.subsystems.body.HopperConstants;
+import frc.robot.subsystems.body.Intake;
+import frc.robot.subsystems.body.IntakeConstants;
+import frc.robot.subsystems.body.shooter.Shooter;
+import frc.robot.subsystems.body.shooter.ShooterConstants;
+import frc.robot.subsystems.body.shooter.ShooterIO;
+import frc.robot.subsystems.body.shooter.ShooterIOSim;
+import frc.robot.subsystems.body.shooter.ShooterIOSparkMax;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
@@ -34,14 +52,16 @@ import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
-import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import java.util.Set;
+import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -69,16 +89,33 @@ public class RobotContainer {
   private static final double WALL_RUMBLE_STRENGTH = 1.0;
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
+  private static final double LEFT_TRIGGER_RATE_DEADBAND = 0.05;
+  private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
+  private static final int TOP_LEFT_PADDLE_BUTTON = 7;
+  private static final int TOP_RIGHT_PADDLE_BUTTON = 8;
+  private static final int BOTTOM_LEFT_PADDLE_BUTTON = 11;
+  // Estimated field poses; tune after on-field validation.
+  private static final Pose2d BLUE_LADDER_ALIGN_POSE =
+      new Pose2d(1.25, Constants.fieldWidth - 0.75, Rotation2d.kZero);
+  private static final Pose2d RED_LADDER_ALIGN_POSE =
+      new Pose2d(Constants.fieldLength - 1.25, 0.75, Rotation2d.fromDegrees(180.0));
+  private static final Pose2d BLUE_DEPOT_ALIGN_POSE =
+      new Pose2d(Constants.blueLine - 0.6, Constants.midLineY, Rotation2d.kZero);
+  private static final Pose2d RED_DEPOT_ALIGN_POSE =
+      new Pose2d(Constants.redLine + 0.6, Constants.midLineY, Rotation2d.fromDegrees(180.0));
   private static final HumpPoseSample FLAT_GROUND_SAMPLE =
       new HumpPoseSample(new double[] {0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 0.0);
 
   // Subsystems
   private final Drive drive;
-  private final Shooter shooter = new Shooter();
+  private final Shooter shooter;
+  private final Intake intake;
+  private final Hopper hopper;
+  private final Agitators agitators;
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
-  private boolean robotOrientedDrive = false;
+  private Command activeAutoAssistCommand = null;
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -87,9 +124,15 @@ public class RobotContainer {
   private SwerveDriveSimulation driveSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
+  private int simulatedShooterShotsLaunched = 0;
+  private int simulatedShooterHubHits = 0;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    intake = new Intake();
+    hopper = new Hopper();
+    agitators = new Agitators();
+
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
@@ -100,6 +143,7 @@ public class RobotContainer {
                 new ModuleIOSpark(1),
                 new ModuleIOSpark(2),
                 new ModuleIOSpark(3));
+        shooter = new Shooter(new ShooterIOSparkMax());
         vision =
             new Vision(
                 drive::addVisionMeasurement,
@@ -122,6 +166,7 @@ public class RobotContainer {
                 new ModuleIOSim(driveSimulation.getModules()[2]),
                 new ModuleIOSim(driveSimulation.getModules()[3]),
                 driveSimulation::setSimulationWorldPose);
+        shooter = new Shooter(new ShooterIOSim());
         vision =
             new Vision(
                 drive::addVisionMeasurement,
@@ -145,6 +190,7 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {});
+        shooter = new Shooter(new ShooterIO() {});
         vision =
             new Vision(
                 drive::addVisionMeasurement,
@@ -188,62 +234,54 @@ public class RobotContainer {
    * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
    */
   private void configureButtonBindings() {
-    // Default command, field-relative by default (toggle to robot-oriented with POV down)
+    // Left stick = translation, right stick = rotation.
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
             () -> controller.getLeftY(),
             () -> controller.getLeftX(),
             () -> -controller.getRightX(),
-            () -> robotOrientedDrive));
+            () -> false));
 
-    // Lock to 0 when A button is held
+    // Left stick press = continue auto sequence.
+    controller.leftStick().onTrue(scheduleAutoAssist(this::continueAutoSequenceCommand));
+    // Right stick press (hold) = align to hub.
+    controller.rightStick().whileTrue(alignToHub());
+
+    // Right trigger = run shooter while held.
+    controller.rightTrigger().whileTrue(runShooterWhileHeldCommand());
+    // Left trigger (optional) = live feed rate control for agitators, belts, intake.
+    new Trigger(() -> controller.getHID().getLeftTriggerAxis() > LEFT_TRIGGER_RATE_DEADBAND)
+        .whileTrue(Commands.run(() -> setFeedRates(controller.getHID().getLeftTriggerAxis())))
+        .onFalse(Commands.runOnce(this::resetFeedRates));
+
+    // A/B/C(X) toggles.
+    controller.a().onTrue(agitators.toggleAgitatorCommand());
+    controller.b().onTrue(hopper.toggleBeltCommand());
+    controller.x().onTrue(intake.toggleIntakeCommand());
+
+    // Left bumper = cancel any auto-assist command.
+    controller.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
+    // Right bumper = drive under nearest trench.
+    controller.rightBumper().onTrue(scheduleAutoAssist(this::autoDriveUnderTrenchCommand));
+
+    // D-pad up/down = manual hood extension with hard stops.
     controller
-        .a()
+        .povUp()
         .whileTrue(
-            DriveCommands.joystickDriveAtAngle(
-                drive,
-                () -> controller.getLeftY(),
-                () -> controller.getLeftX(),
-                () -> Rotation2d.kZero));
-
-    // Switch to X pattern when X button is pressed
-    controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
-
-    // Reset gyro to 0 when B button is pressed
+            Commands.run(() -> shooter.adjustHoodSetpointDegrees(MANUAL_HOOD_STEP_DEGREES)));
     controller
-        .b()
-        .onTrue(
-            Commands.runOnce(
-                    () ->
-                        drive.setPose(
-                            new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
-                    drive)
-                .ignoringDisable(true));
+        .povDown()
+        .whileTrue(
+            Commands.run(() -> shooter.adjustHoodSetpointDegrees(-MANUAL_HOOD_STEP_DEGREES)));
 
-    controller.y().onTrue(drive.getAutonomousCommand());
-
-    controller.povUp().whileTrue(alignToHub());
-
-    controller.povLeft().onTrue(driveToOutpostCommand());
-
-    controller.povRight().toggleOnTrue(alignToHub());
-
-    controller.povDown().onTrue(Commands.runOnce(() -> robotOrientedDrive = !robotOrientedDrive));
-
-    controller.leftBumper().onTrue(drive.getDefaultCommand());
-
-    controller.rightBumper().onTrue(autoDriveUnderTrenchCommand());
-
-    // trench drive testing stuff
-    controller
-        .rightTrigger()
-        .onTrue(
-            Commands.runOnce(
-                () -> {
-                  drive.setPose(new Pose2d(3.5, .6, new Rotation2d()));
-                },
-                drive));
+    // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
+    new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
+        .onTrue(scheduleAutoAssist(this::alignToLadderCommand));
+    new Trigger(() -> controller.getHID().getRawButton(TOP_RIGHT_PADDLE_BUTTON))
+        .onTrue(scheduleAutoAssist(this::driveToOutpostCommand));
+    new Trigger(() -> controller.getHID().getRawButton(BOTTOM_LEFT_PADDLE_BUTTON))
+        .onTrue(scheduleAutoAssist(this::alignToDepotCommand));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
@@ -261,19 +299,20 @@ public class RobotContainer {
   }
 
   public Command autoDriveUnderTrenchCommand() {
-    return Commands.runOnce(
+    return Commands.defer(
         () -> {
-          drive.autoDriveUnderTrench();
+          Translation2d[] poses = drive.determineTrenchPoses();
+          double robotAngleRadians = drive.getRotation().getRadians();
+          double angleRadians =
+              DriveConstants.trenchSnapTo
+                  * Math.round(robotAngleRadians / DriveConstants.trenchSnapTo);
+          return drive.autoDriveUnderTrenchCommand(poses, angleRadians);
         },
-        drive);
+        Set.of(drive));
   }
 
   public Command driveToOutpostCommand() {
-    return Commands.runOnce(
-        () -> {
-          drive.driveToOutpost();
-        },
-        drive);
+    return drive.outpostLoadAuto();
   }
 
   public Command alignToHub() {
@@ -290,6 +329,71 @@ public class RobotContainer {
     return drive.alignToOutpost(() -> -controller.getLeftX(), () -> -controller.getLeftY());
   }
 
+  public Command alignToLadderCommand() {
+    return drive.alignToPose(getAlliancePose(BLUE_LADDER_ALIGN_POSE, RED_LADDER_ALIGN_POSE));
+  }
+
+  public Command alignToDepotCommand() {
+    return drive.alignToPose(getAlliancePose(BLUE_DEPOT_ALIGN_POSE, RED_DEPOT_ALIGN_POSE));
+  }
+
+  private Pose2d getAlliancePose(Pose2d bluePose, Pose2d redPose) {
+    return DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red ? redPose : bluePose;
+  }
+
+  private void setFeedRates(double rate) {
+    double clampedRate = MathUtil.clamp(rate, 0.0, 1.0);
+    intake.setTargetIntakeSpeed(clampedRate);
+    hopper.setTargetBeltSpeed(clampedRate);
+    agitators.setTargetAgitatorSpeed(clampedRate);
+  }
+
+  private void resetFeedRates() {
+    intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
+    hopper.setTargetBeltSpeed(HopperConstants.defaultHopperBeltSpeed);
+    agitators.setTargetAgitatorSpeed(AgitatorsConstants.defaultTopAgitatorSpeed);
+  }
+
+  private Command runShooterWhileHeldCommand() {
+    return Commands.startEnd(
+        () -> shooter.setShotControlEnabled(true),
+        () -> shooter.setShotControlEnabled(false),
+        shooter);
+  }
+
+  private Command continueAutoSequenceCommand() {
+    return drive.getAutonomousCommand();
+  }
+
+  private Command scheduleAutoAssist(Supplier<Command> commandSupplier) {
+    return Commands.runOnce(() -> scheduleAutoAssistCommand(commandSupplier.get()));
+  }
+
+  private void scheduleAutoAssistCommand(Command command) {
+    cancelAutoAssist();
+    if (command == null) {
+      return;
+    }
+
+    final Command[] trackedCommand = new Command[1];
+    trackedCommand[0] =
+        command.finallyDo(
+            () -> {
+              if (activeAutoAssistCommand == trackedCommand[0]) {
+                activeAutoAssistCommand = null;
+              }
+            });
+    activeAutoAssistCommand = trackedCommand[0];
+    activeAutoAssistCommand.schedule();
+  }
+
+  private void cancelAutoAssist() {
+    if (activeAutoAssistCommand != null) {
+      activeAutoAssistCommand.cancel();
+      activeAutoAssistCommand = null;
+    }
+  }
+
   public void updateHubShotSolution() {
     shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
   }
@@ -303,13 +407,27 @@ public class RobotContainer {
     SimulatedArena.getInstance().resetFieldForAuto();
     previousSimFieldSpeeds = null;
     rumbleUntilTimestampSeconds = 0.0;
+    simulatedShooterShotsLaunched = 0;
+    simulatedShooterHubHits = 0;
     controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
+    Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
+    Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
+    Logger.recordOutput("Shooter/Simulation/ShotTrajectory", new Pose3d[] {});
+    Logger.recordOutput("Shooter/Simulation/LastLaunchSpeedMetersPerSec", 0.0);
+    Logger.recordOutput("Shooter/Simulation/LastLaunchAngleDegrees", 0.0);
+    Logger.recordOutput("Shooter/Simulation/LastLaunchYawDegrees", 0.0);
+    Logger.recordOutput("Shooter/Simulation/LastLaunchPose3d", new Pose3d());
   }
 
   public void updateSimulation() {
     if (Constants.currentMode != Constants.Mode.SIM || driveSimulation == null) {
       return;
     }
+
+    Pose2d launchRobotPose = driveSimulation.getSimulatedDriveTrainPose();
+    ChassisSpeeds launchFieldSpeeds =
+        driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
+    maybeLaunchSimulatedFuel(launchRobotPose, launchFieldSpeeds);
 
     SimulatedArena.getInstance().simulationPeriodic();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
@@ -335,6 +453,68 @@ public class RobotContainer {
     Logger.recordOutput(
         "FieldSimulation/GamePieces/Algae",
         SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
+    Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
+    Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
+  }
+
+  private void maybeLaunchSimulatedFuel(Pose2d robotPose, ChassisSpeeds fieldRelativeSpeeds) {
+    if (!shooter.shouldTriggerSimulatedShot(Timer.getFPGATimestamp())) {
+      return;
+    }
+
+    Rotation2d shooterFacing = robotPose.getRotation().plus(ShooterConstants.shooterFacingOffset);
+    Rotation2d launchPitch = shooter.getMeasuredHoodAngle();
+    double launchSpeedMetersPerSec =
+        MathUtil.clamp(
+            shooter.getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec(),
+            ShooterConstants.minLaunchSpeedMetersPerSec,
+            ShooterConstants.maxLaunchSpeedMetersPerSec);
+    Pose2d targetHubPose = drive.getNearestHubPose();
+
+    RebuiltFuelOnFly projectile =
+        new RebuiltFuelOnFly(
+            robotPose.getTranslation(),
+            ShooterConstants.shooterMuzzleOffsetOnRobot,
+            fieldRelativeSpeeds,
+            shooterFacing,
+            Meters.of(shooter.getLaunchHeightMeters()),
+            MetersPerSecond.of(launchSpeedMetersPerSec),
+            Radians.of(launchPitch.getRadians()));
+
+    projectile
+        .withTargetPosition(
+            () ->
+                new Translation3d(
+                    targetHubPose.getX(), targetHubPose.getY(), ShooterConstants.hubCenterHeightMeters))
+        .withTargetTolerance(
+            new Translation3d(
+                ShooterConstants.projectileTargetToleranceXYMeters,
+                ShooterConstants.projectileTargetToleranceXYMeters,
+                ShooterConstants.projectileTargetToleranceZMeters))
+        .withHitTargetCallBack(
+            () -> {
+              simulatedShooterHubHits++;
+              Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
+            })
+        .withProjectileTrajectoryDisplayCallBack(
+            trajectory ->
+                Logger.recordOutput(
+                    "Shooter/Simulation/ShotTrajectory", trajectory.toArray(Pose3d[]::new)));
+
+    SimulatedArena.getInstance().addGamePieceProjectile(projectile);
+    simulatedShooterShotsLaunched++;
+
+    Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
+    Logger.recordOutput("Shooter/Simulation/LastLaunchSpeedMetersPerSec", launchSpeedMetersPerSec);
+    Logger.recordOutput("Shooter/Simulation/LastLaunchAngleDegrees", launchPitch.getDegrees());
+    Logger.recordOutput("Shooter/Simulation/LastLaunchYawDegrees", shooterFacing.getDegrees());
+    Logger.recordOutput(
+        "Shooter/Simulation/LastLaunchPose3d",
+        new Pose3d(
+            robotPose.getX(),
+            robotPose.getY(),
+            shooter.getLaunchHeightMeters(),
+            new Rotation3d(0.0, -launchPitch.getRadians(), shooterFacing.getRadians())));
   }
 
   private void updateCollisionRumble(Pose2d robotPose, ChassisSpeeds currentFieldSpeeds) {
