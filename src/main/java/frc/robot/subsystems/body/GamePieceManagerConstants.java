@@ -3,7 +3,7 @@ package frc.robot.subsystems.body;
 public final class GamePieceManagerConstants {
   private GamePieceManagerConstants() {}
 
-  public static final String configTableName = "GamePieceManagerConfig";
+  public static final String configTableName = "Body/GamePieceManager";
 
   // Set to a valid DIO channel on the real robot to enable each beam break.
   public static final int intakeBeamBreakChannel = -1;

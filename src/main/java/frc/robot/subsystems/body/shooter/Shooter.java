@@ -46,34 +46,66 @@ public class Shooter extends SubsystemBase {
           speedToPower(ShooterConstants.defaultLaunchSpeedMetersPerSec),
           ShooterConstants.fallbackAirtimeSeconds,
           false);
-  private final NetworkTable configTable =
+  private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(ShooterConstants.configTableName);
+  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
   private final NetworkTableEntry hoodRetractedPositionEntry =
-      configTable.getEntry("Hood/Calibration/RetractedPositionRotations");
+      tuningTable.getEntry("Hood/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry hoodExtendedPositionEntry =
-      configTable.getEntry("Hood/Calibration/ExtendedPositionRotations");
+      tuningTable.getEntry("Hood/Calibration/ExtendedPositionRotations");
   private final NetworkTableEntry hoodEncoderPositionEntry =
-      configTable.getEntry("Hood/EncoderPositionRotations");
+      telemetryTable.getEntry("Hood/EncoderPositionRotations");
   private final NetworkTableEntry hoodEncoderVelocityEntry =
-      configTable.getEntry("Hood/EncoderVelocityRotationsPerSec");
+      telemetryTable.getEntry("Hood/EncoderVelocityRotationsPerSec");
   private final NetworkTableEntry hoodEncoderNormalizedPositionEntry =
-      configTable.getEntry("Hood/EncoderPositionNormalized");
-  private final NetworkTableEntry hoodSetpointEntry =
-      configTable.getEntry("Hood/SetpointRotations");
+      telemetryTable.getEntry("Hood/EncoderPositionNormalized");
+  private final NetworkTableEntry hoodSetpointEntry = telemetryTable.getEntry("Hood/SetpointRotations");
+  private final NetworkTableEntry hoodSetpointAngleEntry =
+      telemetryTable.getEntry("Hood/SetpointAngleFromFloorDegrees");
+  private final NetworkTableEntry hoodMeasuredAngleEntry =
+      telemetryTable.getEntry("Hood/MeasuredAngleFromFloorDegrees");
+  private final NetworkTableEntry hoodSetpointErrorEntry =
+      telemetryTable.getEntry("Hood/SetpointErrorDegrees");
+  private final NetworkTableEntry hoodMinAngleFromFloorEntry =
+      telemetryTable.getEntry("Hood/Calibration/MinAngleFromFloorDegrees");
+  private final NetworkTableEntry hoodMaxAngleFromFloorEntry =
+      telemetryTable.getEntry("Hood/Calibration/MaxAngleFromFloorDegrees");
   private final NetworkTableEntry pair1MeasuredVelocityEntry =
-      configTable.getEntry("Wheels/Pair1VelocityRadPerSec");
+      telemetryTable.getEntry("Wheels/Pair1VelocityRadPerSec");
   private final NetworkTableEntry pair2MeasuredVelocityEntry =
-      configTable.getEntry("Wheels/Pair2VelocityRadPerSec");
+      telemetryTable.getEntry("Wheels/Pair2VelocityRadPerSec");
   private final NetworkTableEntry pair1CommandVelocityEntry =
-      configTable.getEntry("Wheels/Pair1CommandRadPerSec");
+      telemetryTable.getEntry("Wheels/Pair1CommandRadPerSec");
   private final NetworkTableEntry pair2CommandVelocityEntry =
-      configTable.getEntry("Wheels/Pair2CommandRadPerSec");
-  private final NetworkTableEntry wheelSpeedScaleEntry =
-      configTable.getEntry("Wheels/SpeedScale");
-  private final NetworkTableEntry pair1DirectionEntry =
-      configTable.getEntry("Wheels/Pair1Direction");
-  private final NetworkTableEntry pair2DirectionEntry =
-      configTable.getEntry("Wheels/Pair2Direction");
+      telemetryTable.getEntry("Wheels/Pair2CommandRadPerSec");
+  private final NetworkTableEntry shotOverlayTargetDistanceEntry =
+      telemetryTable.getEntry("Overlay/TargetDistanceMeters");
+  private final NetworkTableEntry shotOverlayHubHeightEntry =
+      telemetryTable.getEntry("Overlay/HubCenterHeightMeters");
+  private final NetworkTableEntry shotOverlayLaunchHeightEntry =
+      telemetryTable.getEntry("Overlay/LaunchHeightMeters");
+  private final NetworkTableEntry shotOverlaySolutionAngleEntry =
+      telemetryTable.getEntry("Overlay/SolutionAngleFromFloorDegrees");
+  private final NetworkTableEntry shotOverlaySetpointLaunchSpeedEntry =
+      telemetryTable.getEntry("Overlay/Setpoint/LaunchSpeedMetersPerSec");
+  private final NetworkTableEntry shotOverlayMeasuredLaunchSpeedEntry =
+      telemetryTable.getEntry("Overlay/Measured/LaunchSpeedMetersPerSec");
+  private final NetworkTableEntry shotOverlaySetpointHeightEntry =
+      telemetryTable.getEntry("Overlay/Setpoint/HeightAtTargetMeters");
+  private final NetworkTableEntry shotOverlayMeasuredHeightEntry =
+      telemetryTable.getEntry("Overlay/Measured/HeightAtTargetMeters");
+  private final NetworkTableEntry shotOverlaySetpointClearanceEntry =
+      telemetryTable.getEntry("Overlay/Setpoint/ClearanceAtTargetMeters");
+  private final NetworkTableEntry shotOverlayMeasuredClearanceEntry =
+      telemetryTable.getEntry("Overlay/Measured/ClearanceAtTargetMeters");
+  private final NetworkTableEntry shotOverlayMinAngleClearanceEntry =
+      telemetryTable.getEntry("Overlay/Calibration/MinAngleClearanceAtTargetMeters");
+  private final NetworkTableEntry shotOverlayMaxAngleClearanceEntry =
+      telemetryTable.getEntry("Overlay/Calibration/MaxAngleClearanceAtTargetMeters");
+  private final NetworkTableEntry wheelSpeedScaleEntry = tuningTable.getEntry("Wheels/SpeedScale");
+  private final NetworkTableEntry pair1DirectionEntry = tuningTable.getEntry("Wheels/Pair1Direction");
+  private final NetworkTableEntry pair2DirectionEntry = tuningTable.getEntry("Wheels/Pair2Direction");
 
   public Shooter() {
     this(new ShooterIO() {});
@@ -101,6 +133,8 @@ public class Shooter extends SubsystemBase {
     io.setHoodPositionSetpointRotations(hoodSetpointMotorRotations);
     publishHoodEncoderToNetworkTables();
     publishWheelTelemetryToNetworkTables(
+        pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
+    publishHoodShotOverlayToNetworkTables(
         pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
 
     logControlState(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
@@ -205,6 +239,8 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScaleEntry.setDefaultDouble(ShooterConstants.defaultWheelSpeedScale);
     pair1DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair1Direction);
     pair2DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair2Direction);
+    hoodMinAngleFromFloorEntry.setDefaultDouble(ShooterConstants.minHoodAngleFromFloor.getDegrees());
+    hoodMaxAngleFromFloorEntry.setDefaultDouble(ShooterConstants.maxHoodAngleFromFloor.getDegrees());
   }
 
   private void loadNetworkTableConfig() {
@@ -223,10 +259,17 @@ public class Shooter extends SubsystemBase {
   }
 
   private void publishHoodEncoderToNetworkTables() {
+    Rotation2d setpointAngle = motorRotationsToHoodAngle(hoodSetpointMotorRotations);
+    Rotation2d measuredAngle = motorRotationsToHoodAngle(inputs.hoodPositionRotations);
     hoodEncoderPositionEntry.setDouble(inputs.hoodPositionRotations);
     hoodEncoderVelocityEntry.setDouble(inputs.hoodVelocityRotationsPerSec);
     hoodEncoderNormalizedPositionEntry.setDouble(getHoodNormalizedPosition(inputs.hoodPositionRotations));
     hoodSetpointEntry.setDouble(hoodSetpointMotorRotations);
+    hoodSetpointAngleEntry.setDouble(setpointAngle.getDegrees());
+    hoodMeasuredAngleEntry.setDouble(measuredAngle.getDegrees());
+    hoodSetpointErrorEntry.setDouble(setpointAngle.minus(measuredAngle).getDegrees());
+    hoodMinAngleFromFloorEntry.setDouble(ShooterConstants.minHoodAngleFromFloor.getDegrees());
+    hoodMaxAngleFromFloorEntry.setDouble(ShooterConstants.maxHoodAngleFromFloor.getDegrees());
   }
 
   private void publishWheelTelemetryToNetworkTables(
@@ -235,6 +278,80 @@ public class Shooter extends SubsystemBase {
     pair2MeasuredVelocityEntry.setDouble(inputs.pair2LeaderVelocityRadPerSec);
     pair1CommandVelocityEntry.setDouble(pair1VelocityCommandRadPerSec);
     pair2CommandVelocityEntry.setDouble(pair2VelocityCommandRadPerSec);
+  }
+
+  private void publishHoodShotOverlayToNetworkTables(
+      double pair1VelocityCommandRadPerSec, double pair2VelocityCommandRadPerSec) {
+    Rotation2d setpointHoodAngle = motorRotationsToHoodAngle(hoodSetpointMotorRotations);
+    Rotation2d measuredHoodAngle = motorRotationsToHoodAngle(inputs.hoodPositionRotations);
+
+    double setpointLaunchSpeedMetersPerSec =
+        estimateLaunchSpeedFromWheelVelocitiesMetersPerSec(
+            pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
+    double measuredLaunchSpeedMetersPerSec = getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec();
+
+    double targetDistanceMeters = Math.max(0.0, latestHubShotSolution.distanceMeters());
+    double hubCenterHeightMeters = ShooterConstants.hubCenterHeightMeters;
+
+    OptionalDouble setpointHeightAtTargetMeters =
+        calculateProjectileHeightAtDistance(
+            targetDistanceMeters, setpointLaunchSpeedMetersPerSec, setpointHoodAngle);
+    OptionalDouble measuredHeightAtTargetMeters =
+        calculateProjectileHeightAtDistance(
+            targetDistanceMeters, measuredLaunchSpeedMetersPerSec, measuredHoodAngle);
+    OptionalDouble minAngleHeightAtTargetMeters =
+        calculateProjectileHeightAtDistance(
+            targetDistanceMeters,
+            setpointLaunchSpeedMetersPerSec,
+            ShooterConstants.minHoodAngleFromFloor);
+    OptionalDouble maxAngleHeightAtTargetMeters =
+        calculateProjectileHeightAtDistance(
+            targetDistanceMeters,
+            setpointLaunchSpeedMetersPerSec,
+            ShooterConstants.maxHoodAngleFromFloor);
+
+    shotOverlayTargetDistanceEntry.setDouble(targetDistanceMeters);
+    shotOverlayHubHeightEntry.setDouble(hubCenterHeightMeters);
+    shotOverlayLaunchHeightEntry.setDouble(launchHeightMeters);
+    shotOverlaySolutionAngleEntry.setDouble(latestHubShotSolution.launchAngle().getDegrees());
+    shotOverlaySetpointLaunchSpeedEntry.setDouble(setpointLaunchSpeedMetersPerSec);
+    shotOverlayMeasuredLaunchSpeedEntry.setDouble(measuredLaunchSpeedMetersPerSec);
+    shotOverlaySetpointHeightEntry.setDouble(optionalDoubleOrNaN(setpointHeightAtTargetMeters));
+    shotOverlayMeasuredHeightEntry.setDouble(optionalDoubleOrNaN(measuredHeightAtTargetMeters));
+    shotOverlaySetpointClearanceEntry.setDouble(
+        optionalClearanceToHubOrNaN(setpointHeightAtTargetMeters, hubCenterHeightMeters));
+    shotOverlayMeasuredClearanceEntry.setDouble(
+        optionalClearanceToHubOrNaN(measuredHeightAtTargetMeters, hubCenterHeightMeters));
+    shotOverlayMinAngleClearanceEntry.setDouble(
+        optionalClearanceToHubOrNaN(minAngleHeightAtTargetMeters, hubCenterHeightMeters));
+    shotOverlayMaxAngleClearanceEntry.setDouble(
+        optionalClearanceToHubOrNaN(maxAngleHeightAtTargetMeters, hubCenterHeightMeters));
+  }
+
+  private OptionalDouble calculateProjectileHeightAtDistance(
+      double horizontalDistanceMeters, double launchSpeedMetersPerSec, Rotation2d launchAngle) {
+    double launchSpeedMagnitude = Math.abs(launchSpeedMetersPerSec);
+    double cosTheta = Math.cos(launchAngle.getRadians());
+    if (horizontalDistanceMeters < 0.0
+        || launchSpeedMagnitude < 1e-6
+        || Math.abs(cosTheta) < 1e-6) {
+      return OptionalDouble.empty();
+    }
+
+    double timeSeconds = horizontalDistanceMeters / (launchSpeedMagnitude * cosTheta);
+    if (!Double.isFinite(timeSeconds) || timeSeconds < 0.0) {
+      return OptionalDouble.empty();
+    }
+
+    double sinTheta = Math.sin(launchAngle.getRadians());
+    double projectileHeightMeters =
+        launchHeightMeters
+            + (launchSpeedMagnitude * sinTheta * timeSeconds)
+            - (0.5 * ShooterConstants.gravityMetersPerSecSquared * timeSeconds * timeSeconds);
+    if (!Double.isFinite(projectileHeightMeters)) {
+      return OptionalDouble.empty();
+    }
+    return OptionalDouble.of(projectileHeightMeters);
   }
 
   private void clampHoodSetpointToCalibrationRange() {
@@ -501,13 +618,8 @@ public class Shooter extends SubsystemBase {
   }
 
   public double getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec() {
-    double pair1SurfaceSpeedMetersPerSec =
-        Math.abs(inputs.pair1LeaderVelocityRadPerSec) * ShooterConstants.shooterWheelRadiusMeters;
-    double pair2SurfaceSpeedMetersPerSec =
-        Math.abs(inputs.pair2LeaderVelocityRadPerSec) * ShooterConstants.shooterWheelRadiusMeters;
-    double averageWheelSurfaceSpeedMetersPerSec =
-        0.5 * (pair1SurfaceSpeedMetersPerSec + pair2SurfaceSpeedMetersPerSec);
-    return ShooterConstants.launchSlipFactor * averageWheelSurfaceSpeedMetersPerSec;
+    return estimateLaunchSpeedFromWheelVelocitiesMetersPerSec(
+        inputs.pair1LeaderVelocityRadPerSec, inputs.pair2LeaderVelocityRadPerSec);
   }
 
   public boolean areWheelsAtSpeedForShot() {
@@ -563,10 +675,16 @@ public class Shooter extends SubsystemBase {
   }
 
   private double estimateLaunchSpeedFromWheelSetpointsMetersPerSec() {
+    return estimateLaunchSpeedFromWheelVelocitiesMetersPerSec(
+        getPair1VelocityCommandSetpointRadPerSec(), getPair2VelocityCommandSetpointRadPerSec());
+  }
+
+  private static double estimateLaunchSpeedFromWheelVelocitiesMetersPerSec(
+      double pair1WheelVelocityRadPerSec, double pair2WheelVelocityRadPerSec) {
     double pair1SurfaceSpeedMetersPerSec =
-        Math.abs(getPair1VelocityCommandSetpointRadPerSec()) * ShooterConstants.shooterWheelRadiusMeters;
+        Math.abs(pair1WheelVelocityRadPerSec) * ShooterConstants.shooterWheelRadiusMeters;
     double pair2SurfaceSpeedMetersPerSec =
-        Math.abs(getPair2VelocityCommandSetpointRadPerSec()) * ShooterConstants.shooterWheelRadiusMeters;
+        Math.abs(pair2WheelVelocityRadPerSec) * ShooterConstants.shooterWheelRadiusMeters;
     double averageWheelSurfaceSpeedMetersPerSec =
         0.5 * (pair1SurfaceSpeedMetersPerSec + pair2SurfaceSpeedMetersPerSec);
     return ShooterConstants.launchSlipFactor * averageWheelSurfaceSpeedMetersPerSec;
@@ -607,6 +725,17 @@ public class Shooter extends SubsystemBase {
 
   private static double clampUnitInterval(double value) {
     return MathUtil.clamp(value, 0.0, 1.0);
+  }
+
+  private static double optionalDoubleOrNaN(OptionalDouble value) {
+    return value.orElse(Double.NaN);
+  }
+
+  private static double optionalClearanceToHubOrNaN(
+      OptionalDouble projectileHeightMeters, double hubCenterHeightMeters) {
+    return projectileHeightMeters.isPresent()
+        ? projectileHeightMeters.getAsDouble() - hubCenterHeightMeters
+        : Double.NaN;
   }
 
   private static double clampAirtime(double airtimeSeconds) {

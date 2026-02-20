@@ -8,7 +8,7 @@ import frc.robot.subsystems.body.ControlSensitivity;
 public final class ShooterConstants {
   private ShooterConstants() {}
 
-  public static final String configTableName = "ShooterConfig";
+  public static final String configTableName = "Body/Shooter";
 
   public static final double gravityMetersPerSecSquared = 9.80665;
 
@@ -73,13 +73,17 @@ public final class ShooterConstants {
   public static final Rotation2d hubShotNearPreferredAngle = Rotation2d.fromDegrees(66.0);
   public static final Rotation2d hubShotFarPreferredAngle = Rotation2d.fromDegrees(44.0);
 
+  // Hood angular limits from the floor plane. These are the two-point calibration anchors.
+  public static final Rotation2d minHoodAngleFromFloor = Rotation2d.fromDegrees(45.0);
+  public static final Rotation2d maxHoodAngleFromFloor = Rotation2d.fromDegrees(83.0);
+
   // Allowed launch envelope searched by solver
-  public static final Rotation2d minLaunchAngle = Rotation2d.fromDegrees(35.0);
-  public static final Rotation2d maxLaunchAngle = Rotation2d.fromDegrees(75.0);
+  public static final Rotation2d minLaunchAngle = minHoodAngleFromFloor;
+  public static final Rotation2d maxLaunchAngle = maxHoodAngleFromFloor;
   public static final double launchAngleSearchStepDegrees = 0.5;
 
   // Hood two-point calibration in motor rotations
-  // minLaunchAngle <-> retracted, maxLaunchAngle <-> extended
+  // minHoodAngleFromFloor <-> retracted, maxHoodAngleFromFloor <-> extended
   public static final double defaultHoodRetractedPositionRotations = -2.3076923077;
   public static final double defaultHoodExtendedPositionRotations = 3.8461538462;
 

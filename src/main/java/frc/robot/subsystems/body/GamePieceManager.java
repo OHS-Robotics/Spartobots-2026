@@ -29,16 +29,17 @@ public class GamePieceManager extends SubsystemBase {
   private final DigitalInput hopperBeamBreak;
   private final DigitalInput shooterBeamBreak;
 
-  private final NetworkTable configTable =
+  private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(GamePieceManagerConstants.configTableName);
+  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
   private final NetworkTableEntry useDashboardSensorOverridesEntry =
-      configTable.getEntry("Sensors/UseDashboardOverrides");
+      tuningTable.getEntry("SensorOverrides/UseDashboardOverrides");
   private final NetworkTableEntry intakeDetectedOverrideEntry =
-      configTable.getEntry("Sensors/IntakeDetectedOverride");
+      tuningTable.getEntry("SensorOverrides/IntakeDetected");
   private final NetworkTableEntry hopperDetectedOverrideEntry =
-      configTable.getEntry("Sensors/HopperDetectedOverride");
+      tuningTable.getEntry("SensorOverrides/HopperDetected");
   private final NetworkTableEntry shooterDetectedOverrideEntry =
-      configTable.getEntry("Sensors/ShooterDetectedOverride");
+      tuningTable.getEntry("SensorOverrides/ShooterDetected");
 
   private final Timer modeTimer = new Timer();
   private final Timer jamTimer = new Timer();

@@ -3,7 +3,7 @@ package frc.robot.subsystems.body;
 public final class IntakeConstants {
   private IntakeConstants() {}
 
-  public static final String configTableName = "IntakeConfig";
+  public static final String configTableName = "Body/Intake";
 
   // Intake drive roller (velocity-sensitive)
   public static final int intakeDriveCanId = 30;

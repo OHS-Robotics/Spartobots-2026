@@ -3,7 +3,7 @@ package frc.robot.subsystems.body;
 public final class AgitatorsConstants {
   private AgitatorsConstants() {}
 
-  public static final String configTableName = "AgitatorsConfig";
+  public static final String configTableName = "Body/Agitators";
 
   // Upper/top agitator (velocity-sensitive)
   public static final int topAgitatorCanId = 36;

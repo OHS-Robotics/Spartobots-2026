@@ -39,33 +39,35 @@ public class Hopper extends SubsystemBase {
       new SparkMax(HopperConstants.hopperExtensionCanId, MotorType.kBrushed);
   private final RelativeEncoder hopperExtensionEncoder = hopperExtension.getEncoder();
 
-  private final NetworkTable configTable =
+  private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(HopperConstants.configTableName);
-  private final NetworkTableEntry hopperBeltSpeedEntry = configTable.getEntry("HopperBelt/Speed");
+  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
+
+  private final NetworkTableEntry hopperBeltSpeedEntry = tuningTable.getEntry("Belt/Speed");
   private final NetworkTableEntry hopperExtensionSpeedScaleEntry =
-      configTable.getEntry("HopperExtension/SpeedScale");
+      tuningTable.getEntry("Extension/SpeedScale");
   private final NetworkTableEntry hopperExtensionInvertedEntry =
-      configTable.getEntry("HopperExtension/Inverted");
-  private final NetworkTableEntry hopperBeltDirectionEntry =
-      configTable.getEntry("HopperBelt/Direction");
+      tuningTable.getEntry("Extension/Inverted");
+  private final NetworkTableEntry hopperBeltDirectionEntry = tuningTable.getEntry("Belt/Direction");
   private final NetworkTableEntry hopperExtensionRetractedPositionEntry =
-      configTable.getEntry("HopperExtension/Calibration/RetractedPositionRotations");
+      tuningTable.getEntry("Extension/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry hopperExtensionExtendedPositionEntry =
-      configTable.getEntry("HopperExtension/Calibration/ExtendedPositionRotations");
+      tuningTable.getEntry("Extension/Calibration/ExtendedPositionRotations");
   private final NetworkTableEntry hopperExtensionEncoderPositionEntry =
-      configTable.getEntry("HopperExtension/EncoderPositionRotations");
+      telemetryTable.getEntry("Extension/EncoderPositionRotations");
   private final NetworkTableEntry hopperExtensionEncoderVelocityEntry =
-      configTable.getEntry("HopperExtension/EncoderVelocityRpm");
+      telemetryTable.getEntry("Extension/EncoderVelocityRpm");
   private final NetworkTableEntry hopperExtensionEncoderNormalizedPositionEntry =
-      configTable.getEntry("HopperExtension/EncoderPositionNormalized");
+      telemetryTable.getEntry("Extension/EncoderPositionNormalized");
   private final NetworkTableEntry hopperBeltAppliedOutputEntry =
-      configTable.getEntry("HopperBelt/AppliedOutput");
+      telemetryTable.getEntry("Belt/AppliedOutput");
   private final NetworkTableEntry hopperExtensionAppliedOutputEntry =
-      configTable.getEntry("HopperExtension/AppliedOutput");
+      telemetryTable.getEntry("Extension/AppliedOutput");
   private final NetworkTableEntry hopperBeltEstimatedVelocityEntry =
-      configTable.getEntry("HopperBelt/EstimatedVelocityRotationsPerSec");
+      telemetryTable.getEntry("Belt/EstimatedVelocityRotationsPerSec");
   private final NetworkTableEntry hopperBeltEstimatedPositionEntry =
-      configTable.getEntry("HopperBelt/EstimatedPositionRotations");
+      telemetryTable.getEntry("Belt/EstimatedPositionRotations");
 
   public Hopper() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);

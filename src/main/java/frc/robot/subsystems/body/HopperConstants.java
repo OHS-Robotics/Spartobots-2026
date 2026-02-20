@@ -3,7 +3,7 @@ package frc.robot.subsystems.body;
 public final class HopperConstants {
   private HopperConstants() {}
 
-  public static final String configTableName = "HopperConfig";
+  public static final String configTableName = "Body/Hopper";
 
   // Hopper belt drive (velocity-sensitive)
   public static final int hopperBeltDriveCanId = 38;

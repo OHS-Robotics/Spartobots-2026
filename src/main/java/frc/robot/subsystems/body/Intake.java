@@ -39,33 +39,33 @@ public class Intake extends SubsystemBase {
       new SparkMax(IntakeConstants.intakePivotCanId, MotorType.kBrushless);
   private final RelativeEncoder intakePivotEncoder = intakePivot.getEncoder();
 
-  private final NetworkTable configTable =
+  private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(IntakeConstants.configTableName);
-  private final NetworkTableEntry intakeSpeedEntry = configTable.getEntry("IntakeDrive/Speed");
-  private final NetworkTableEntry intakePivotSpeedScaleEntry =
-      configTable.getEntry("IntakePivot/SpeedScale");
-  private final NetworkTableEntry intakePivotInvertedEntry =
-      configTable.getEntry("IntakePivot/Inverted");
-  private final NetworkTableEntry intakeDriveDirectionEntry =
-      configTable.getEntry("IntakeDrive/Direction");
+  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
+
+  private final NetworkTableEntry intakeSpeedEntry = tuningTable.getEntry("Drive/Speed");
+  private final NetworkTableEntry intakePivotSpeedScaleEntry = tuningTable.getEntry("Pivot/SpeedScale");
+  private final NetworkTableEntry intakePivotInvertedEntry = tuningTable.getEntry("Pivot/Inverted");
+  private final NetworkTableEntry intakeDriveDirectionEntry = tuningTable.getEntry("Drive/Direction");
   private final NetworkTableEntry intakePivotRetractedPositionEntry =
-      configTable.getEntry("IntakePivot/Calibration/RetractedPositionRotations");
+      tuningTable.getEntry("Pivot/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry intakePivotExtendedPositionEntry =
-      configTable.getEntry("IntakePivot/Calibration/ExtendedPositionRotations");
+      tuningTable.getEntry("Pivot/Calibration/ExtendedPositionRotations");
   private final NetworkTableEntry intakePivotEncoderPositionEntry =
-      configTable.getEntry("IntakePivot/EncoderPositionRotations");
+      telemetryTable.getEntry("Pivot/EncoderPositionRotations");
   private final NetworkTableEntry intakePivotEncoderVelocityEntry =
-      configTable.getEntry("IntakePivot/EncoderVelocityRpm");
+      telemetryTable.getEntry("Pivot/EncoderVelocityRpm");
   private final NetworkTableEntry intakePivotEncoderNormalizedPositionEntry =
-      configTable.getEntry("IntakePivot/EncoderPositionNormalized");
+      telemetryTable.getEntry("Pivot/EncoderPositionNormalized");
   private final NetworkTableEntry intakeDriveAppliedOutputEntry =
-      configTable.getEntry("IntakeDrive/AppliedOutput");
+      telemetryTable.getEntry("Drive/AppliedOutput");
   private final NetworkTableEntry intakePivotAppliedOutputEntry =
-      configTable.getEntry("IntakePivot/AppliedOutput");
+      telemetryTable.getEntry("Pivot/AppliedOutput");
   private final NetworkTableEntry intakeDriveEstimatedVelocityEntry =
-      configTable.getEntry("IntakeDrive/EstimatedVelocityRotationsPerSec");
+      telemetryTable.getEntry("Drive/EstimatedVelocityRotationsPerSec");
   private final NetworkTableEntry intakeDriveEstimatedPositionEntry =
-      configTable.getEntry("IntakeDrive/EstimatedPositionRotations");
+      telemetryTable.getEntry("Drive/EstimatedPositionRotations");
 
   public Intake() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);

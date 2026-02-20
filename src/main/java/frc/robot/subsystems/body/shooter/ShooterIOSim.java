@@ -3,6 +3,8 @@ package frc.robot.subsystems.body.shooter;
 import edu.wpi.first.math.MathUtil;
 
 public class ShooterIOSim implements ShooterIO {
+  private static final double loopPeriodSeconds = 0.02;
+
   private double pair1VelocitySetpointRadPerSec = 0.0;
   private double pair2VelocitySetpointRadPerSec = 0.0;
   private double hoodPositionSetpointRotations =
@@ -18,6 +20,7 @@ public class ShooterIOSim implements ShooterIO {
     pair1VelocityRadPerSec += (pair1VelocitySetpointRadPerSec - pair1VelocityRadPerSec) * 0.25;
     pair2VelocityRadPerSec += (pair2VelocitySetpointRadPerSec - pair2VelocityRadPerSec) * 0.25;
 
+    double previousHoodPositionRotations = hoodPositionRotations;
     double hoodDeltaPerLoop = 0.08;
     double hoodError = hoodPositionSetpointRotations - hoodPositionRotations;
     hoodPositionRotations += MathUtil.clamp(hoodError, -hoodDeltaPerLoop, hoodDeltaPerLoop);
@@ -37,7 +40,8 @@ public class ShooterIOSim implements ShooterIO {
     inputs.pair2CurrentAmps = Math.abs(pair2VelocityRadPerSec) > 0.0 ? 15.0 : 0.0;
 
     inputs.hoodPositionRotations = hoodPositionRotations;
-    inputs.hoodVelocityRotationsPerSec = hoodError;
+    inputs.hoodVelocityRotationsPerSec =
+        (hoodPositionRotations - previousHoodPositionRotations) / loopPeriodSeconds;
     inputs.hoodAppliedVolts = Math.abs(hoodError) > 0.01 ? 2.0 : 0.0;
     inputs.hoodCurrentAmps = Math.abs(hoodError) > 0.01 ? 3.0 : 0.0;
   }
@@ -50,15 +54,8 @@ public class ShooterIOSim implements ShooterIO {
 
   @Override
   public void setHoodPositionSetpointRotations(double hoodPositionRotations) {
-    this.hoodPositionSetpointRotations =
-        MathUtil.clamp(
-            hoodPositionRotations,
-            Math.min(
-                ShooterConstants.defaultHoodRetractedPositionRotations,
-                ShooterConstants.defaultHoodExtendedPositionRotations),
-            Math.max(
-                ShooterConstants.defaultHoodRetractedPositionRotations,
-                ShooterConstants.defaultHoodExtendedPositionRotations));
+    // Shooter already clamps against the active calibration range, so sim should follow directly.
+    this.hoodPositionSetpointRotations = hoodPositionRotations;
   }
 
   @Override

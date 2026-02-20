@@ -35,27 +35,28 @@ public class Agitators extends SubsystemBase {
   private final SparkMax bottomAgitator =
       new SparkMax(AgitatorsConstants.bottomAgitatorCanId, MotorType.kBrushed);
 
-  private final NetworkTable configTable =
+  private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(AgitatorsConstants.configTableName);
-  private final NetworkTableEntry topAgitatorSpeedEntry = configTable.getEntry("TopAgitator/Speed");
-  private final NetworkTableEntry bottomAgitatorSpeedEntry =
-      configTable.getEntry("BottomAgitator/Speed");
-  private final NetworkTableEntry topAgitatorDirectionEntry =
-      configTable.getEntry("TopAgitator/Direction");
+  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
+
+  private final NetworkTableEntry topAgitatorSpeedEntry = tuningTable.getEntry("Top/Speed");
+  private final NetworkTableEntry bottomAgitatorSpeedEntry = tuningTable.getEntry("Bottom/Speed");
+  private final NetworkTableEntry topAgitatorDirectionEntry = tuningTable.getEntry("Top/Direction");
   private final NetworkTableEntry bottomAgitatorDirectionEntry =
-      configTable.getEntry("BottomAgitator/Direction");
+      tuningTable.getEntry("Bottom/Direction");
   private final NetworkTableEntry topAgitatorAppliedOutputEntry =
-      configTable.getEntry("TopAgitator/AppliedOutput");
+      telemetryTable.getEntry("Top/AppliedOutput");
   private final NetworkTableEntry bottomAgitatorAppliedOutputEntry =
-      configTable.getEntry("BottomAgitator/AppliedOutput");
+      telemetryTable.getEntry("Bottom/AppliedOutput");
   private final NetworkTableEntry topAgitatorEstimatedVelocityEntry =
-      configTable.getEntry("TopAgitator/EstimatedVelocityRotationsPerSec");
+      telemetryTable.getEntry("Top/EstimatedVelocityRotationsPerSec");
   private final NetworkTableEntry bottomAgitatorEstimatedVelocityEntry =
-      configTable.getEntry("BottomAgitator/EstimatedVelocityRotationsPerSec");
+      telemetryTable.getEntry("Bottom/EstimatedVelocityRotationsPerSec");
   private final NetworkTableEntry topAgitatorEstimatedPositionEntry =
-      configTable.getEntry("TopAgitator/EstimatedPositionRotations");
+      telemetryTable.getEntry("Top/EstimatedPositionRotations");
   private final NetworkTableEntry bottomAgitatorEstimatedPositionEntry =
-      configTable.getEntry("BottomAgitator/EstimatedPositionRotations");
+      telemetryTable.getEntry("Bottom/EstimatedPositionRotations");
 
   public Agitators() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
