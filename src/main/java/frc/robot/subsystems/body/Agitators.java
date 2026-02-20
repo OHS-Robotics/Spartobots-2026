@@ -15,12 +15,15 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.littletonrobotics.junction.Logger;
 
 public class Agitators extends SubsystemBase {
   private double targetTopAgitatorSpeed = AgitatorsConstants.defaultTopAgitatorSpeed;
   private double targetBottomAgitatorSpeed = AgitatorsConstants.defaultBottomAgitatorSpeed;
   private Command currentAgitatorRunCommand;
   private boolean agitatorRunning = false;
+  private double lastAppliedTopAgitatorSpeed = 0.0;
+  private double lastAppliedBottomAgitatorSpeed = 0.0;
 
   private final SparkMax topAgitator =
       new SparkMax(AgitatorsConstants.topAgitatorCanId, MotorType.kBrushed);
@@ -52,11 +55,15 @@ public class Agitators extends SubsystemBase {
   @Override
   public void periodic() {
     loadNetworkTableConfig();
+    logTelemetry();
   }
 
   public void updateAgitators() {
-    topAgitator.set(applyInversion(targetTopAgitatorSpeed, topAgitatorInvertedEntry));
-    bottomAgitator.set(applyInversion(targetBottomAgitatorSpeed, bottomAgitatorInvertedEntry));
+    lastAppliedTopAgitatorSpeed = applyInversion(targetTopAgitatorSpeed, topAgitatorInvertedEntry);
+    lastAppliedBottomAgitatorSpeed =
+        applyInversion(targetBottomAgitatorSpeed, bottomAgitatorInvertedEntry);
+    topAgitator.set(lastAppliedTopAgitatorSpeed);
+    bottomAgitator.set(lastAppliedBottomAgitatorSpeed);
   }
 
   public void reverseAgitatorSpeed() {
@@ -78,6 +85,8 @@ public class Agitators extends SubsystemBase {
   }
 
   public void stopAgitators() {
+    lastAppliedTopAgitatorSpeed = 0.0;
+    lastAppliedBottomAgitatorSpeed = 0.0;
     topAgitator.set(0.0);
     bottomAgitator.set(0.0);
   }
@@ -131,6 +140,8 @@ public class Agitators extends SubsystemBase {
     targetTopAgitatorSpeed = clampSpeed(topAgitatorSpeedEntry.getDouble(targetTopAgitatorSpeed));
     targetBottomAgitatorSpeed =
         clampSpeed(bottomAgitatorSpeedEntry.getDouble(targetBottomAgitatorSpeed));
+    topAgitatorSpeedEntry.setDouble(targetTopAgitatorSpeed);
+    bottomAgitatorSpeedEntry.setDouble(targetBottomAgitatorSpeed);
   }
 
   private double applyInversion(double speed, NetworkTableEntry invertedEntry) {
@@ -145,5 +156,25 @@ public class Agitators extends SubsystemBase {
     if (command != null) {
       CommandScheduler.getInstance().cancel(command);
     }
+  }
+
+  private void logTelemetry() {
+    Logger.recordOutput("Agitators/Config/TargetTopSpeed", targetTopAgitatorSpeed);
+    Logger.recordOutput("Agitators/Config/TargetBottomSpeed", targetBottomAgitatorSpeed);
+    Logger.recordOutput(
+        "Agitators/Config/TopInverted",
+        topAgitatorInvertedEntry.getBoolean(AgitatorsConstants.defaultTopAgitatorInverted));
+    Logger.recordOutput(
+        "Agitators/Config/BottomInverted",
+        bottomAgitatorInvertedEntry.getBoolean(AgitatorsConstants.defaultBottomAgitatorInverted));
+
+    Logger.recordOutput("Agitators/State/Running", agitatorRunning);
+    Logger.recordOutput("Agitators/State/LastAppliedTopOutput", lastAppliedTopAgitatorSpeed);
+    Logger.recordOutput(
+        "Agitators/State/LastAppliedBottomOutput", lastAppliedBottomAgitatorSpeed);
+    Logger.recordOutput("Agitators/State/ActualTopOutput", topAgitator.get());
+    Logger.recordOutput("Agitators/State/ActualBottomOutput", bottomAgitator.get());
+    Logger.recordOutput("Agitators/Measured/TopCurrentAmps", topAgitator.getOutputCurrent());
+    Logger.recordOutput("Agitators/Measured/BottomCurrentAmps", bottomAgitator.getOutputCurrent());
   }
 }

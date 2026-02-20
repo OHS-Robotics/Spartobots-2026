@@ -15,11 +15,14 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.littletonrobotics.junction.Logger;
 
 public class Intake extends SubsystemBase {
   private double targetIntakeSpeed = IntakeConstants.defaultIntakeSpeed;
   private Command currentIntakeRunCommand;
   public boolean intakeRunning = false;
+  private double lastAppliedIntakeDriveSpeed = 0.0;
+  private double lastAppliedIntakePivotSpeed = 0.0;
 
   private final SparkMax intakeDrive =
       new SparkMax(IntakeConstants.intakeDriveCanId, MotorType.kBrushless);
@@ -51,10 +54,12 @@ public class Intake extends SubsystemBase {
   @Override
   public void periodic() {
     loadNetworkTableConfig();
+    logTelemetry();
   }
 
   public void updateIntake() {
-    intakeDrive.set(applyInversion(targetIntakeSpeed, intakeDriveInvertedEntry));
+    lastAppliedIntakeDriveSpeed = applyInversion(targetIntakeSpeed, intakeDriveInvertedEntry);
+    intakeDrive.set(lastAppliedIntakeDriveSpeed);
   }
 
   public void reverseTargetSpeed() {
@@ -76,15 +81,18 @@ public class Intake extends SubsystemBase {
   }
 
   public void stopIntake() {
+    lastAppliedIntakeDriveSpeed = 0.0;
     intakeDrive.set(0.0);
   }
 
   public void setIntakePivotSpeed(double speed) {
-    intakePivot.set(
-        applyScaleAndInversion(speed, intakePivotSpeedScaleEntry, intakePivotInvertedEntry));
+    lastAppliedIntakePivotSpeed =
+        applyScaleAndInversion(speed, intakePivotSpeedScaleEntry, intakePivotInvertedEntry);
+    intakePivot.set(lastAppliedIntakePivotSpeed);
   }
 
   public void stopIntakePivot() {
+    lastAppliedIntakePivotSpeed = 0.0;
     intakePivot.set(0.0);
   }
 
@@ -131,6 +139,10 @@ public class Intake extends SubsystemBase {
 
   private void loadNetworkTableConfig() {
     targetIntakeSpeed = clampSpeed(intakeSpeedEntry.getDouble(targetIntakeSpeed));
+    intakeSpeedEntry.setDouble(targetIntakeSpeed);
+    intakePivotSpeedScaleEntry.setDouble(
+        clampSpeedScale(
+            intakePivotSpeedScaleEntry.getDouble(IntakeConstants.defaultIntakePivotSpeedScale)));
   }
 
   private double applyScaleAndInversion(
@@ -155,5 +167,27 @@ public class Intake extends SubsystemBase {
     if (command != null) {
       CommandScheduler.getInstance().cancel(command);
     }
+  }
+
+  private void logTelemetry() {
+    Logger.recordOutput("Intake/Config/TargetSpeed", targetIntakeSpeed);
+    Logger.recordOutput(
+        "Intake/Config/PivotSpeedScale",
+        clampSpeedScale(
+            intakePivotSpeedScaleEntry.getDouble(IntakeConstants.defaultIntakePivotSpeedScale)));
+    Logger.recordOutput(
+        "Intake/Config/DriveInverted",
+        intakeDriveInvertedEntry.getBoolean(IntakeConstants.defaultIntakeDriveInverted));
+    Logger.recordOutput(
+        "Intake/Config/PivotInverted",
+        intakePivotInvertedEntry.getBoolean(IntakeConstants.defaultIntakePivotInverted));
+
+    Logger.recordOutput("Intake/State/Running", intakeRunning);
+    Logger.recordOutput("Intake/State/LastAppliedDriveOutput", lastAppliedIntakeDriveSpeed);
+    Logger.recordOutput("Intake/State/LastAppliedPivotOutput", lastAppliedIntakePivotSpeed);
+    Logger.recordOutput("Intake/State/ActualDriveOutput", intakeDrive.get());
+    Logger.recordOutput("Intake/State/ActualPivotOutput", intakePivot.get());
+    Logger.recordOutput("Intake/Measured/DriveCurrentAmps", intakeDrive.getOutputCurrent());
+    Logger.recordOutput("Intake/Measured/PivotCurrentAmps", intakePivot.getOutputCurrent());
   }
 }
