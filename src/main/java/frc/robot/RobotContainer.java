@@ -32,9 +32,9 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import frc.robot.subsystems.body.AgitatorsConstants;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.Agitators;
+import frc.robot.subsystems.body.AgitatorsConstants;
 import frc.robot.subsystems.body.Hopper;
 import frc.robot.subsystems.body.HopperConstants;
 import frc.robot.subsystems.body.Intake;
@@ -268,8 +268,7 @@ public class RobotContainer {
     // D-pad up/down = manual hood extension with hard stops.
     controller
         .povUp()
-        .whileTrue(
-            Commands.run(() -> shooter.adjustHoodSetpointDegrees(MANUAL_HOOD_STEP_DEGREES)));
+        .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(MANUAL_HOOD_STEP_DEGREES)));
     controller
         .povDown()
         .whileTrue(
@@ -485,7 +484,9 @@ public class RobotContainer {
         .withTargetPosition(
             () ->
                 new Translation3d(
-                    targetHubPose.getX(), targetHubPose.getY(), ShooterConstants.hubCenterHeightMeters))
+                    targetHubPose.getX(),
+                    targetHubPose.getY(),
+                    ShooterConstants.hubCenterHeightMeters))
         .withTargetTolerance(
             new Translation3d(
                 ShooterConstants.projectileTargetToleranceXYMeters,

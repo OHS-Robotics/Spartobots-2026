@@ -1,7 +1,7 @@
 package frc.robot.subsystems.body.shooter;
 
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
 
 public final class ShooterConstants {
@@ -37,14 +37,15 @@ public final class ShooterConstants {
 
   // Hardware geometry
   public static final double shooterWheelRadiusMeters = Units.inchesToMeters(2.0);
-  public static final double fuelBallRadiusMeters = Units.centimetersToMeters(7.5);
+  public static final double fuelBallRadiusMeters = 0.075;
   public static final double launchSlipFactor = 0.93;
   public static final double targetBallSpinRatio = 0.10;
 
   // Shooter kinematic limits
   public static final double neoFreeSpeedRadPerSec =
       Units.rotationsPerMinuteToRadiansPerSecond(5676.0);
-  public static final double minWheelSpeedRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(600.0);
+  public static final double minWheelSpeedRadPerSec =
+      Units.rotationsPerMinuteToRadiansPerSecond(600.0);
   public static final double maxWheelSpeedRadPerSec = neoFreeSpeedRadPerSec * 0.90;
 
   // Hood calibration (linear map). Calibrate on robot.

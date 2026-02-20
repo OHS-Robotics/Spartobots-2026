@@ -18,13 +18,16 @@ import edu.wpi.first.math.filter.Debouncer;
 import java.util.function.DoubleSupplier;
 
 public class ShooterIOSparkMax implements ShooterIO {
-  private final SparkBase pair1Leader = new SparkMax(ShooterConstants.pair1LeaderCanId, MotorType.kBrushless);
+  private final SparkBase pair1Leader =
+      new SparkMax(ShooterConstants.pair1LeaderCanId, MotorType.kBrushless);
   private final SparkBase pair1Follower =
       new SparkMax(ShooterConstants.pair1FollowerCanId, MotorType.kBrushless);
-  private final SparkBase pair2Leader = new SparkMax(ShooterConstants.pair2LeaderCanId, MotorType.kBrushless);
+  private final SparkBase pair2Leader =
+      new SparkMax(ShooterConstants.pair2LeaderCanId, MotorType.kBrushless);
   private final SparkBase pair2Follower =
       new SparkMax(ShooterConstants.pair2FollowerCanId, MotorType.kBrushless);
-  private final SparkBase hoodMotor = new SparkMax(ShooterConstants.hoodCanId, MotorType.kBrushless);
+  private final SparkBase hoodMotor =
+      new SparkMax(ShooterConstants.hoodCanId, MotorType.kBrushless);
 
   private final RelativeEncoder pair1LeaderEncoder = pair1Leader.getEncoder();
   private final RelativeEncoder pair1FollowerEncoder = pair1Follower.getEncoder();
@@ -36,9 +39,12 @@ public class ShooterIOSparkMax implements ShooterIO {
   private final SparkClosedLoopController pair2Controller = pair2Leader.getClosedLoopController();
   private final SparkClosedLoopController hoodController = hoodMotor.getClosedLoopController();
 
-  private final Debouncer pair1ConnectedDebounce = new Debouncer(0.5, Debouncer.DebounceType.kFalling);
-  private final Debouncer pair2ConnectedDebounce = new Debouncer(0.5, Debouncer.DebounceType.kFalling);
-  private final Debouncer hoodConnectedDebounce = new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer pair1ConnectedDebounce =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer pair2ConnectedDebounce =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer hoodConnectedDebounce =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
   public ShooterIOSparkMax() {
     final double shooterVelocityConversionFactorRadPerSec = (2.0 * Math.PI) / 60.0;
@@ -170,7 +176,9 @@ public class ShooterIOSparkMax implements ShooterIO {
         5,
         () ->
             pair1Follower.configure(
-                pair1FollowerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                pair1FollowerConfig,
+                ResetMode.kResetSafeParameters,
+                PersistMode.kPersistParameters));
     tryUntilOk(
         pair2Leader,
         5,
@@ -182,7 +190,9 @@ public class ShooterIOSparkMax implements ShooterIO {
         5,
         () ->
             pair2Follower.configure(
-                pair2FollowerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                pair2FollowerConfig,
+                ResetMode.kResetSafeParameters,
+                PersistMode.kPersistParameters));
     tryUntilOk(
         hoodMotor,
         5,

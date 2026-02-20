@@ -352,8 +352,7 @@ public class Shooter extends SubsystemBase {
     double ballSpinRadPerSec =
         (ShooterConstants.targetBallSpinRatio * launchSpeedMagnitude)
             / ShooterConstants.fuelBallRadiusMeters;
-    double spinSurfaceDeltaMetersPerSec =
-        ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
+    double spinSurfaceDeltaMetersPerSec = ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
 
     double pair1WheelSpeedRadPerSec =
         (baseWheelSurfaceSpeedMetersPerSec + spinSurfaceDeltaMetersPerSec)
@@ -452,8 +451,7 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/Control/Enabled", shotControlEnabled);
     Logger.recordOutput("Shooter/Control/Pair1SetpointRadPerSec", pair1WheelSetpointRadPerSec);
     Logger.recordOutput("Shooter/Control/Pair2SetpointRadPerSec", pair2WheelSetpointRadPerSec);
-    Logger.recordOutput(
-        "Shooter/Control/HoodSetpointRotations", hoodSetpointMotorRotations);
+    Logger.recordOutput("Shooter/Control/HoodSetpointRotations", hoodSetpointMotorRotations);
     Logger.recordOutput("Shooter/Control/ManualHoodOverrideEnabled", manualHoodOverrideEnabled);
     Logger.recordOutput(
         "Shooter/Control/HoodSetpointDegrees",

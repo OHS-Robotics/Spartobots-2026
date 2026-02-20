@@ -124,7 +124,8 @@ public class Hopper extends SubsystemBase {
 
   private void configureNetworkTableDefaults() {
     hopperBeltSpeedEntry.setDefaultDouble(HopperConstants.defaultHopperBeltSpeed);
-    hopperExtensionSpeedScaleEntry.setDefaultDouble(HopperConstants.defaultHopperExtensionSpeedScale);
+    hopperExtensionSpeedScaleEntry.setDefaultDouble(
+        HopperConstants.defaultHopperExtensionSpeedScale);
 
     hopperBeltInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperBeltInverted);
     hopperExtensionInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperExtensionInverted);
