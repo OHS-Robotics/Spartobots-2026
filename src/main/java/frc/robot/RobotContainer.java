@@ -421,8 +421,9 @@ public class RobotContainer {
       return;
     }
 
+    SimulatedArena arena = SimulatedArena.getInstance();
     drive.setPose(SIM_START_POSE);
-    SimulatedArena.getInstance().resetFieldForAuto();
+    arena.resetFieldForAuto();
     previousSimFieldSpeeds = null;
     rumbleUntilTimestampSeconds = 0.0;
     simulatedShooterShotsLaunched = 0;
@@ -431,6 +432,7 @@ public class RobotContainer {
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
     Logger.recordOutput("Shooter/Simulation/ShotTrajectory", new Pose3d[] {});
+    Logger.recordOutput("Shooter/Simulation/ActiveFuelProjectiles", new Pose3d[] {});
     Logger.recordOutput("Shooter/Simulation/LastLaunchSpeedMetersPerSec", 0.0);
     Logger.recordOutput("Shooter/Simulation/LastLaunchAngleDegrees", 0.0);
     Logger.recordOutput("Shooter/Simulation/LastLaunchYawDegrees", 0.0);
@@ -447,7 +449,8 @@ public class RobotContainer {
         driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
     maybeLaunchSimulatedFuel(launchRobotPose, launchFieldSpeeds);
 
-    SimulatedArena.getInstance().simulationPeriodic();
+    SimulatedArena arena = SimulatedArena.getInstance();
+    arena.simulationPeriodic();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
     ChassisSpeeds simFieldSpeeds =
         driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
@@ -459,18 +462,18 @@ public class RobotContainer {
     Logger.recordOutput(
         "FieldSimulation/RobotParts/SwerveModules",
         getSimulatedModulePoses(robotPose, humpPoseSample));
-    Logger.recordOutput(
-        "FieldSimulation/GamePieces/Fuel",
-        SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
+    Logger.recordOutput("FieldSimulation/GamePieces/Fuel", arena.getGamePiecesArrayByType("Fuel"));
     Logger.recordOutput(
         "FieldSimulation/GamePieces/Note",
-        SimulatedArena.getInstance().getGamePiecesArrayByType("Note"));
+        arena.getGamePiecesArrayByType("Note"));
     Logger.recordOutput(
         "FieldSimulation/GamePieces/Coral",
-        SimulatedArena.getInstance().getGamePiecesArrayByType("Coral"));
+        arena.getGamePiecesArrayByType("Coral"));
     Logger.recordOutput(
         "FieldSimulation/GamePieces/Algae",
-        SimulatedArena.getInstance().getGamePiecesArrayByType("Algae"));
+        arena.getGamePiecesArrayByType("Algae"));
+    Logger.recordOutput(
+        "Shooter/Simulation/ActiveFuelProjectiles", getActiveFuelProjectilePoses(arena));
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
   }
@@ -567,6 +570,13 @@ public class RobotContainer {
     double rumbleStrength = nowSeconds < rumbleUntilTimestampSeconds ? WALL_RUMBLE_STRENGTH : 0.0;
     controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
     Logger.recordOutput("FieldSimulation/WallImpact/RumbleStrength", rumbleStrength);
+  }
+
+  private Pose3d[] getActiveFuelProjectilePoses(SimulatedArena arena) {
+    return arena.gamePieceLaunched().stream()
+        .filter(projectile -> "Fuel".equals(projectile.getType()))
+        .map(projectile -> projectile.getPose3d())
+        .toArray(Pose3d[]::new);
   }
 
   private boolean isApproachingFieldWall(Pose2d robotPose, ChassisSpeeds fieldSpeeds) {
