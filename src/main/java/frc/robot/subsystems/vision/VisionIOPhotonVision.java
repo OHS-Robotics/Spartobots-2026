@@ -30,11 +30,10 @@ import org.photonvision.targeting.PhotonTrackedTarget;
 
 /** IO implementation for real PhotonVision hardware. */
 public class VisionIOPhotonVision implements VisionIO {
-  private PhotonPoseEstimator poseEstimator;
+  private final PhotonPoseEstimator poseEstimator;
   protected final PhotonCamera camera;
   protected final Transform3d robotToCamera;
-  public Matrix<N3, N1> stdDevs;
-  private boolean initialized = false;
+  public Matrix<N3, N1> stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
 
   /**
    * Creates a new VisionIOPhotonVision.
@@ -45,7 +44,7 @@ public class VisionIOPhotonVision implements VisionIO {
   public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
-    initialized = true;
+    poseEstimator = new PhotonPoseEstimator(aprilTagLayout, robotToCamera);
   }
 
   @Override
@@ -139,23 +138,19 @@ public class VisionIOPhotonVision implements VisionIO {
 
   @Override
   public void updatePoseEstimate(Drive drive) {
-    if (!initialized) return;
-
     List<PhotonPipelineResult> results = camera.getAllUnreadResults();
     Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
 
     for (var result : results) {
       visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-      System.out.println(visionEstimatedPose.get().estimatedPose);
-      if (visionEstimatedPose.isEmpty())
+      if (visionEstimatedPose.isEmpty()) {
         visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
+      }
 
       updateStdDevs(visionEstimatedPose, result.getTargets());
-      // todo: update standard deviations
 
       visionEstimatedPose.ifPresent(
           est -> {
-            // drive.setVisionMeasurementStdDevs(stdDevs);
             drive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds, stdDevs);
           });
     }
@@ -179,13 +174,15 @@ public class VisionIOPhotonVision implements VisionIO {
     int measuredTags = 0;
 
     if (currentPose.isEmpty()) {
-      stdDevs = VecBuilder.fill(4, 4, 8); // todo: choose good values for these
+      stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
       return;
     }
 
     for (var target : targets) {
       Optional<Pose3d> pose = poseEstimator.getFieldTags().getTagPose(target.getFiducialId());
-      if (pose.isPresent()) continue;
+      if (pose.isEmpty()) {
+        continue;
+      }
       measuredTags++;
       averageDistance +=
           pose.get()
@@ -195,16 +192,21 @@ public class VisionIOPhotonVision implements VisionIO {
     }
 
     if (measuredTags == 0) {
-      stdDevs = VecBuilder.fill(4, 4, 8);
+      stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
     } else {
       averageDistance /= measuredTags;
 
-      if (measuredTags > 1)
-        stdDevs = VecBuilder.fill(0.5, 0.5, 1); // more magic numbers to be replaced later
+      if (measuredTags > 1) {
+        stdDevs = VecBuilder.fill(0.5, 0.5, 1.0);
+      } else {
+        stdDevs = VecBuilder.fill(1.0, 1.0, 2.0);
+      }
 
-      if (measuredTags == 1 && averageDistance > 4)
-        VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
-      else stdDevs = stdDevs.times(1 + (averageDistance * averageDistance / 30));
+      if (measuredTags == 1 && averageDistance > 4.0) {
+        stdDevs = VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
+      } else {
+        stdDevs = stdDevs.times(1.0 + ((averageDistance * averageDistance) / 30.0));
+      }
     }
   }
 }

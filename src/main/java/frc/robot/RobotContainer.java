@@ -34,11 +34,9 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.Agitators;
-import frc.robot.subsystems.body.AgitatorsConstants;
+import frc.robot.subsystems.body.GamePieceManager;
 import frc.robot.subsystems.body.Hopper;
-import frc.robot.subsystems.body.HopperConstants;
 import frc.robot.subsystems.body.Intake;
-import frc.robot.subsystems.body.IntakeConstants;
 import frc.robot.subsystems.body.shooter.Shooter;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
 import frc.robot.subsystems.body.shooter.ShooterIO;
@@ -88,10 +86,10 @@ public class RobotContainer {
   private static final double WALL_RUMBLE_STRENGTH = 1.0;
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
-  private static final double LEFT_TRIGGER_RATE_DEADBAND = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
+  private static final double MANUAL_INTAKE_PIVOT_SPEED = 0.35;
+  private static final double MANUAL_HOPPER_EXTENSION_SPEED = 0.40;
   private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
-  private static final double START_AUTO_COLLECTION_RATE = 0.65;
   private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
   private static final int TOP_LEFT_PADDLE_BUTTON = 7;
@@ -115,6 +113,7 @@ public class RobotContainer {
   private final Intake intake;
   private final Hopper hopper;
   private final Agitators agitators;
+  private final GamePieceManager gamePieceManager;
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
@@ -206,9 +205,15 @@ public class RobotContainer {
         break;
     }
 
+    gamePieceManager = new GamePieceManager(intake, hopper, agitators);
+    gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
+
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
     autoChooser.addOption("Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
+    autoChooser.addOption("Hub Opening Shot (Interlocked Feed)", openingHubShotAutoRoutine());
+    autoChooser.addOption("Trench Collect (Timed)", trenchCollectAutoRoutine());
+    autoChooser.addOption("Outpost Collect (Timed)", outpostCollectAutoRoutine());
 
     // Set up SysId routines
     autoChooser.addOption(
@@ -226,8 +231,25 @@ public class RobotContainer {
     autoChooser.addOption(
         "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
-    // register commmands to be used in PathPlanner autos
+    // Register commands to be used in PathPlanner autos.
     NamedCommands.registerCommand("trench", autoDriveUnderTrenchCommand());
+    NamedCommands.registerCommand("outpost", driveToOutpostCommand());
+    NamedCommands.registerCommand("collectStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.COLLECT));
+    NamedCommands.registerCommand("collectStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
+    NamedCommands.registerCommand("feedStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.FEED));
+    NamedCommands.registerCommand("feedStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
+    NamedCommands.registerCommand(
+        "shooterOn",
+        Commands.runOnce(() -> shooter.setShotControlEnabled(true))
+            .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false)));
+    NamedCommands.registerCommand(
+        "shooterOff",
+        Commands.runOnce(
+            () -> {
+              shooter.setShotControlEnabled(false);
+              gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
+            }));
+    NamedCommands.registerCommand("alignHub", drive.alignToHub(() -> 0.0, () -> 0.0, shooter::getHubAirtimeSeconds));
 
     // Configure the button bindings
     configureButtonBindings();
@@ -254,17 +276,13 @@ public class RobotContainer {
     // Right stick press (hold) = align to hub.
     controller.rightStick().whileTrue(alignToHub());
 
-    // Right trigger = run shooter while held.
+    // Right trigger = run shooter + interlocked feed while held.
     controller.rightTrigger().whileTrue(runShooterWhileHeldCommand());
-    // Left trigger (optional) = live feed rate control for agitators, belts, intake.
-    new Trigger(() -> controller.getHID().getLeftTriggerAxis() > LEFT_TRIGGER_RATE_DEADBAND)
-        .whileTrue(Commands.run(() -> setFeedRates(controller.getHID().getLeftTriggerAxis())))
-        .onFalse(Commands.runOnce(this::resetFeedRates));
 
-    // A/B/C(X) toggles.
-    controller.a().onTrue(agitators.toggleAgitatorCommand());
-    controller.b().onTrue(hopper.toggleBeltCommand());
-    controller.x().onTrue(intake.toggleIntakeCommand());
+    // Driver feed controls.
+    controller.x().whileTrue(gamePieceManager.collectWhileHeldCommand());
+    controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
+    controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
 
     // Left bumper = cancel any auto-assist command.
     controller.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
@@ -279,6 +297,12 @@ public class RobotContainer {
         .povDown()
         .whileTrue(
             Commands.run(() -> shooter.adjustHoodSetpointDegrees(-MANUAL_HOOD_STEP_DEGREES)));
+    // D-pad left/right = manual intake pivot control.
+    controller.povLeft().whileTrue(runIntakePivotWhileHeldCommand(-MANUAL_INTAKE_PIVOT_SPEED));
+    controller.povRight().whileTrue(runIntakePivotWhileHeldCommand(MANUAL_INTAKE_PIVOT_SPEED));
+    // Y/start = hopper extension out/in.
+    controller.y().whileTrue(runHopperExtensionWhileHeldCommand(MANUAL_HOPPER_EXTENSION_SPEED));
+    controller.start().whileTrue(runHopperExtensionWhileHeldCommand(-MANUAL_HOPPER_EXTENSION_SPEED));
 
     // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
     new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
@@ -327,6 +351,16 @@ public class RobotContainer {
   }
 
   private Command startOfMatchAutoRoutine() {
+    return Commands.sequence(
+            openingHubShotAutoRoutine(), trenchCollectAutoRoutine(), outpostCollectAutoRoutine())
+        .finallyDo(
+            () -> {
+              shooter.setShotControlEnabled(false);
+              gamePieceManager.requestMode(GamePieceManager.Mode.IDLE);
+            });
+  }
+
+  private Command openingHubShotAutoRoutine() {
     Command openingHubShot =
         Commands.deadline(
             Commands.waitSeconds(START_AUTO_OPENING_SHOT_SECONDS),
@@ -335,28 +369,29 @@ public class RobotContainer {
                     () -> {
                       shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
                       shooter.setShotControlEnabled(true);
+                      gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                     },
-                    shooter)
+                    shooter,
+                    gamePieceManager)
                 .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false))
-                .finallyDo(() -> shooter.setShotControlEnabled(false)));
+                .finallyDo(
+                    () -> {
+                      shooter.setShotControlEnabled(false);
+                      gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
+                    }));
+    return openingHubShot;
+  }
 
-    Command collectThroughTrench =
-        Commands.deadline(
-            drive.autoDriveUnderTrenchCommand().withTimeout(START_AUTO_TRENCH_TIMEOUT_SECONDS),
-            runFeedAtRate(START_AUTO_COLLECTION_RATE));
+  private Command trenchCollectAutoRoutine() {
+    return Commands.deadline(
+        drive.autoDriveUnderTrenchCommand().withTimeout(START_AUTO_TRENCH_TIMEOUT_SECONDS),
+        gamePieceManager.collectWhileHeldCommand());
+  }
 
-    Command loadAtOutpost =
-        Commands.deadline(
-            drive.outpostLoadAuto().withTimeout(START_AUTO_OUTPOST_TIMEOUT_SECONDS),
-            runFeedAtRate(START_AUTO_COLLECTION_RATE));
-
-    return Commands.sequence(openingHubShot, collectThroughTrench, loadAtOutpost)
-        .finallyDo(
-            () -> {
-              shooter.setShotControlEnabled(false);
-              stopFeedMechanisms();
-              resetFeedRates();
-            });
+  private Command outpostCollectAutoRoutine() {
+    return Commands.deadline(
+        drive.outpostLoadAuto().withTimeout(START_AUTO_OUTPOST_TIMEOUT_SECONDS),
+        gamePieceManager.collectWhileHeldCommand());
   }
 
   public Command alignToOutpost() {
@@ -375,42 +410,21 @@ public class RobotContainer {
     return DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red ? redPose : bluePose;
   }
 
-  private void setFeedRates(double rate) {
-    double clampedRate = MathUtil.clamp(rate, 0.0, 1.0);
-    intake.setTargetIntakeSpeed(clampedRate);
-    hopper.setTargetBeltSpeed(clampedRate);
-    agitators.setTargetAgitatorSpeed(clampedRate);
+  private Command runIntakePivotWhileHeldCommand(double speed) {
+    return Commands.startEnd(
+        () -> intake.setIntakePivotSpeed(speed), intake::stopIntakePivot, intake);
   }
 
-  private void resetFeedRates() {
-    intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
-    hopper.setTargetBeltSpeed(HopperConstants.defaultHopperBeltSpeed);
-    agitators.setTargetAgitatorSpeed(AgitatorsConstants.defaultTopAgitatorSpeed);
-  }
-
-  private Command runFeedAtRate(double rate) {
-    return Commands.run(
-            () -> {
-              setFeedRates(rate);
-              intake.updateIntake();
-              hopper.updateBelt();
-              agitators.updateAgitators();
-            },
-            intake,
-            hopper,
-            agitators)
-        .finallyDo(this::stopFeedMechanisms);
-  }
-
-  private void stopFeedMechanisms() {
-    intake.stopIntake();
-    hopper.stopBelt();
-    agitators.stopAgitators();
+  private Command runHopperExtensionWhileHeldCommand(double speed) {
+    return Commands.startEnd(
+        () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
   }
 
   private Command runShooterWhileHeldCommand() {
-    return Commands.startEnd(
-        () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
+    return Commands.parallel(
+        Commands.startEnd(
+            () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false)),
+        gamePieceManager.feedWhileHeldCommand());
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {
@@ -462,6 +476,15 @@ public class RobotContainer {
 
   public void updateHubShotSolution() {
     shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
+  }
+
+  public void onDisabledInit() {
+    shooterDemandFromAlign = false;
+    shooterDemandFromTrigger = false;
+    refreshShooterControlDemand();
+    gamePieceManager.requestMode(GamePieceManager.Mode.IDLE);
+    cancelAutoAssist();
+    resetSimulationField();
   }
 
   public void resetSimulationField() {

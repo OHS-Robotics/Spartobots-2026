@@ -95,6 +95,11 @@ public final class ShooterConstants {
   public static final double fallbackAirtimeSeconds = 0.6;
   public static final double minHorizontalVelocityMetersPerSec = 0.25;
 
+  // Feed interlock readiness
+  public static final double wheelReadyToleranceRatio = 0.08;
+  public static final double minWheelSetpointForReadinessRadPerSec =
+      Units.rotationsPerMinuteToRadiansPerSecond(300.0);
+
   // Simulated shot behavior
   public static final double simShotCadenceSeconds = 0.35;
   public static final double simWheelReadyRatio = 0.88;

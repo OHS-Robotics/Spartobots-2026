@@ -558,28 +558,15 @@ public class Drive extends SubsystemBase {
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
-    Pose2d target = Constants.blueHub;
-    DoubleSupplier angleSetpoint =
-        () ->
-            Math.atan2(
-                this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX());
-    return Commands.run(
-            () -> {
-              DriveCommands.joystickDrive(
-                  this,
-                  x,
-                  y,
-                  () ->
-                      this.getPose().getRotation().getRadians()
-                          - Math.atan2(
-                              this.getPose().getY() - target.getY(),
-                              this.getPose().getX() - target.getX()),
-                  () -> false);
-            })
-        .until(
-            () ->
-                Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
-                    < DriveConstants.aligned);
+    return DriveCommands.joystickDriveAtAngle(
+        this,
+        x,
+        y,
+        () -> {
+          Pose2d target = getNearestOutpost();
+          Translation2d toTarget = target.getTranslation().minus(getPose().getTranslation());
+          return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+        });
   }
 
   public void alignTo(Pose2d target) {}

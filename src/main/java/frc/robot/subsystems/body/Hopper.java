@@ -91,6 +91,7 @@ public class Hopper extends SubsystemBase {
     lastAppliedBeltSpeed =
         applyDirection(targetBeltSpeed, hopperBeltDirectionEntry, HopperConstants.defaultHopperBeltDirection);
     hopperBelt.set(lastAppliedBeltSpeed);
+    beltRunning = Math.abs(lastAppliedBeltSpeed) > 1e-3;
   }
 
   public void reverseBeltSpeed() {
@@ -114,6 +115,7 @@ public class Hopper extends SubsystemBase {
   public void stopBelt() {
     lastAppliedBeltSpeed = 0.0;
     hopperBelt.set(0.0);
+    beltRunning = false;
   }
 
   public void setHopperExtensionSpeed(double speed) {
@@ -234,6 +236,14 @@ public class Hopper extends SubsystemBase {
 
   public double getHopperExtensionMeasuredPositionRotations() {
     return hopperExtensionEncoder.getPosition();
+  }
+
+  public double getHopperBeltCurrentAmps() {
+    return hopperBelt.getOutputCurrent();
+  }
+
+  public double getHopperExtensionCurrentAmps() {
+    return hopperExtension.getOutputCurrent();
   }
 
   public double getHopperExtensionMeasuredPositionNormalized() {

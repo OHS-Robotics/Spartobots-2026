@@ -16,8 +16,8 @@ public final class AgitatorsConstants {
       ControlSensitivity.VELOCITY_SENSITIVE;
 
   // Default open-loop speeds
-  public static final double defaultTopAgitatorSpeed = 20.0;
-  public static final double defaultBottomAgitatorSpeed = 20.0;
+  public static final double defaultTopAgitatorSpeed = 0.55;
+  public static final double defaultBottomAgitatorSpeed = 0.55;
 
   // Default direction/inversion
   public static final double defaultTopAgitatorDirection = 1.0;

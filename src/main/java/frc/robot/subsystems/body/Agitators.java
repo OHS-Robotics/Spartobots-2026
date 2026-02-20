@@ -87,6 +87,8 @@ public class Agitators extends SubsystemBase {
             AgitatorsConstants.defaultBottomAgitatorDirection);
     topAgitator.set(lastAppliedTopAgitatorSpeed);
     bottomAgitator.set(lastAppliedBottomAgitatorSpeed);
+    agitatorRunning =
+        Math.abs(lastAppliedTopAgitatorSpeed) > 1e-3 || Math.abs(lastAppliedBottomAgitatorSpeed) > 1e-3;
   }
 
   public void reverseAgitatorSpeed() {
@@ -112,6 +114,7 @@ public class Agitators extends SubsystemBase {
     lastAppliedBottomAgitatorSpeed = 0.0;
     topAgitator.set(0.0);
     bottomAgitator.set(0.0);
+    agitatorRunning = false;
   }
 
   public Command toggleAgitatorCommand() {
@@ -184,6 +187,18 @@ public class Agitators extends SubsystemBase {
 
   private static double normalizeDirection(double direction) {
     return direction < 0.0 ? -1.0 : 1.0;
+  }
+
+  public double getTopAgitatorCurrentAmps() {
+    return topAgitator.getOutputCurrent();
+  }
+
+  public double getBottomAgitatorCurrentAmps() {
+    return bottomAgitator.getOutputCurrent();
+  }
+
+  public double getAverageAgitatorCurrentAmps() {
+    return 0.5 * (getTopAgitatorCurrentAmps() + getBottomAgitatorCurrentAmps());
   }
 
   private void stopCommand(Command command) {

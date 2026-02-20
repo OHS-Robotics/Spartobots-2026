@@ -91,6 +91,7 @@ public class Intake extends SubsystemBase {
     lastAppliedIntakeDriveSpeed =
         applyDirection(targetIntakeSpeed, intakeDriveDirectionEntry, IntakeConstants.defaultIntakeDriveDirection);
     intakeDrive.set(lastAppliedIntakeDriveSpeed);
+    intakeRunning = Math.abs(lastAppliedIntakeDriveSpeed) > 1e-3;
   }
 
   public void reverseTargetSpeed() {
@@ -114,6 +115,7 @@ public class Intake extends SubsystemBase {
   public void stopIntake() {
     lastAppliedIntakeDriveSpeed = 0.0;
     intakeDrive.set(0.0);
+    intakeRunning = false;
   }
 
   public void setIntakePivotSpeed(double speed) {
@@ -232,6 +234,14 @@ public class Intake extends SubsystemBase {
 
   public double getIntakePivotMeasuredPositionRotations() {
     return intakePivotEncoder.getPosition();
+  }
+
+  public double getIntakeDriveCurrentAmps() {
+    return intakeDrive.getOutputCurrent();
+  }
+
+  public double getIntakePivotCurrentAmps() {
+    return intakePivot.getOutputCurrent();
   }
 
   public double getIntakePivotMeasuredPositionNormalized() {

@@ -7,17 +7,16 @@
 
 package frc.robot.subsystems.vision;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import frc.robot.Constants;
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
 
 public class VisionConstants {
   // AprilTag layout
-  public static AprilTagFieldLayout aprilTagLayout =
-      AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
+  public static final AprilTagFieldLayout aprilTagLayout = Constants.FIELD_LAYOUT;
 
   // Camera names, must match names configured on coprocessor
   public static String camera0Name = "Arducam_OV9281_USB_Camera";

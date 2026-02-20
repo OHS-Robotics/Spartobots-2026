@@ -510,6 +510,19 @@ public class Shooter extends SubsystemBase {
     return ShooterConstants.launchSlipFactor * averageWheelSurfaceSpeedMetersPerSec;
   }
 
+  public boolean areWheelsAtSpeedForShot() {
+    return areWheelsAtSpeed(ShooterConstants.wheelReadyToleranceRatio);
+  }
+
+  public boolean isReadyToFire() {
+    return shotControlEnabled
+        && latestHubShotSolution.feasible()
+        && inputs.pair1Connected
+        && inputs.pair2Connected
+        && inputs.hoodConnected
+        && areWheelsAtSpeedForShot();
+  }
+
   public boolean shouldTriggerSimulatedShot(double timestampSeconds) {
     if (!areWheelsReadyForSimulatedShot()) {
       return false;
@@ -524,21 +537,29 @@ public class Shooter extends SubsystemBase {
   }
 
   private boolean areWheelsReadyForSimulatedShot() {
-    if (!shotControlEnabled) {
-      return false;
-    }
+    return shotControlEnabled && areWheelsAtSpeed(1.0 - ShooterConstants.simWheelReadyRatio);
+  }
 
+  private boolean areWheelsAtSpeed(double toleranceRatio) {
+    double clampedToleranceRatio = MathUtil.clamp(toleranceRatio, 0.0, 1.0);
     double pair1SetpointMagnitude = Math.abs(getPair1VelocityCommandSetpointRadPerSec());
     double pair2SetpointMagnitude = Math.abs(getPair2VelocityCommandSetpointRadPerSec());
-    if (pair1SetpointMagnitude < 1e-3 || pair2SetpointMagnitude < 1e-3) {
+    if (pair1SetpointMagnitude < ShooterConstants.minWheelSetpointForReadinessRadPerSec
+        || pair2SetpointMagnitude < ShooterConstants.minWheelSetpointForReadinessRadPerSec) {
       return false;
     }
 
     double pair1MeasuredMagnitude = Math.abs(inputs.pair1LeaderVelocityRadPerSec);
     double pair2MeasuredMagnitude = Math.abs(inputs.pair2LeaderVelocityRadPerSec);
+    double pair1LowerBound = pair1SetpointMagnitude * (1.0 - clampedToleranceRatio);
+    double pair1UpperBound = pair1SetpointMagnitude * (1.0 + clampedToleranceRatio);
+    double pair2LowerBound = pair2SetpointMagnitude * (1.0 - clampedToleranceRatio);
+    double pair2UpperBound = pair2SetpointMagnitude * (1.0 + clampedToleranceRatio);
 
-    return pair1MeasuredMagnitude >= (pair1SetpointMagnitude * ShooterConstants.simWheelReadyRatio)
-        && pair2MeasuredMagnitude >= (pair2SetpointMagnitude * ShooterConstants.simWheelReadyRatio);
+    return pair1MeasuredMagnitude >= pair1LowerBound
+        && pair1MeasuredMagnitude <= pair1UpperBound
+        && pair2MeasuredMagnitude >= pair2LowerBound
+        && pair2MeasuredMagnitude <= pair2UpperBound;
   }
 
   private double estimateLaunchSpeedFromWheelSetpointsMetersPerSec() {
@@ -630,6 +651,8 @@ public class Shooter extends SubsystemBase {
         "Shooter/Measured/EstimatedLaunchSpeedMetersPerSec",
         getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec());
     Logger.recordOutput("Shooter/Simulation/WheelsReady", areWheelsReadyForSimulatedShot());
+    Logger.recordOutput("Shooter/Interlock/WheelsReadyForShot", areWheelsAtSpeedForShot());
+    Logger.recordOutput("Shooter/Interlock/ReadyToFire", isReadyToFire());
     Logger.recordOutput("Shooter/Status/Pair1Connected", inputs.pair1Connected);
     Logger.recordOutput("Shooter/Status/Pair2Connected", inputs.pair2Connected);
     Logger.recordOutput("Shooter/Status/HoodConnected", inputs.hoodConnected);
