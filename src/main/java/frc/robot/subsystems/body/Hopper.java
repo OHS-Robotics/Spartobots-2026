@@ -87,8 +87,7 @@ public class Hopper extends SubsystemBase {
 
   public void setHopperExtensionSpeed(double speed) {
     lastAppliedExtensionSpeed =
-        applyScaleAndInversion(
-            speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
+        applyScaleAndInversion(speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
     hopperExtension.set(lastAppliedExtensionSpeed);
   }
 
@@ -144,7 +143,8 @@ public class Hopper extends SubsystemBase {
     hopperBeltSpeedEntry.setDouble(targetBeltSpeed);
     hopperExtensionSpeedScaleEntry.setDouble(
         clampSpeedScale(
-            hopperExtensionSpeedScaleEntry.getDouble(HopperConstants.defaultHopperExtensionSpeedScale)));
+            hopperExtensionSpeedScaleEntry.getDouble(
+                HopperConstants.defaultHopperExtensionSpeedScale)));
   }
 
   private double applyScaleAndInversion(
@@ -176,7 +176,8 @@ public class Hopper extends SubsystemBase {
     Logger.recordOutput(
         "Hopper/Config/ExtensionSpeedScale",
         clampSpeedScale(
-            hopperExtensionSpeedScaleEntry.getDouble(HopperConstants.defaultHopperExtensionSpeedScale)));
+            hopperExtensionSpeedScaleEntry.getDouble(
+                HopperConstants.defaultHopperExtensionSpeedScale)));
     Logger.recordOutput(
         "Hopper/Config/BeltInverted",
         hopperBeltInvertedEntry.getBoolean(HopperConstants.defaultHopperBeltInverted));

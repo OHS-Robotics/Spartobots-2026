@@ -50,10 +50,10 @@ public class DriveConstants {
   public static final boolean navxYawInverted = true;
 
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910 - 1.825);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332 - 1.243);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543 + 0.488);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227 + 1.836);
+  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
+  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543);
+  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
 
   // Device CAN IDs
   public static final int pigeonCanId = 1;

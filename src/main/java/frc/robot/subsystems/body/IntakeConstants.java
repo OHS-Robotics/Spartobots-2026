@@ -14,6 +14,6 @@ public final class IntakeConstants {
   public static final double defaultIntakePivotSpeedScale = 1.0;
 
   // Default inversion
-  public static final boolean defaultIntakeDriveInverted = false;
+  public static final boolean defaultIntakeDriveInverted = true;
   public static final boolean defaultIntakePivotInverted = false;
 }

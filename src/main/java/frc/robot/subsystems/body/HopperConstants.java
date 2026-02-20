@@ -14,6 +14,6 @@ public final class HopperConstants {
   public static final double defaultHopperExtensionSpeedScale = 1.0;
 
   // Default inversion
-  public static final boolean defaultHopperBeltInverted = false;
+  public static final boolean defaultHopperBeltInverted = true;
   public static final boolean defaultHopperExtensionInverted = false;
 }

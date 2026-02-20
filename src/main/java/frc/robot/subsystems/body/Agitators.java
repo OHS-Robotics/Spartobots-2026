@@ -170,8 +170,7 @@ public class Agitators extends SubsystemBase {
 
     Logger.recordOutput("Agitators/State/Running", agitatorRunning);
     Logger.recordOutput("Agitators/State/LastAppliedTopOutput", lastAppliedTopAgitatorSpeed);
-    Logger.recordOutput(
-        "Agitators/State/LastAppliedBottomOutput", lastAppliedBottomAgitatorSpeed);
+    Logger.recordOutput("Agitators/State/LastAppliedBottomOutput", lastAppliedBottomAgitatorSpeed);
     Logger.recordOutput("Agitators/State/ActualTopOutput", topAgitator.get());
     Logger.recordOutput("Agitators/State/ActualBottomOutput", bottomAgitator.get());
     Logger.recordOutput("Agitators/Measured/TopCurrentAmps", topAgitator.getOutputCurrent());
