@@ -7,6 +7,8 @@ import edu.wpi.first.math.util.Units;
 public final class ShooterConstants {
   private ShooterConstants() {}
 
+  public static final String configTableName = "ShooterConfig";
+
   public static final double gravityMetersPerSecSquared = 9.80665;
 
   // CAN IDs

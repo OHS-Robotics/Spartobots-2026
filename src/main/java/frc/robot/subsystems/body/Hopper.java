@@ -15,11 +15,14 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.littletonrobotics.junction.Logger;
 
 public class Hopper extends SubsystemBase {
   private double targetBeltSpeed = HopperConstants.defaultHopperBeltSpeed;
   private Command currentBeltRunCommand;
   private boolean beltRunning = false;
+  private double lastAppliedBeltSpeed = 0.0;
+  private double lastAppliedExtensionSpeed = 0.0;
 
   private final SparkMax hopperBelt =
       new SparkMax(HopperConstants.hopperBeltDriveCanId, MotorType.kBrushed);
@@ -51,10 +54,12 @@ public class Hopper extends SubsystemBase {
   @Override
   public void periodic() {
     loadNetworkTableConfig();
+    logTelemetry();
   }
 
   public void updateBelt() {
-    hopperBelt.set(applyInversion(targetBeltSpeed, hopperBeltInvertedEntry));
+    lastAppliedBeltSpeed = applyInversion(targetBeltSpeed, hopperBeltInvertedEntry);
+    hopperBelt.set(lastAppliedBeltSpeed);
   }
 
   public void reverseBeltSpeed() {
@@ -76,16 +81,19 @@ public class Hopper extends SubsystemBase {
   }
 
   public void stopBelt() {
+    lastAppliedBeltSpeed = 0.0;
     hopperBelt.set(0.0);
   }
 
   public void setHopperExtensionSpeed(double speed) {
-    hopperExtension.set(
+    lastAppliedExtensionSpeed =
         applyScaleAndInversion(
-            speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry));
+            speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
+    hopperExtension.set(lastAppliedExtensionSpeed);
   }
 
   public void stopHopperExtension() {
+    lastAppliedExtensionSpeed = 0.0;
     hopperExtension.set(0.0);
   }
 
@@ -132,6 +140,10 @@ public class Hopper extends SubsystemBase {
 
   private void loadNetworkTableConfig() {
     targetBeltSpeed = clampSpeed(hopperBeltSpeedEntry.getDouble(targetBeltSpeed));
+    hopperBeltSpeedEntry.setDouble(targetBeltSpeed);
+    hopperExtensionSpeedScaleEntry.setDouble(
+        clampSpeedScale(
+            hopperExtensionSpeedScaleEntry.getDouble(HopperConstants.defaultHopperExtensionSpeedScale)));
   }
 
   private double applyScaleAndInversion(
@@ -156,5 +168,27 @@ public class Hopper extends SubsystemBase {
     if (command != null) {
       CommandScheduler.getInstance().cancel(command);
     }
+  }
+
+  private void logTelemetry() {
+    Logger.recordOutput("Hopper/Config/TargetBeltSpeed", targetBeltSpeed);
+    Logger.recordOutput(
+        "Hopper/Config/ExtensionSpeedScale",
+        clampSpeedScale(
+            hopperExtensionSpeedScaleEntry.getDouble(HopperConstants.defaultHopperExtensionSpeedScale)));
+    Logger.recordOutput(
+        "Hopper/Config/BeltInverted",
+        hopperBeltInvertedEntry.getBoolean(HopperConstants.defaultHopperBeltInverted));
+    Logger.recordOutput(
+        "Hopper/Config/ExtensionInverted",
+        hopperExtensionInvertedEntry.getBoolean(HopperConstants.defaultHopperExtensionInverted));
+
+    Logger.recordOutput("Hopper/State/BeltRunning", beltRunning);
+    Logger.recordOutput("Hopper/State/LastAppliedBeltOutput", lastAppliedBeltSpeed);
+    Logger.recordOutput("Hopper/State/LastAppliedExtensionOutput", lastAppliedExtensionSpeed);
+    Logger.recordOutput("Hopper/State/ActualBeltOutput", hopperBelt.get());
+    Logger.recordOutput("Hopper/State/ActualExtensionOutput", hopperExtension.get());
+    Logger.recordOutput("Hopper/Measured/BeltCurrentAmps", hopperBelt.getOutputCurrent());
+    Logger.recordOutput("Hopper/Measured/ExtensionCurrentAmps", hopperExtension.getOutputCurrent());
   }
 }

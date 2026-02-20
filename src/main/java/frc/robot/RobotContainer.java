@@ -467,8 +467,8 @@ public class RobotContainer {
     double launchSpeedMetersPerSec =
         MathUtil.clamp(
             shooter.getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec(),
-            ShooterConstants.minLaunchSpeedMetersPerSec,
-            ShooterConstants.maxLaunchSpeedMetersPerSec);
+            shooter.getMinLaunchSpeedMetersPerSec(),
+            shooter.getMaxLaunchSpeedMetersPerSec());
     Pose2d targetHubPose = drive.getNearestHubPose();
 
     RebuiltFuelOnFly projectile =
@@ -485,7 +485,7 @@ public class RobotContainer {
         .withTargetPosition(
             () ->
                 new Translation3d(
-                    targetHubPose.getX(), targetHubPose.getY(), ShooterConstants.hubCenterHeightMeters))
+                    targetHubPose.getX(), targetHubPose.getY(), shooter.getHubCenterHeightMeters()))
         .withTargetTolerance(
             new Translation3d(
                 ShooterConstants.projectileTargetToleranceXYMeters,
