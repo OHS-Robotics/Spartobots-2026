@@ -68,6 +68,7 @@ public class RobotContainer {
   }
 
   public void teleopInit() {
+    launcher.launcherEncoder.setPosition(0.0);
     // alignment controls
     if (!delayedEventsRun) {
       System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
@@ -77,6 +78,9 @@ public class RobotContainer {
         swerveDrive.pointTowardsFixed(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED)*/
         swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
         swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
+      );
+      driverJoystick.rightStick().whileTrue(launcher.autoAlignAngle(swerveDrive::getPose,
+        () -> DriverStation.getAlliance().get() == Alliance.Blue ? Constants.blueHub : Constants.redHub)
       );
 
       // left/right tower align
@@ -142,7 +146,7 @@ public class RobotContainer {
     // todo: intake/hopper movement
 
     manipulatorJoystick.a().onTrue(intake.toggleIntakeCommand());
-    manipulatorJoystick.b().onTrue(Commands.parallel(intake.toggleBeltCommand(), launcher.toggleIntakeCommand()));
+    manipulatorJoystick.b().onTrue(Commands.parallel(intake.toggleBeltCommand()/*, launcher.toggleIntakeCommand()*/));
 
     manipulatorJoystick.b().onTrue(Commands.runOnce(() -> {
       if (manipulatorRumbling) {
@@ -156,11 +160,14 @@ public class RobotContainer {
     }));
   
 
-    manipulatorJoystick.rightTrigger().onTrue(Commands.runOnce(() -> launcher.setTargetLaunchSpeed(0.3), launcher).andThen(launcher.runLauncherCommand()));
+    manipulatorJoystick.rightTrigger().onTrue(Commands.runOnce(() -> launcher.sendables.setLaunchSpeed(0.3), launcher).andThen(launcher.runLauncherCommand()));
     manipulatorJoystick.rightTrigger().onFalse(launcher.stopLauncherCommand());
 
-    manipulatorJoystick.leftTrigger().onTrue(Commands.runOnce(() -> launcher.setTargetLaunchSpeed(0.5), launcher).andThen(launcher.runLauncherCommand()));
+    manipulatorJoystick.leftTrigger().onTrue(Commands.runOnce(() -> launcher.sendables.setLaunchSpeed(0.5), launcher).andThen(launcher.runLauncherCommand()));
     manipulatorJoystick.leftTrigger().onFalse(launcher.stopLauncherCommand());
+
+    manipulatorJoystick.povLeft().whileTrue(launcher.decreaseLauncherAngle());
+    manipulatorJoystick.povRight().whileTrue(launcher.increaseLauncherAngle());
   }
 
   private void configureInputStreams() {

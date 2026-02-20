@@ -14,7 +14,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class IntakeSubsystem extends SubsystemBase {
-    double targetIntakeSpeed = 0.5;
+    double targetIntakeSpeed = 1.0;
     double targetBeltSpeed = 0.5;
     Command currentIntakeRunCommand;
     Command currentBeltRunCommand;
@@ -24,13 +24,13 @@ public class IntakeSubsystem extends SubsystemBase {
     SparkMax intakeDrive  = new SparkMax(30, MotorType.kBrushless);
     SparkMax intakeRotate = new SparkMax(40, MotorType.kBrushless);
 
-    SparkMax hopperBelt  = new SparkMax(38, MotorType.kBrushed);
-    SparkMax hopperExtender = new SparkMax(39, MotorType.kBrushed);
+    SparkMax hopperBelt  = new SparkMax(38, MotorType.kBrushless);
+    SparkMax hopperExtender = new SparkMax(39, MotorType.kBrushless);
 
     public IntakeSubsystem() {
-        SparkBaseConfig intakeDriveConfig  = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+        SparkBaseConfig intakeDriveConfig  = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
         SparkBaseConfig intakeRotateConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
-        SparkBaseConfig hopperBeltConfig   = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+        SparkBaseConfig hopperBeltConfig   = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
         SparkBaseConfig hopperExtenderConfig  = new SparkMaxConfig().idleMode(IdleMode.kBrake);
 
         intakeDrive.configure(intakeDriveConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);

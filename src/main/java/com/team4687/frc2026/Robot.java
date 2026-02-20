@@ -23,13 +23,14 @@ public class Robot extends TimedRobot {
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
+   * 
    */
   public Robot() {
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
 
-    m_robotContainer.swerveDrive.resetPose(new Pose2d(1.0, 1.0, new Rotation2d()));
+    //m_robotContainer.swerveDrive.resetPose(new Pose2d(1.0, 1.0, new Rotation2d(180.0)));
   }
 
   /**

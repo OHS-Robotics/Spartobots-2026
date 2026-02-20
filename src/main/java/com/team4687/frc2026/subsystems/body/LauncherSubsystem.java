@@ -1,5 +1,7 @@
 package com.team4687.frc2026.subsystems.body;
 
+import java.util.function.Supplier;
+
 import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
@@ -9,16 +11,51 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkBaseConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import com.team4687.frc2026.subsystems.body.HubSolver;
+
 public class LauncherSubsystem extends SubsystemBase {
-    double targetIntakeSpeed = 0.30;
-    double targetLaunchSpeed = .55;
-    double targetLaunchAngle = 0.0;
+    public class LauncherSendables implements Sendable {
+
+        public double targetIntakeSpeed = 0.67;
+        public double targetLaunchSpeed = 0.05;
+
+        @Override
+        public void initSendable(SendableBuilder builder) {
+            builder.setSmartDashboardType("LauncherConfig");
+            builder.addDoubleProperty("intakeSpeed", this::getIntakeSpeed, this::setIntakeSpeed);
+            builder.addDoubleProperty("launchSpeed", this::getLaunchSpeed, this::setLaunchSpeed);
+        }
+
+        public double getIntakeSpeed() {
+            return targetIntakeSpeed;
+        }
+
+        public void setIntakeSpeed(double set) {
+            targetIntakeSpeed = set;
+        }
+        
+        public double getLaunchSpeed() {
+            return targetLaunchSpeed;
+        }
+
+        public void setLaunchSpeed(double set) {
+            targetLaunchSpeed = set;
+        }
+    }
+
+    public LauncherSendables sendables = new LauncherSendables();
+    double targetLaunchAngle = 0.0; // in encoder rotations, not degrees
+
+    HubSolver solver = new HubSolver();
 
     Command currentLauncherRunCommand;
     Command currentIntakeRunCommand;
@@ -27,7 +64,7 @@ public class LauncherSubsystem extends SubsystemBase {
 
     DigitalInput limitSwitch = new DigitalInput(0);
     SparkMax launcherAngleDrive = new SparkMax(35, MotorType.kBrushless);
-    RelativeEncoder launcherEncoder = launcherAngleDrive.getEncoder();
+    public RelativeEncoder launcherEncoder = launcherAngleDrive.getEncoder();
 
     SparkMax primaryLauncherLeft    = new SparkMax(31, MotorType.kBrushless); // runs same as primary right
     SparkMax secondaryLauncherLeft  = new SparkMax(32, MotorType.kBrushless); // runs opposite of primary, same as secondary right
@@ -47,16 +84,19 @@ public class LauncherSubsystem extends SubsystemBase {
         SparkBaseConfig pLL = new SparkMaxConfig().idleMode(IdleMode.kCoast); // important!
         // if this is set to brake it will damage the motors when stopping because of the flywheels.
         // primary Launcher Left, secondary Launcher Right, etc.
-        SparkBaseConfig sLL = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
-        SparkBaseConfig pLR = new SparkMaxConfig().idleMode(IdleMode.kCoast).follow(primaryLauncherLeft);
-        SparkBaseConfig sLR = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true).follow(secondaryLauncherLeft);
+        SparkBaseConfig sLL = new SparkMaxConfig().idleMode(IdleMode.kCoast).follow(primaryLauncherLeft);
+        SparkBaseConfig pLR = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
+        SparkBaseConfig sLR = new SparkMaxConfig().idleMode(IdleMode.kCoast).follow(primaryLauncherRight);
         // all launcher motors must be coast
 
         // top Agitator, bottom Agitator
-        SparkBaseConfig tA = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+        SparkBaseConfig tA = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
         // note: check orientations of these
-        SparkBaseConfig bA = new SparkMaxConfig().idleMode(IdleMode.kBrake).follow(topAgitator);
+        SparkBaseConfig bA = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
+
+        SparkBaseConfig angleConfig = new SparkMaxConfig().idleMode(IdleMode.kCoast);
         
+        launcherEncoder.setPosition(0.0);
 
         primaryLauncherLeft.configure(pLL, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
         secondaryLauncherLeft.configure(sLL, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
@@ -66,28 +106,28 @@ public class LauncherSubsystem extends SubsystemBase {
         topAgitator.configure(tA, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
         bottomAgitator.configure(bA, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
 
-
+        launcherAngleDrive.configure(angleConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     }
 
     public void reverseSpeeds() {
-        targetIntakeSpeed *= -1;
-        targetLaunchSpeed *= -1;
+        sendables.targetIntakeSpeed *= -1;
+        sendables.targetLaunchSpeed *= -1;
     }
 
-    public void setTargetLaunchSpeed(double speed) {
-        targetLaunchSpeed = speed;
+    public void settargetLaunchSpeed(double speed) {
+        sendables.targetLaunchSpeed = speed;
     }
 
-    public void setTargetIntakeSpeed(double speed) {
-        targetIntakeSpeed = speed;
+    public void settargetIntakeSpeed(double speed) {
+        sendables.targetIntakeSpeed = speed;
     }
 
-    public double getTargetLaunchSpeed() {
-        return targetLaunchSpeed;
+    public double gettargetLaunchSpeed() {
+        return sendables.targetLaunchSpeed;
     }
 
-    public double getTargetIntakeSpeed() {
-        return targetIntakeSpeed;
+    public double gettargetIntakeSpeed() {
+        return sendables.targetIntakeSpeed;
     }
 
     public double getActualLaunchSpeed() {
@@ -106,18 +146,18 @@ public class LauncherSubsystem extends SubsystemBase {
     public void stopLauncher() {
         // will disable right as well because of the followers
         primaryLauncherLeft.set(0.0);
-        secondaryLauncherLeft.set(0.0);
+        primaryLauncherRight.set(0.0);
     }
 
     public void updateIntake() {
-        topAgitator.set(targetIntakeSpeed);
-        bottomAgitator.set(targetIntakeSpeed);
+        topAgitator.set(sendables.targetIntakeSpeed);
+        bottomAgitator.set(sendables.targetIntakeSpeed);
     }
 
     public void updateLauncher() {
         // will update right as well because of the followers
-        primaryLauncherLeft.set(targetLaunchSpeed);
-        secondaryLauncherLeft.set(targetLaunchSpeed);
+        primaryLauncherLeft.set(sendables.targetLaunchSpeed);
+        primaryLauncherRight.set(sendables.targetLaunchSpeed);
     }
 
     public Command toggleLauncherCommand() {
@@ -183,41 +223,66 @@ public class LauncherSubsystem extends SubsystemBase {
     }
 
     public Command increaseIntakeSpeed() {
-        return Commands.runOnce(() -> targetIntakeSpeed = Math.min(targetIntakeSpeed+0.05, 1.0));
+        return Commands.runOnce(() -> sendables.targetIntakeSpeed = Math.min(sendables.targetIntakeSpeed+0.05, 1.0));
     }
 
     public Command decreaseIntakeSpeed() {
-        return Commands.runOnce(() -> targetIntakeSpeed = Math.max(targetIntakeSpeed-0.05, 0.0));
+        return Commands.runOnce(() -> sendables.targetIntakeSpeed = Math.max(sendables.targetIntakeSpeed-0.05, 0.0));
     }
 
     public Command increaseLaunchSpeed() {
-        return Commands.runOnce(() -> targetLaunchSpeed = Math.min(targetLaunchSpeed+0.05, 1.0));
+        return Commands.runOnce(() -> sendables.targetLaunchSpeed = Math.min(sendables.targetLaunchSpeed+0.05, 1.0));
     }
 
     public Command decreaseLaunchSpeed() {
-        return Commands.runOnce(() -> targetLaunchSpeed = Math.max(targetLaunchSpeed-0.05, 0.0));
+        return Commands.runOnce(() -> sendables.targetLaunchSpeed = Math.max(sendables.targetLaunchSpeed-0.05, 0.0));
     }
 
     public Command decreaseLauncherAngle() {
         return run(() -> {
-            if (limitSwitch.get()) {
-                launcherEncoder.setPosition(0);
+            //if (limitSwitch.get()) {
+            System.out.printf("Decrease %f\n", launcherEncoder.getPosition());
+            if (launcherEncoder.getPosition() < -13) {
                 launcherAngleDrive.set(0.0);
             }
             else {
-                launcherAngleDrive.set(-0.35);
+                launcherAngleDrive.set(-0.1);
             }
         });
     }
 
     public Command increaseLauncherAngle() {
         return run(() -> {
-            if (launcherEncoder.getPosition() > 2.5) { // placeholder
+            System.out.printf("Increase %f\n", launcherEncoder.getPosition());
+            if (launcherEncoder.getPosition() > 0) {
                 launcherAngleDrive.set(0.0);
             }
             else {
-                launcherAngleDrive.set(0.35);
+                launcherAngleDrive.set(0.1);
             }
         });
+    }
+
+    public Command autoAlignAngle(Supplier<Pose2d> robotPose, Supplier<Pose2d> hubPose) {
+        return run(() -> {
+            solver.updateHubShotSolution(robotPose.get(), hubPose.get());
+            if (!solver.isHubShotSolutionFeasible()) return;
+
+            double target = solver.getHubLaunchAngleSetpoint().getDegrees() * 14.5/45; // might be wrong
+
+            if (target + launcherEncoder.getPosition() < 0.2) {
+                if (launcherEncoder.getPosition() < 0) launcherAngleDrive.set(0.1);
+                else launcherAngleDrive.set(0.0);
+            }
+            else if (target + launcherEncoder.getPosition() > 0.2) {
+                if (launcherEncoder.getPosition() > -13) launcherAngleDrive.set(-0.1);
+                else launcherAngleDrive.set(0.0);
+            }
+            else {
+                launcherAngleDrive.set(0.0);
+            }
+        }).until(() -> Math.abs(solver.getHubLaunchAngleSetpoint().getDegrees() * 14.5/45 + launcherEncoder.getPosition()) < 0.2);
+
+
     }
 }
