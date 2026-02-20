@@ -96,6 +96,7 @@ public class Shooter extends SubsystemBase {
       configTable.getEntry("Model/SimWheelReadyRatio");
 
   private boolean shotControlEnabled = false;
+  private boolean triggerSpeedBoostEnabled = false;
   private boolean manualHoodOverrideEnabled = false;
   private boolean manualSetpointsEnabled = false;
   private double launchHeightMeters = ShooterConstants.defaultLaunchHeightMeters;
@@ -231,6 +232,10 @@ public class Shooter extends SubsystemBase {
     }
   }
 
+  public void setTriggerSpeedBoostEnabled(boolean enabled) {
+    triggerSpeedBoostEnabled = enabled;
+  }
+
   public void setLaunchHeightMeters(double launchHeightMeters) {
     this.launchHeightMeters = Math.max(0.0, launchHeightMeters);
     launchHeightMetersEntry.setDouble(this.launchHeightMeters);
@@ -279,7 +284,13 @@ public class Shooter extends SubsystemBase {
     double horizontalDistanceMeters =
         robotPose.getTranslation().getDistance(hubPose.getTranslation());
     double targetHeightDeltaMeters = hubCenterHeightMeters - launchHeightMeters;
-    latestHubShotSolution = solveHubShot(horizontalDistanceMeters, targetHeightDeltaMeters);
+    HubShotSolution solvedShot = solveHubShot(horizontalDistanceMeters, targetHeightDeltaMeters);
+    if (triggerSpeedBoostEnabled && !manualSetpointsEnabled) {
+      solvedShot =
+          applyLaunchSpeedScale(
+              solvedShot, ShooterConstants.triggerLaunchSpeedBoostScale, targetHeightDeltaMeters);
+    }
+    latestHubShotSolution = solvedShot;
     if (!manualSetpointsEnabled) {
       applyHubShotSetpoints(latestHubShotSolution);
     }
@@ -366,6 +377,29 @@ public class Shooter extends SubsystemBase {
         speedToPower(launchSpeedMetersPerSec),
         airtimeSeconds,
         feasible);
+  }
+
+  private HubShotSolution applyLaunchSpeedScale(
+      HubShotSolution baseSolution, double speedScale, double targetHeightDeltaMeters) {
+    double clampedScale = Math.max(0.0, speedScale);
+    double boostedLaunchSpeedMetersPerSec =
+        MathUtil.clamp(
+            baseSolution.launchSpeedMetersPerSec() * clampedScale,
+            minLaunchSpeedMetersPerSec,
+            maxLaunchSpeedMetersPerSec);
+    double boostedAirtimeSeconds =
+        calculateAirtimeSeconds(
+            baseSolution.distanceMeters(),
+            targetHeightDeltaMeters,
+            boostedLaunchSpeedMetersPerSec,
+            baseSolution.launchAngle());
+    return new HubShotSolution(
+        baseSolution.distanceMeters(),
+        baseSolution.launchAngle(),
+        boostedLaunchSpeedMetersPerSec,
+        speedToPower(boostedLaunchSpeedMetersPerSec),
+        boostedAirtimeSeconds,
+        baseSolution.feasible());
   }
 
   private Rotation2d getPreferredAngle(double horizontalDistanceMeters) {
@@ -790,6 +824,10 @@ public class Shooter extends SubsystemBase {
 
   private void logControlState() {
     Logger.recordOutput("Shooter/Control/Enabled", shotControlEnabled);
+    Logger.recordOutput("Shooter/Control/TriggerSpeedBoostEnabled", triggerSpeedBoostEnabled);
+    Logger.recordOutput(
+        "Shooter/Control/TriggerLaunchSpeedBoostScale",
+        ShooterConstants.triggerLaunchSpeedBoostScale);
     Logger.recordOutput("Shooter/Control/ManualSetpointsEnabled", manualSetpointsEnabled);
     Logger.recordOutput("Shooter/Control/Pair1SetpointRadPerSec", pair1WheelSetpointRadPerSec);
     Logger.recordOutput("Shooter/Control/Pair2SetpointRadPerSec", pair2WheelSetpointRadPerSec);
