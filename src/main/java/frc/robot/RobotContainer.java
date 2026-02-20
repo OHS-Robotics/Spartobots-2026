@@ -90,6 +90,10 @@ public class RobotContainer {
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double LEFT_TRIGGER_RATE_DEADBAND = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
+  private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
+  private static final double START_AUTO_COLLECTION_RATE = 0.65;
+  private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
+  private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
   private static final int TOP_LEFT_PADDLE_BUTTON = 7;
   private static final int TOP_RIGHT_PADDLE_BUTTON = 8;
   private static final int BOTTOM_LEFT_PADDLE_BUTTON = 11;
@@ -204,6 +208,7 @@ public class RobotContainer {
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+    autoChooser.addOption("Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
 
     // Set up SysId routines
     autoChooser.addOption(
@@ -294,8 +299,8 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // return autoChooser.get();
-    return drive.getAutonomousCommand();
+    Command selectedAuto = autoChooser.get();
+    return selectedAuto != null ? selectedAuto : startOfMatchAutoRoutine();
   }
 
   public Command autoDriveUnderTrenchCommand() {
@@ -319,6 +324,39 @@ public class RobotContainer {
         Commands.startEnd(
             () -> setShooterDemandFromAlign(true), () -> setShooterDemandFromAlign(false));
     return driveAlignCommand.alongWith(shooterAutoAdjustCommand);
+  }
+
+  private Command startOfMatchAutoRoutine() {
+    Command openingHubShot =
+        Commands.deadline(
+            Commands.waitSeconds(START_AUTO_OPENING_SHOT_SECONDS),
+            drive.alignToHub(() -> 0.0, () -> 0.0, shooter::getHubAirtimeSeconds),
+            Commands.run(
+                    () -> {
+                      shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
+                      shooter.setShotControlEnabled(true);
+                    },
+                    shooter)
+                .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false))
+                .finallyDo(() -> shooter.setShotControlEnabled(false)));
+
+    Command collectThroughTrench =
+        Commands.deadline(
+            drive.autoDriveUnderTrenchCommand().withTimeout(START_AUTO_TRENCH_TIMEOUT_SECONDS),
+            runFeedAtRate(START_AUTO_COLLECTION_RATE));
+
+    Command loadAtOutpost =
+        Commands.deadline(
+            drive.outpostLoadAuto().withTimeout(START_AUTO_OUTPOST_TIMEOUT_SECONDS),
+            runFeedAtRate(START_AUTO_COLLECTION_RATE));
+
+    return Commands.sequence(openingHubShot, collectThroughTrench, loadAtOutpost)
+        .finallyDo(
+            () -> {
+              shooter.setShotControlEnabled(false);
+              stopFeedMechanisms();
+              resetFeedRates();
+            });
   }
 
   public Command alignToOutpost() {
@@ -350,6 +388,26 @@ public class RobotContainer {
     agitators.setTargetAgitatorSpeed(AgitatorsConstants.defaultTopAgitatorSpeed);
   }
 
+  private Command runFeedAtRate(double rate) {
+    return Commands.run(
+            () -> {
+              setFeedRates(rate);
+              intake.updateIntake();
+              hopper.updateBelt();
+              agitators.updateAgitators();
+            },
+            intake,
+            hopper,
+            agitators)
+        .finallyDo(this::stopFeedMechanisms);
+  }
+
+  private void stopFeedMechanisms() {
+    intake.stopIntake();
+    hopper.stopBelt();
+    agitators.stopAgitators();
+  }
+
   private Command runShooterWhileHeldCommand() {
     return Commands.startEnd(
         () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
@@ -370,7 +428,7 @@ public class RobotContainer {
   }
 
   private Command continueAutoSequenceCommand() {
-    return drive.getAutonomousCommand();
+    return getAutonomousCommand();
   }
 
   private Command scheduleAutoAssist(Supplier<Command> commandSupplier) {
