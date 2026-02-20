@@ -5,11 +5,12 @@ import edu.wpi.first.math.MathUtil;
 public class ShooterIOSim implements ShooterIO {
   private double pair1VelocitySetpointRadPerSec = 0.0;
   private double pair2VelocitySetpointRadPerSec = 0.0;
-  private double hoodPositionSetpointRotations = ShooterConstants.hoodReferenceMotorRotations;
+  private double hoodPositionSetpointRotations =
+      ShooterConstants.defaultHoodRetractedPositionRotations;
 
   private double pair1VelocityRadPerSec = 0.0;
   private double pair2VelocityRadPerSec = 0.0;
-  private double hoodPositionRotations = ShooterConstants.hoodReferenceMotorRotations;
+  private double hoodPositionRotations = ShooterConstants.defaultHoodRetractedPositionRotations;
 
   @Override
   public void updateInputs(ShooterIOInputs inputs) {
@@ -49,8 +50,15 @@ public class ShooterIOSim implements ShooterIO {
 
   @Override
   public void setHoodPositionSetpointRotations(double hoodPositionRotations) {
-    hoodPositionSetpointRotations = Math.max(0.0, hoodPositionRotations);
-    this.hoodPositionSetpointRotations = hoodPositionSetpointRotations;
+    this.hoodPositionSetpointRotations =
+        MathUtil.clamp(
+            hoodPositionRotations,
+            Math.min(
+                ShooterConstants.defaultHoodRetractedPositionRotations,
+                ShooterConstants.defaultHoodExtendedPositionRotations),
+            Math.max(
+                ShooterConstants.defaultHoodRetractedPositionRotations,
+                ShooterConstants.defaultHoodExtendedPositionRotations));
   }
 
   @Override

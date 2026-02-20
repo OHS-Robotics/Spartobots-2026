@@ -3,6 +3,7 @@ package frc.robot.subsystems.body.shooter;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
+import frc.robot.subsystems.body.ControlSensitivity;
 
 public final class ShooterConstants {
   private ShooterConstants() {}
@@ -11,12 +12,17 @@ public final class ShooterConstants {
 
   public static final double gravityMetersPerSecSquared = 9.80665;
 
-  // CAN IDs
+  // Shooter wheel groups (velocity-sensitive)
   public static final int pair1LeaderCanId = 31;
   public static final int pair1FollowerCanId = 32;
   public static final int pair2LeaderCanId = 33;
   public static final int pair2FollowerCanId = 34;
+  public static final ControlSensitivity shooterWheelSensitivity =
+      ControlSensitivity.VELOCITY_SENSITIVE;
+
+  // Shooter hood adjuster (position-sensitive)
   public static final int hoodCanId = 35;
+  public static final ControlSensitivity hoodSensitivity = ControlSensitivity.POSITION_SENSITIVE;
 
   // Motor direction: each pair spins the same direction, the two pairs opposite.
   public static final boolean pair1Inverted = false;
@@ -37,6 +43,11 @@ public final class ShooterConstants {
   public static final double hoodPositionKi = 0.0;
   public static final double hoodPositionKd = 0.0;
 
+  // Runtime shooter wheel tuning
+  public static final double defaultWheelSpeedScale = 1.0;
+  public static final double defaultPair1Direction = 1.0;
+  public static final double defaultPair2Direction = 1.0;
+
   // Hardware geometry
   public static final double shooterWheelRadiusMeters = Units.inchesToMeters(2.0);
   public static final double fuelBallRadiusMeters = 0.075;
@@ -49,12 +60,6 @@ public final class ShooterConstants {
   public static final double minWheelSpeedRadPerSec =
       Units.rotationsPerMinuteToRadiansPerSecond(600.0);
   public static final double maxWheelSpeedRadPerSec = neoFreeSpeedRadPerSec * 0.90;
-
-  // Hood calibration (linear map). Calibrate on robot.
-  // hoodAngleDeg = referenceAngleDeg + (motorRot - referenceMotorRot) * hoodDegreesPerMotorRotation
-  public static final Rotation2d hoodReferenceAngle = Rotation2d.fromDegrees(50.0);
-  public static final double hoodReferenceMotorRotations = 0.0;
-  public static final double hoodDegreesPerMotorRotation = 6.5;
 
   // Shooter geometry
   public static final double defaultLaunchHeightMeters = Units.inchesToMeters(30.0);
@@ -72,6 +77,11 @@ public final class ShooterConstants {
   public static final Rotation2d minLaunchAngle = Rotation2d.fromDegrees(35.0);
   public static final Rotation2d maxLaunchAngle = Rotation2d.fromDegrees(75.0);
   public static final double launchAngleSearchStepDegrees = 0.5;
+
+  // Hood two-point calibration in motor rotations
+  // minLaunchAngle <-> retracted, maxLaunchAngle <-> extended
+  public static final double defaultHoodRetractedPositionRotations = -2.3076923077;
+  public static final double defaultHoodExtendedPositionRotations = 3.8461538462;
 
   // Measured/estimated launch capability of the mechanism
   public static final double minLaunchSpeedMetersPerSec =

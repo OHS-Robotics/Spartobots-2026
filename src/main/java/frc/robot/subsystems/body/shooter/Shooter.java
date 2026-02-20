@@ -3,6 +3,9 @@ package frc.robot.subsystems.body.shooter;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import java.util.OptionalDouble;
 import org.littletonrobotics.junction.Logger;
@@ -26,7 +29,14 @@ public class Shooter extends SubsystemBase {
   private double launchHeightMeters = ShooterConstants.defaultLaunchHeightMeters;
   private double pair1WheelSetpointRadPerSec = 0.0;
   private double pair2WheelSetpointRadPerSec = 0.0;
-  private double hoodSetpointMotorRotations = ShooterConstants.hoodReferenceMotorRotations;
+  private double wheelSpeedScale = ShooterConstants.defaultWheelSpeedScale;
+  private double pair1Direction = ShooterConstants.defaultPair1Direction;
+  private double pair2Direction = ShooterConstants.defaultPair2Direction;
+  private double hoodSetpointMotorRotations = 0.0;
+  private double hoodRetractedPositionRotations =
+      ShooterConstants.defaultHoodRetractedPositionRotations;
+  private double hoodExtendedPositionRotations =
+      ShooterConstants.defaultHoodExtendedPositionRotations;
   private double lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
   private HubShotSolution latestHubShotSolution =
       new HubShotSolution(
@@ -36,6 +46,24 @@ public class Shooter extends SubsystemBase {
           speedToPower(ShooterConstants.defaultLaunchSpeedMetersPerSec),
           ShooterConstants.fallbackAirtimeSeconds,
           false);
+  private final NetworkTable configTable =
+      NetworkTableInstance.getDefault().getTable(ShooterConstants.configTableName);
+  private final NetworkTableEntry hoodRetractedPositionEntry =
+      configTable.getEntry("Hood/Calibration/RetractedPositionRotations");
+  private final NetworkTableEntry hoodExtendedPositionEntry =
+      configTable.getEntry("Hood/Calibration/ExtendedPositionRotations");
+  private final NetworkTableEntry hoodEncoderPositionEntry =
+      configTable.getEntry("Hood/EncoderPositionRotations");
+  private final NetworkTableEntry hoodEncoderVelocityEntry =
+      configTable.getEntry("Hood/EncoderVelocityRotationsPerSec");
+  private final NetworkTableEntry hoodEncoderNormalizedPositionEntry =
+      configTable.getEntry("Hood/EncoderPositionNormalized");
+  private final NetworkTableEntry wheelSpeedScaleEntry =
+      configTable.getEntry("Wheels/SpeedScale");
+  private final NetworkTableEntry pair1DirectionEntry =
+      configTable.getEntry("Wheels/Pair1Direction");
+  private final NetworkTableEntry pair2DirectionEntry =
+      configTable.getEntry("Wheels/Pair2Direction");
 
   public Shooter() {
     this(new ShooterIO() {});
@@ -43,21 +71,27 @@ public class Shooter extends SubsystemBase {
 
   public Shooter(ShooterIO io) {
     this.io = io;
+    configureNetworkTableDefaults();
+    loadNetworkTableConfig();
+    hoodSetpointMotorRotations = hoodAngleToMotorRotations(ShooterConstants.defaultLaunchAngle);
   }
 
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Shooter", inputs);
+    loadNetworkTableConfig();
+    clampHoodSetpointToCalibrationRange();
+    double pair1VelocityCommandRadPerSec =
+        shotControlEnabled ? getPair1VelocityCommandSetpointRadPerSec() : 0.0;
+    double pair2VelocityCommandRadPerSec =
+        shotControlEnabled ? getPair2VelocityCommandSetpointRadPerSec() : 0.0;
 
-    if (shotControlEnabled) {
-      io.setWheelVelocitySetpoints(pair1WheelSetpointRadPerSec, pair2WheelSetpointRadPerSec);
-    } else {
-      io.setWheelVelocitySetpoints(0.0, 0.0);
-    }
+    io.setWheelVelocitySetpoints(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     io.setHoodPositionSetpointRotations(hoodSetpointMotorRotations);
+    publishHoodEncoderToNetworkTables();
 
-    logControlState();
+    logControlState(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
   }
 
   public Rotation2d getHubLaunchAngleSetpoint() {
@@ -124,16 +158,19 @@ public class Shooter extends SubsystemBase {
   }
 
   public void adjustHoodSetpointDegrees(double deltaDegrees) {
-    adjustHoodSetpointRotations(deltaDegrees / ShooterConstants.hoodDegreesPerMotorRotation);
+    manualHoodOverrideEnabled = true;
+    double targetAngleDegrees =
+        MathUtil.clamp(
+            motorRotationsToHoodAngle(hoodSetpointMotorRotations).getDegrees() + deltaDegrees,
+            ShooterConstants.minLaunchAngle.getDegrees(),
+            ShooterConstants.maxLaunchAngle.getDegrees());
+    hoodSetpointMotorRotations = hoodAngleToMotorRotations(Rotation2d.fromDegrees(targetAngleDegrees));
   }
 
   public void adjustHoodSetpointRotations(double deltaRotations) {
     manualHoodOverrideEnabled = true;
     hoodSetpointMotorRotations =
-        MathUtil.clamp(
-            hoodSetpointMotorRotations + deltaRotations,
-            hoodAngleToMotorRotations(ShooterConstants.minLaunchAngle),
-            hoodAngleToMotorRotations(ShooterConstants.maxLaunchAngle));
+        clampToHoodCalibrationRange(hoodSetpointMotorRotations + deltaRotations);
   }
 
   public HubShotSolution updateHubShotSolution(Pose2d robotPose, Pose2d hubPose) {
@@ -148,6 +185,39 @@ public class Shooter extends SubsystemBase {
 
   public double estimateHubShotAirtimeSeconds(Pose2d robotPose, Pose2d hubPose) {
     return updateHubShotSolution(robotPose, hubPose).airtimeSeconds();
+  }
+
+  private void configureNetworkTableDefaults() {
+    hoodRetractedPositionEntry.setDefaultDouble(ShooterConstants.defaultHoodRetractedPositionRotations);
+    hoodExtendedPositionEntry.setDefaultDouble(ShooterConstants.defaultHoodExtendedPositionRotations);
+    wheelSpeedScaleEntry.setDefaultDouble(ShooterConstants.defaultWheelSpeedScale);
+    pair1DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair1Direction);
+    pair2DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair2Direction);
+  }
+
+  private void loadNetworkTableConfig() {
+    hoodRetractedPositionRotations =
+        hoodRetractedPositionEntry.getDouble(hoodRetractedPositionRotations);
+    hoodExtendedPositionRotations =
+        hoodExtendedPositionEntry.getDouble(hoodExtendedPositionRotations);
+    hoodRetractedPositionEntry.setDouble(hoodRetractedPositionRotations);
+    hoodExtendedPositionEntry.setDouble(hoodExtendedPositionRotations);
+    wheelSpeedScale = clampWheelSpeedScale(wheelSpeedScaleEntry.getDouble(wheelSpeedScale));
+    pair1Direction = normalizeDirection(pair1DirectionEntry.getDouble(pair1Direction));
+    pair2Direction = normalizeDirection(pair2DirectionEntry.getDouble(pair2Direction));
+    wheelSpeedScaleEntry.setDouble(wheelSpeedScale);
+    pair1DirectionEntry.setDouble(pair1Direction);
+    pair2DirectionEntry.setDouble(pair2Direction);
+  }
+
+  private void publishHoodEncoderToNetworkTables() {
+    hoodEncoderPositionEntry.setDouble(inputs.hoodPositionRotations);
+    hoodEncoderVelocityEntry.setDouble(inputs.hoodVelocityRotationsPerSec);
+    hoodEncoderNormalizedPositionEntry.setDouble(getHoodNormalizedPosition(inputs.hoodPositionRotations));
+  }
+
+  private void clampHoodSetpointToCalibrationRange() {
+    hoodSetpointMotorRotations = clampToHoodCalibrationRange(hoodSetpointMotorRotations);
   }
 
   private HubShotSolution solveHubShot(
@@ -373,17 +443,35 @@ public class Shooter extends SubsystemBase {
         ShooterConstants.maxWheelSpeedRadPerSec);
   }
 
-  public static double hoodAngleToMotorRotations(Rotation2d hoodAngle) {
-    return ShooterConstants.hoodReferenceMotorRotations
-        + (hoodAngle.minus(ShooterConstants.hoodReferenceAngle).getDegrees()
-            / ShooterConstants.hoodDegreesPerMotorRotation);
+  private static double clampWheelSpeedScale(double speedScale) {
+    return MathUtil.clamp(speedScale, 0.0, 1.5);
   }
 
-  public static Rotation2d motorRotationsToHoodAngle(double hoodMotorRotations) {
+  private static double normalizeDirection(double direction) {
+    return direction < 0.0 ? -1.0 : 1.0;
+  }
+
+  public double hoodAngleToMotorRotations(Rotation2d hoodAngle) {
+    double normalizedAngle =
+        clampUnitInterval(
+            inverseInterpolate(
+                hoodAngle.getDegrees(),
+                ShooterConstants.minLaunchAngle.getDegrees(),
+                ShooterConstants.maxLaunchAngle.getDegrees()));
+    return interpolate(
+        hoodRetractedPositionRotations, hoodExtendedPositionRotations, normalizedAngle);
+  }
+
+  public Rotation2d motorRotationsToHoodAngle(double hoodMotorRotations) {
+    double normalizedHoodPosition =
+        clampUnitInterval(
+            inverseInterpolate(
+                hoodMotorRotations, hoodRetractedPositionRotations, hoodExtendedPositionRotations));
     double hoodAngleDegrees =
-        ShooterConstants.hoodReferenceAngle.getDegrees()
-            + (hoodMotorRotations - ShooterConstants.hoodReferenceMotorRotations)
-                * ShooterConstants.hoodDegreesPerMotorRotation;
+        interpolate(
+            ShooterConstants.minLaunchAngle.getDegrees(),
+            ShooterConstants.maxLaunchAngle.getDegrees(),
+            normalizedHoodPosition);
     return Rotation2d.fromDegrees(hoodAngleDegrees);
   }
 
@@ -419,8 +507,8 @@ public class Shooter extends SubsystemBase {
       return false;
     }
 
-    double pair1SetpointMagnitude = Math.abs(pair1WheelSetpointRadPerSec);
-    double pair2SetpointMagnitude = Math.abs(pair2WheelSetpointRadPerSec);
+    double pair1SetpointMagnitude = Math.abs(getPair1VelocityCommandSetpointRadPerSec());
+    double pair2SetpointMagnitude = Math.abs(getPair2VelocityCommandSetpointRadPerSec());
     if (pair1SetpointMagnitude < 1e-3 || pair2SetpointMagnitude < 1e-3) {
       return false;
     }
@@ -434,12 +522,49 @@ public class Shooter extends SubsystemBase {
 
   private double estimateLaunchSpeedFromWheelSetpointsMetersPerSec() {
     double pair1SurfaceSpeedMetersPerSec =
-        pair1WheelSetpointRadPerSec * ShooterConstants.shooterWheelRadiusMeters;
+        Math.abs(getPair1VelocityCommandSetpointRadPerSec()) * ShooterConstants.shooterWheelRadiusMeters;
     double pair2SurfaceSpeedMetersPerSec =
-        pair2WheelSetpointRadPerSec * ShooterConstants.shooterWheelRadiusMeters;
+        Math.abs(getPair2VelocityCommandSetpointRadPerSec()) * ShooterConstants.shooterWheelRadiusMeters;
     double averageWheelSurfaceSpeedMetersPerSec =
         0.5 * (pair1SurfaceSpeedMetersPerSec + pair2SurfaceSpeedMetersPerSec);
     return ShooterConstants.launchSlipFactor * averageWheelSurfaceSpeedMetersPerSec;
+  }
+
+  private double getPair1VelocityCommandSetpointRadPerSec() {
+    return pair1WheelSetpointRadPerSec * wheelSpeedScale * pair1Direction;
+  }
+
+  private double getPair2VelocityCommandSetpointRadPerSec() {
+    return pair2WheelSetpointRadPerSec * wheelSpeedScale * pair2Direction;
+  }
+
+  private double clampToHoodCalibrationRange(double hoodPositionRotations) {
+    return MathUtil.clamp(
+        hoodPositionRotations,
+        Math.min(hoodRetractedPositionRotations, hoodExtendedPositionRotations),
+        Math.max(hoodRetractedPositionRotations, hoodExtendedPositionRotations));
+  }
+
+  private double getHoodNormalizedPosition(double hoodPositionRotations) {
+    return clampUnitInterval(
+        inverseInterpolate(
+            hoodPositionRotations, hoodRetractedPositionRotations, hoodExtendedPositionRotations));
+  }
+
+  private static double interpolate(double start, double end, double fraction) {
+    return start + ((end - start) * fraction);
+  }
+
+  private static double inverseInterpolate(double value, double start, double end) {
+    double span = end - start;
+    if (Math.abs(span) < 1e-6) {
+      return 0.0;
+    }
+    return (value - start) / span;
+  }
+
+  private static double clampUnitInterval(double value) {
+    return MathUtil.clamp(value, 0.0, 1.0);
   }
 
   private static double clampAirtime(double airtimeSeconds) {
@@ -447,20 +572,36 @@ public class Shooter extends SubsystemBase {
         airtimeSeconds, ShooterConstants.minAirtimeSeconds, ShooterConstants.maxAirtimeSeconds);
   }
 
-  private void logControlState() {
+  private void logControlState(
+      double pair1VelocityCommandRadPerSec, double pair2VelocityCommandRadPerSec) {
     Logger.recordOutput("Shooter/Control/Enabled", shotControlEnabled);
     Logger.recordOutput("Shooter/Control/Pair1SetpointRadPerSec", pair1WheelSetpointRadPerSec);
     Logger.recordOutput("Shooter/Control/Pair2SetpointRadPerSec", pair2WheelSetpointRadPerSec);
+    Logger.recordOutput("Shooter/Control/WheelSpeedScale", wheelSpeedScale);
+    Logger.recordOutput("Shooter/Control/Pair1Direction", pair1Direction);
+    Logger.recordOutput("Shooter/Control/Pair2Direction", pair2Direction);
+    Logger.recordOutput("Shooter/Control/Pair1CommandRadPerSec", pair1VelocityCommandRadPerSec);
+    Logger.recordOutput("Shooter/Control/Pair2CommandRadPerSec", pair2VelocityCommandRadPerSec);
     Logger.recordOutput("Shooter/Control/HoodSetpointRotations", hoodSetpointMotorRotations);
+    Logger.recordOutput(
+        "Shooter/Control/HoodSetpointNormalized",
+        getHoodNormalizedPosition(hoodSetpointMotorRotations));
     Logger.recordOutput("Shooter/Control/ManualHoodOverrideEnabled", manualHoodOverrideEnabled);
     Logger.recordOutput(
         "Shooter/Control/HoodSetpointDegrees",
         motorRotationsToHoodAngle(hoodSetpointMotorRotations).getDegrees());
     Logger.recordOutput(
+        "Shooter/Config/HoodRetractedPositionRotations", hoodRetractedPositionRotations);
+    Logger.recordOutput(
+        "Shooter/Config/HoodExtendedPositionRotations", hoodExtendedPositionRotations);
+    Logger.recordOutput(
         "Shooter/Measured/Pair1VelocityRadPerSec", inputs.pair1LeaderVelocityRadPerSec);
     Logger.recordOutput(
         "Shooter/Measured/Pair2VelocityRadPerSec", inputs.pair2LeaderVelocityRadPerSec);
     Logger.recordOutput("Shooter/Measured/HoodPositionRotations", inputs.hoodPositionRotations);
+    Logger.recordOutput(
+        "Shooter/Measured/HoodPositionNormalized",
+        getHoodNormalizedPosition(inputs.hoodPositionRotations));
     Logger.recordOutput(
         "Shooter/Measured/HoodAngleDegrees",
         motorRotationsToHoodAngle(inputs.hoodPositionRotations).getDegrees());

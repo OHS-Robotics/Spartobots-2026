@@ -1,6 +1,7 @@
 package frc.robot.subsystems.body;
 
 import com.revrobotics.PersistMode;
+import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -23,21 +24,36 @@ public class Hopper extends SubsystemBase {
   private boolean beltRunning = false;
   private double lastAppliedBeltSpeed = 0.0;
   private double lastAppliedExtensionSpeed = 0.0;
+  private double hopperExtensionRetractedPositionRotations =
+      HopperConstants.defaultHopperExtensionRetractedPositionRotations;
+  private double hopperExtensionExtendedPositionRotations =
+      HopperConstants.defaultHopperExtensionExtendedPositionRotations;
 
   private final SparkMax hopperBelt =
       new SparkMax(HopperConstants.hopperBeltDriveCanId, MotorType.kBrushed);
   private final SparkMax hopperExtension =
       new SparkMax(HopperConstants.hopperExtensionCanId, MotorType.kBrushed);
+  private final RelativeEncoder hopperExtensionEncoder = hopperExtension.getEncoder();
 
   private final NetworkTable configTable =
       NetworkTableInstance.getDefault().getTable(HopperConstants.configTableName);
   private final NetworkTableEntry hopperBeltSpeedEntry = configTable.getEntry("HopperBelt/Speed");
   private final NetworkTableEntry hopperExtensionSpeedScaleEntry =
       configTable.getEntry("HopperExtension/SpeedScale");
-  private final NetworkTableEntry hopperBeltInvertedEntry =
-      configTable.getEntry("HopperBelt/Inverted");
   private final NetworkTableEntry hopperExtensionInvertedEntry =
       configTable.getEntry("HopperExtension/Inverted");
+  private final NetworkTableEntry hopperBeltDirectionEntry =
+      configTable.getEntry("HopperBelt/Direction");
+  private final NetworkTableEntry hopperExtensionRetractedPositionEntry =
+      configTable.getEntry("HopperExtension/Calibration/RetractedPositionRotations");
+  private final NetworkTableEntry hopperExtensionExtendedPositionEntry =
+      configTable.getEntry("HopperExtension/Calibration/ExtendedPositionRotations");
+  private final NetworkTableEntry hopperExtensionEncoderPositionEntry =
+      configTable.getEntry("HopperExtension/EncoderPositionRotations");
+  private final NetworkTableEntry hopperExtensionEncoderVelocityEntry =
+      configTable.getEntry("HopperExtension/EncoderVelocityRpm");
+  private final NetworkTableEntry hopperExtensionEncoderNormalizedPositionEntry =
+      configTable.getEntry("HopperExtension/EncoderPositionNormalized");
 
   public Hopper() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
@@ -54,11 +70,13 @@ public class Hopper extends SubsystemBase {
   @Override
   public void periodic() {
     loadNetworkTableConfig();
+    publishExtensionEncoderToNetworkTables();
     logTelemetry();
   }
 
   public void updateBelt() {
-    lastAppliedBeltSpeed = applyInversion(targetBeltSpeed, hopperBeltInvertedEntry);
+    lastAppliedBeltSpeed =
+        applyDirection(targetBeltSpeed, hopperBeltDirectionEntry, HopperConstants.defaultHopperBeltDirection);
     hopperBelt.set(lastAppliedBeltSpeed);
   }
 
@@ -133,8 +151,12 @@ public class Hopper extends SubsystemBase {
     hopperBeltSpeedEntry.setDefaultDouble(HopperConstants.defaultHopperBeltSpeed);
     hopperExtensionSpeedScaleEntry.setDefaultDouble(
         HopperConstants.defaultHopperExtensionSpeedScale);
+    hopperExtensionRetractedPositionEntry.setDefaultDouble(
+        HopperConstants.defaultHopperExtensionRetractedPositionRotations);
+    hopperExtensionExtendedPositionEntry.setDefaultDouble(
+        HopperConstants.defaultHopperExtensionExtendedPositionRotations);
+    hopperBeltDirectionEntry.setDefaultDouble(HopperConstants.defaultHopperBeltDirection);
 
-    hopperBeltInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperBeltInverted);
     hopperExtensionInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperExtensionInverted);
   }
 
@@ -145,12 +167,25 @@ public class Hopper extends SubsystemBase {
         clampSpeedScale(
             hopperExtensionSpeedScaleEntry.getDouble(
                 HopperConstants.defaultHopperExtensionSpeedScale)));
+    hopperExtensionRetractedPositionRotations =
+        hopperExtensionRetractedPositionEntry.getDouble(hopperExtensionRetractedPositionRotations);
+    hopperExtensionExtendedPositionRotations =
+        hopperExtensionExtendedPositionEntry.getDouble(hopperExtensionExtendedPositionRotations);
+    hopperExtensionRetractedPositionEntry.setDouble(hopperExtensionRetractedPositionRotations);
+    hopperExtensionExtendedPositionEntry.setDouble(hopperExtensionExtendedPositionRotations);
+    double hopperBeltDirection =
+        normalizeDirection(hopperBeltDirectionEntry.getDouble(HopperConstants.defaultHopperBeltDirection));
+    hopperBeltDirectionEntry.setDouble(hopperBeltDirection);
   }
 
   private double applyScaleAndInversion(
       double speed, NetworkTableEntry speedScaleEntry, NetworkTableEntry invertedEntry) {
     double scaledSpeed = clampSpeed(speed) * clampSpeedScale(speedScaleEntry.getDouble(1.0));
     return applyInversion(scaledSpeed, invertedEntry);
+  }
+
+  private double applyDirection(double speed, NetworkTableEntry directionEntry, double defaultDirection) {
+    return clampSpeed(speed) * normalizeDirection(directionEntry.getDouble(defaultDirection));
   }
 
   private double applyInversion(double speed, NetworkTableEntry invertedEntry) {
@@ -163,6 +198,41 @@ public class Hopper extends SubsystemBase {
 
   private double clampSpeedScale(double speedScale) {
     return MathUtil.clamp(speedScale, 0.0, 1.0);
+  }
+
+  private void publishExtensionEncoderToNetworkTables() {
+    hopperExtensionEncoderPositionEntry.setDouble(getHopperExtensionMeasuredPositionRotations());
+    hopperExtensionEncoderVelocityEntry.setDouble(hopperExtensionEncoder.getVelocity());
+    hopperExtensionEncoderNormalizedPositionEntry.setDouble(
+        getHopperExtensionMeasuredPositionNormalized());
+  }
+
+  public double getHopperExtensionMeasuredPositionRotations() {
+    return hopperExtensionEncoder.getPosition();
+  }
+
+  public double getHopperExtensionMeasuredPositionNormalized() {
+    return clampUnitInterval(
+        inverseInterpolate(
+            getHopperExtensionMeasuredPositionRotations(),
+            hopperExtensionRetractedPositionRotations,
+            hopperExtensionExtendedPositionRotations));
+  }
+
+  private static double inverseInterpolate(double value, double start, double end) {
+    double span = end - start;
+    if (Math.abs(span) < 1e-6) {
+      return 0.0;
+    }
+    return (value - start) / span;
+  }
+
+  private static double clampUnitInterval(double value) {
+    return MathUtil.clamp(value, 0.0, 1.0);
+  }
+
+  private static double normalizeDirection(double direction) {
+    return direction < 0.0 ? -1.0 : 1.0;
   }
 
   private void stopCommand(Command command) {
@@ -179,11 +249,17 @@ public class Hopper extends SubsystemBase {
             hopperExtensionSpeedScaleEntry.getDouble(
                 HopperConstants.defaultHopperExtensionSpeedScale)));
     Logger.recordOutput(
-        "Hopper/Config/BeltInverted",
-        hopperBeltInvertedEntry.getBoolean(HopperConstants.defaultHopperBeltInverted));
+        "Hopper/Config/BeltDirection",
+        normalizeDirection(hopperBeltDirectionEntry.getDouble(HopperConstants.defaultHopperBeltDirection)));
     Logger.recordOutput(
         "Hopper/Config/ExtensionInverted",
         hopperExtensionInvertedEntry.getBoolean(HopperConstants.defaultHopperExtensionInverted));
+    Logger.recordOutput(
+        "Hopper/Config/ExtensionRetractedPositionRotations",
+        hopperExtensionRetractedPositionRotations);
+    Logger.recordOutput(
+        "Hopper/Config/ExtensionExtendedPositionRotations",
+        hopperExtensionExtendedPositionRotations);
 
     Logger.recordOutput("Hopper/State/BeltRunning", beltRunning);
     Logger.recordOutput("Hopper/State/LastAppliedBeltOutput", lastAppliedBeltSpeed);
@@ -192,5 +268,13 @@ public class Hopper extends SubsystemBase {
     Logger.recordOutput("Hopper/State/ActualExtensionOutput", hopperExtension.get());
     Logger.recordOutput("Hopper/Measured/BeltCurrentAmps", hopperBelt.getOutputCurrent());
     Logger.recordOutput("Hopper/Measured/ExtensionCurrentAmps", hopperExtension.getOutputCurrent());
+    Logger.recordOutput(
+        "Hopper/Measured/ExtensionEncoderPositionRotations",
+        getHopperExtensionMeasuredPositionRotations());
+    Logger.recordOutput(
+        "Hopper/Measured/ExtensionEncoderVelocityRpm", hopperExtensionEncoder.getVelocity());
+    Logger.recordOutput(
+        "Hopper/Measured/ExtensionEncoderPositionNormalized",
+        getHopperExtensionMeasuredPositionNormalized());
   }
 }

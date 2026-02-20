@@ -35,10 +35,10 @@ public class Agitators extends SubsystemBase {
   private final NetworkTableEntry topAgitatorSpeedEntry = configTable.getEntry("TopAgitator/Speed");
   private final NetworkTableEntry bottomAgitatorSpeedEntry =
       configTable.getEntry("BottomAgitator/Speed");
-  private final NetworkTableEntry topAgitatorInvertedEntry =
-      configTable.getEntry("TopAgitator/Inverted");
-  private final NetworkTableEntry bottomAgitatorInvertedEntry =
-      configTable.getEntry("BottomAgitator/Inverted");
+  private final NetworkTableEntry topAgitatorDirectionEntry =
+      configTable.getEntry("TopAgitator/Direction");
+  private final NetworkTableEntry bottomAgitatorDirectionEntry =
+      configTable.getEntry("BottomAgitator/Direction");
 
   public Agitators() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
@@ -59,9 +59,14 @@ public class Agitators extends SubsystemBase {
   }
 
   public void updateAgitators() {
-    lastAppliedTopAgitatorSpeed = applyInversion(targetTopAgitatorSpeed, topAgitatorInvertedEntry);
+    lastAppliedTopAgitatorSpeed =
+        applyDirection(
+            targetTopAgitatorSpeed, topAgitatorDirectionEntry, AgitatorsConstants.defaultTopAgitatorDirection);
     lastAppliedBottomAgitatorSpeed =
-        applyInversion(targetBottomAgitatorSpeed, bottomAgitatorInvertedEntry);
+        applyDirection(
+            targetBottomAgitatorSpeed,
+            bottomAgitatorDirectionEntry,
+            AgitatorsConstants.defaultBottomAgitatorDirection);
     topAgitator.set(lastAppliedTopAgitatorSpeed);
     bottomAgitator.set(lastAppliedBottomAgitatorSpeed);
   }
@@ -131,9 +136,8 @@ public class Agitators extends SubsystemBase {
   private void configureNetworkTableDefaults() {
     topAgitatorSpeedEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorSpeed);
     bottomAgitatorSpeedEntry.setDefaultDouble(AgitatorsConstants.defaultBottomAgitatorSpeed);
-
-    topAgitatorInvertedEntry.setDefaultBoolean(AgitatorsConstants.defaultTopAgitatorInverted);
-    bottomAgitatorInvertedEntry.setDefaultBoolean(AgitatorsConstants.defaultBottomAgitatorInverted);
+    topAgitatorDirectionEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorDirection);
+    bottomAgitatorDirectionEntry.setDefaultDouble(AgitatorsConstants.defaultBottomAgitatorDirection);
   }
 
   private void loadNetworkTableConfig() {
@@ -142,14 +146,26 @@ public class Agitators extends SubsystemBase {
         clampSpeed(bottomAgitatorSpeedEntry.getDouble(targetBottomAgitatorSpeed));
     topAgitatorSpeedEntry.setDouble(targetTopAgitatorSpeed);
     bottomAgitatorSpeedEntry.setDouble(targetBottomAgitatorSpeed);
+    double topDirection =
+        normalizeDirection(topAgitatorDirectionEntry.getDouble(AgitatorsConstants.defaultTopAgitatorDirection));
+    double bottomDirection =
+        normalizeDirection(
+            bottomAgitatorDirectionEntry.getDouble(
+                AgitatorsConstants.defaultBottomAgitatorDirection));
+    topAgitatorDirectionEntry.setDouble(topDirection);
+    bottomAgitatorDirectionEntry.setDouble(bottomDirection);
   }
 
-  private double applyInversion(double speed, NetworkTableEntry invertedEntry) {
-    return invertedEntry.getBoolean(false) ? -speed : speed;
+  private double applyDirection(double speed, NetworkTableEntry directionEntry, double defaultDirection) {
+    return clampSpeed(speed) * normalizeDirection(directionEntry.getDouble(defaultDirection));
   }
 
   private double clampSpeed(double speed) {
     return MathUtil.clamp(speed, -1.0, 1.0);
+  }
+
+  private static double normalizeDirection(double direction) {
+    return direction < 0.0 ? -1.0 : 1.0;
   }
 
   private void stopCommand(Command command) {
@@ -162,11 +178,14 @@ public class Agitators extends SubsystemBase {
     Logger.recordOutput("Agitators/Config/TargetTopSpeed", targetTopAgitatorSpeed);
     Logger.recordOutput("Agitators/Config/TargetBottomSpeed", targetBottomAgitatorSpeed);
     Logger.recordOutput(
-        "Agitators/Config/TopInverted",
-        topAgitatorInvertedEntry.getBoolean(AgitatorsConstants.defaultTopAgitatorInverted));
+        "Agitators/Config/TopDirection",
+        normalizeDirection(
+            topAgitatorDirectionEntry.getDouble(AgitatorsConstants.defaultTopAgitatorDirection)));
     Logger.recordOutput(
-        "Agitators/Config/BottomInverted",
-        bottomAgitatorInvertedEntry.getBoolean(AgitatorsConstants.defaultBottomAgitatorInverted));
+        "Agitators/Config/BottomDirection",
+        normalizeDirection(
+            bottomAgitatorDirectionEntry.getDouble(
+                AgitatorsConstants.defaultBottomAgitatorDirection)));
 
     Logger.recordOutput("Agitators/State/Running", agitatorRunning);
     Logger.recordOutput("Agitators/State/LastAppliedTopOutput", lastAppliedTopAgitatorSpeed);
