@@ -39,7 +39,8 @@ public final class ShooterConstants {
 
   // Hardware geometry
   public static final double shooterWheelRadiusMeters = Units.inchesToMeters(2.0);
-  public static final double fuelBallRadiusMeters = Units.centimetersToMeters(7.5);
+  public static final double fuelBallDiameterMeters = 0.14986;
+  public static final double fuelBallRadiusMeters = fuelBallDiameterMeters / 2.0;
   public static final double launchSlipFactor = 0.93;
   public static final double targetBallSpinRatio = 0.10;
 
@@ -68,8 +69,8 @@ public final class ShooterConstants {
   public static final Rotation2d hubShotFarPreferredAngle = Rotation2d.fromDegrees(44.0);
 
   // Allowed launch envelope searched by solver
-  public static final Rotation2d minLaunchAngle = Rotation2d.fromDegrees(35.0);
-  public static final Rotation2d maxLaunchAngle = Rotation2d.fromDegrees(75.0);
+  public static final Rotation2d minLaunchAngle = Rotation2d.fromDegrees(7.5);
+  public static final Rotation2d maxLaunchAngle = Rotation2d.fromDegrees(45.0);
   public static final double launchAngleSearchStepDegrees = 0.5;
 
   // Measured/estimated launch capability of the mechanism
@@ -78,7 +79,7 @@ public final class ShooterConstants {
   public static final double maxLaunchSpeedMetersPerSec =
       launchSlipFactor * shooterWheelRadiusMeters * maxWheelSpeedRadPerSec;
   public static final double defaultLaunchSpeedMetersPerSec = 11.5;
-  public static final Rotation2d defaultLaunchAngle = Rotation2d.fromDegrees(56.0);
+  public static final Rotation2d defaultLaunchAngle = Rotation2d.fromDegrees(30.0);
   public static final double minAirtimeSeconds = 0.05;
   public static final double maxAirtimeSeconds = 3.0;
   public static final double fallbackAirtimeSeconds = 0.6;
