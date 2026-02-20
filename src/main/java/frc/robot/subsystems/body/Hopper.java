@@ -19,11 +19,15 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.Logger;
 
 public class Hopper extends SubsystemBase {
+  private static final double loopPeriodSeconds = 0.02;
+  private static final double hopperBeltEstimatedMaxVelocityRotationsPerSec = 12.0;
+
   private double targetBeltSpeed = HopperConstants.defaultHopperBeltSpeed;
   private Command currentBeltRunCommand;
   private boolean beltRunning = false;
   private double lastAppliedBeltSpeed = 0.0;
   private double lastAppliedExtensionSpeed = 0.0;
+  private double hopperBeltEstimatedPositionRotations = 0.0;
   private double hopperExtensionRetractedPositionRotations =
       HopperConstants.defaultHopperExtensionRetractedPositionRotations;
   private double hopperExtensionExtendedPositionRotations =
@@ -54,6 +58,14 @@ public class Hopper extends SubsystemBase {
       configTable.getEntry("HopperExtension/EncoderVelocityRpm");
   private final NetworkTableEntry hopperExtensionEncoderNormalizedPositionEntry =
       configTable.getEntry("HopperExtension/EncoderPositionNormalized");
+  private final NetworkTableEntry hopperBeltAppliedOutputEntry =
+      configTable.getEntry("HopperBelt/AppliedOutput");
+  private final NetworkTableEntry hopperExtensionAppliedOutputEntry =
+      configTable.getEntry("HopperExtension/AppliedOutput");
+  private final NetworkTableEntry hopperBeltEstimatedVelocityEntry =
+      configTable.getEntry("HopperBelt/EstimatedVelocityRotationsPerSec");
+  private final NetworkTableEntry hopperBeltEstimatedPositionEntry =
+      configTable.getEntry("HopperBelt/EstimatedPositionRotations");
 
   public Hopper() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
@@ -71,6 +83,7 @@ public class Hopper extends SubsystemBase {
   public void periodic() {
     loadNetworkTableConfig();
     publishExtensionEncoderToNetworkTables();
+    publishActuatorStateToNetworkTables();
     logTelemetry();
   }
 
@@ -205,6 +218,18 @@ public class Hopper extends SubsystemBase {
     hopperExtensionEncoderVelocityEntry.setDouble(hopperExtensionEncoder.getVelocity());
     hopperExtensionEncoderNormalizedPositionEntry.setDouble(
         getHopperExtensionMeasuredPositionNormalized());
+  }
+
+  private void publishActuatorStateToNetworkTables() {
+    double beltAppliedOutput = hopperBelt.get();
+    double estimatedBeltVelocityRotationsPerSec =
+        beltAppliedOutput * hopperBeltEstimatedMaxVelocityRotationsPerSec;
+    hopperBeltEstimatedPositionRotations += estimatedBeltVelocityRotationsPerSec * loopPeriodSeconds;
+
+    hopperBeltAppliedOutputEntry.setDouble(beltAppliedOutput);
+    hopperBeltEstimatedVelocityEntry.setDouble(estimatedBeltVelocityRotationsPerSec);
+    hopperBeltEstimatedPositionEntry.setDouble(hopperBeltEstimatedPositionRotations);
+    hopperExtensionAppliedOutputEntry.setDouble(hopperExtension.get());
   }
 
   public double getHopperExtensionMeasuredPositionRotations() {

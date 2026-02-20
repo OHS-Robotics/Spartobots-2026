@@ -58,6 +58,16 @@ public class Shooter extends SubsystemBase {
       configTable.getEntry("Hood/EncoderVelocityRotationsPerSec");
   private final NetworkTableEntry hoodEncoderNormalizedPositionEntry =
       configTable.getEntry("Hood/EncoderPositionNormalized");
+  private final NetworkTableEntry hoodSetpointEntry =
+      configTable.getEntry("Hood/SetpointRotations");
+  private final NetworkTableEntry pair1MeasuredVelocityEntry =
+      configTable.getEntry("Wheels/Pair1VelocityRadPerSec");
+  private final NetworkTableEntry pair2MeasuredVelocityEntry =
+      configTable.getEntry("Wheels/Pair2VelocityRadPerSec");
+  private final NetworkTableEntry pair1CommandVelocityEntry =
+      configTable.getEntry("Wheels/Pair1CommandRadPerSec");
+  private final NetworkTableEntry pair2CommandVelocityEntry =
+      configTable.getEntry("Wheels/Pair2CommandRadPerSec");
   private final NetworkTableEntry wheelSpeedScaleEntry =
       configTable.getEntry("Wheels/SpeedScale");
   private final NetworkTableEntry pair1DirectionEntry =
@@ -90,6 +100,8 @@ public class Shooter extends SubsystemBase {
     io.setWheelVelocitySetpoints(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     io.setHoodPositionSetpointRotations(hoodSetpointMotorRotations);
     publishHoodEncoderToNetworkTables();
+    publishWheelTelemetryToNetworkTables(
+        pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
 
     logControlState(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
   }
@@ -214,6 +226,15 @@ public class Shooter extends SubsystemBase {
     hoodEncoderPositionEntry.setDouble(inputs.hoodPositionRotations);
     hoodEncoderVelocityEntry.setDouble(inputs.hoodVelocityRotationsPerSec);
     hoodEncoderNormalizedPositionEntry.setDouble(getHoodNormalizedPosition(inputs.hoodPositionRotations));
+    hoodSetpointEntry.setDouble(hoodSetpointMotorRotations);
+  }
+
+  private void publishWheelTelemetryToNetworkTables(
+      double pair1VelocityCommandRadPerSec, double pair2VelocityCommandRadPerSec) {
+    pair1MeasuredVelocityEntry.setDouble(inputs.pair1LeaderVelocityRadPerSec);
+    pair2MeasuredVelocityEntry.setDouble(inputs.pair2LeaderVelocityRadPerSec);
+    pair1CommandVelocityEntry.setDouble(pair1VelocityCommandRadPerSec);
+    pair2CommandVelocityEntry.setDouble(pair2VelocityCommandRadPerSec);
   }
 
   private void clampHoodSetpointToCalibrationRange() {

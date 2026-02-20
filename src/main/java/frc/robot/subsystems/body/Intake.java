@@ -19,11 +19,15 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.Logger;
 
 public class Intake extends SubsystemBase {
+  private static final double loopPeriodSeconds = 0.02;
+  private static final double intakeDriveEstimatedMaxVelocityRotationsPerSec = 12.0;
+
   private double targetIntakeSpeed = IntakeConstants.defaultIntakeSpeed;
   private Command currentIntakeRunCommand;
   public boolean intakeRunning = false;
   private double lastAppliedIntakeDriveSpeed = 0.0;
   private double lastAppliedIntakePivotSpeed = 0.0;
+  private double intakeDriveEstimatedPositionRotations = 0.0;
   private double intakePivotRetractedPositionRotations =
       IntakeConstants.defaultIntakePivotRetractedPositionRotations;
   private double intakePivotExtendedPositionRotations =
@@ -54,6 +58,14 @@ public class Intake extends SubsystemBase {
       configTable.getEntry("IntakePivot/EncoderVelocityRpm");
   private final NetworkTableEntry intakePivotEncoderNormalizedPositionEntry =
       configTable.getEntry("IntakePivot/EncoderPositionNormalized");
+  private final NetworkTableEntry intakeDriveAppliedOutputEntry =
+      configTable.getEntry("IntakeDrive/AppliedOutput");
+  private final NetworkTableEntry intakePivotAppliedOutputEntry =
+      configTable.getEntry("IntakePivot/AppliedOutput");
+  private final NetworkTableEntry intakeDriveEstimatedVelocityEntry =
+      configTable.getEntry("IntakeDrive/EstimatedVelocityRotationsPerSec");
+  private final NetworkTableEntry intakeDriveEstimatedPositionEntry =
+      configTable.getEntry("IntakeDrive/EstimatedPositionRotations");
 
   public Intake() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
@@ -71,6 +83,7 @@ public class Intake extends SubsystemBase {
   public void periodic() {
     loadNetworkTableConfig();
     publishPivotEncoderToNetworkTables();
+    publishActuatorStateToNetworkTables();
     logTelemetry();
   }
 
@@ -202,6 +215,19 @@ public class Intake extends SubsystemBase {
     intakePivotEncoderPositionEntry.setDouble(getIntakePivotMeasuredPositionRotations());
     intakePivotEncoderVelocityEntry.setDouble(intakePivotEncoder.getVelocity());
     intakePivotEncoderNormalizedPositionEntry.setDouble(getIntakePivotMeasuredPositionNormalized());
+  }
+
+  private void publishActuatorStateToNetworkTables() {
+    double driveAppliedOutput = intakeDrive.get();
+    double estimatedDriveVelocityRotationsPerSec =
+        driveAppliedOutput * intakeDriveEstimatedMaxVelocityRotationsPerSec;
+    intakeDriveEstimatedPositionRotations +=
+        estimatedDriveVelocityRotationsPerSec * loopPeriodSeconds;
+
+    intakeDriveAppliedOutputEntry.setDouble(driveAppliedOutput);
+    intakeDriveEstimatedVelocityEntry.setDouble(estimatedDriveVelocityRotationsPerSec);
+    intakeDriveEstimatedPositionEntry.setDouble(intakeDriveEstimatedPositionRotations);
+    intakePivotAppliedOutputEntry.setDouble(intakePivot.get());
   }
 
   public double getIntakePivotMeasuredPositionRotations() {

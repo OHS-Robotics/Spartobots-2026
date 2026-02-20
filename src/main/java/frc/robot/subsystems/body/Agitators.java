@@ -18,12 +18,17 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.Logger;
 
 public class Agitators extends SubsystemBase {
+  private static final double loopPeriodSeconds = 0.02;
+  private static final double agitatorEstimatedMaxVelocityRotationsPerSec = 12.0;
+
   private double targetTopAgitatorSpeed = AgitatorsConstants.defaultTopAgitatorSpeed;
   private double targetBottomAgitatorSpeed = AgitatorsConstants.defaultBottomAgitatorSpeed;
   private Command currentAgitatorRunCommand;
   private boolean agitatorRunning = false;
   private double lastAppliedTopAgitatorSpeed = 0.0;
   private double lastAppliedBottomAgitatorSpeed = 0.0;
+  private double topAgitatorEstimatedPositionRotations = 0.0;
+  private double bottomAgitatorEstimatedPositionRotations = 0.0;
 
   private final SparkMax topAgitator =
       new SparkMax(AgitatorsConstants.topAgitatorCanId, MotorType.kBrushed);
@@ -39,6 +44,18 @@ public class Agitators extends SubsystemBase {
       configTable.getEntry("TopAgitator/Direction");
   private final NetworkTableEntry bottomAgitatorDirectionEntry =
       configTable.getEntry("BottomAgitator/Direction");
+  private final NetworkTableEntry topAgitatorAppliedOutputEntry =
+      configTable.getEntry("TopAgitator/AppliedOutput");
+  private final NetworkTableEntry bottomAgitatorAppliedOutputEntry =
+      configTable.getEntry("BottomAgitator/AppliedOutput");
+  private final NetworkTableEntry topAgitatorEstimatedVelocityEntry =
+      configTable.getEntry("TopAgitator/EstimatedVelocityRotationsPerSec");
+  private final NetworkTableEntry bottomAgitatorEstimatedVelocityEntry =
+      configTable.getEntry("BottomAgitator/EstimatedVelocityRotationsPerSec");
+  private final NetworkTableEntry topAgitatorEstimatedPositionEntry =
+      configTable.getEntry("TopAgitator/EstimatedPositionRotations");
+  private final NetworkTableEntry bottomAgitatorEstimatedPositionEntry =
+      configTable.getEntry("BottomAgitator/EstimatedPositionRotations");
 
   public Agitators() {
     SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
@@ -55,6 +72,7 @@ public class Agitators extends SubsystemBase {
   @Override
   public void periodic() {
     loadNetworkTableConfig();
+    publishActuatorStateToNetworkTables();
     logTelemetry();
   }
 
@@ -172,6 +190,26 @@ public class Agitators extends SubsystemBase {
     if (command != null) {
       CommandScheduler.getInstance().cancel(command);
     }
+  }
+
+  private void publishActuatorStateToNetworkTables() {
+    double topAppliedOutput = topAgitator.get();
+    double bottomAppliedOutput = bottomAgitator.get();
+    double topEstimatedVelocityRotationsPerSec =
+        topAppliedOutput * agitatorEstimatedMaxVelocityRotationsPerSec;
+    double bottomEstimatedVelocityRotationsPerSec =
+        bottomAppliedOutput * agitatorEstimatedMaxVelocityRotationsPerSec;
+
+    topAgitatorEstimatedPositionRotations += topEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
+    bottomAgitatorEstimatedPositionRotations +=
+        bottomEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
+
+    topAgitatorAppliedOutputEntry.setDouble(topAppliedOutput);
+    bottomAgitatorAppliedOutputEntry.setDouble(bottomAppliedOutput);
+    topAgitatorEstimatedVelocityEntry.setDouble(topEstimatedVelocityRotationsPerSec);
+    bottomAgitatorEstimatedVelocityEntry.setDouble(bottomEstimatedVelocityRotationsPerSec);
+    topAgitatorEstimatedPositionEntry.setDouble(topAgitatorEstimatedPositionRotations);
+    bottomAgitatorEstimatedPositionEntry.setDouble(bottomAgitatorEstimatedPositionRotations);
   }
 
   private void logTelemetry() {
