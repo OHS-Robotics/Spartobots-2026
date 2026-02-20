@@ -90,8 +90,8 @@ public final class ShooterConstants {
   public static final double simWheelReadyRatio = 0.88;
 
   // Shooter muzzle relative to robot center (robot frame)
-  public static final Translation2d shooterMuzzleOffsetOnRobot = new Translation2d(0.25, 0.0);
-  public static final Rotation2d shooterFacingOffset = Rotation2d.kZero;
+  public static final Translation2d shooterMuzzleOffsetOnRobot = new Translation2d(-0.25, 0.0);
+  public static final Rotation2d shooterFacingOffset = Rotation2d.fromDegrees(180.0);
 
   // MapleSim target matching tolerance for projectile hit checks
   public static final double projectileTargetToleranceXYMeters = Units.inchesToMeters(10.0);

@@ -42,6 +42,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
+import frc.robot.subsystems.body.shooter.ShooterConstants;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -501,7 +502,8 @@ public class Drive extends SubsystemBase {
 
   private Rotation2d getRotationToHub(Pose2d hub) {
     Translation2d toTarget = hub.getTranslation().minus(getPose().getTranslation());
-    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()))
+        .plus(ShooterConstants.shooterFacingOffset);
   }
 
   public Command alignToHub() {
