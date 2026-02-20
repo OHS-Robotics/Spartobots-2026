@@ -69,6 +69,25 @@ class ShooterTest {
         0.02);
   }
 
+  @Test
+  void hubShotSolverPrefersDescendingEntryAtHub() {
+    Shooter shooter = new Shooter(new FakeShooterIO());
+    Shooter.HubShotSolution solution =
+        shooter.updateHubShotSolution(
+            new Pose2d(2.0, 2.0, Rotation2d.kZero),
+            new Pose2d(6.0, 2.0, Rotation2d.kZero),
+            new Translation2d());
+
+    assertTrue(solution.feasible());
+    double launchSpeedMetersPerSec = solution.launchSpeedMetersPerSec();
+    double vx = launchSpeedMetersPerSec * solution.launchAngle().getCos();
+    double timeToHubSeconds = solution.distanceMeters() / Math.abs(vx);
+    double vyAtHubMetersPerSec =
+        (launchSpeedMetersPerSec * solution.launchAngle().getSin())
+            - (ShooterConstants.gravityMetersPerSecSquared * timeToHubSeconds);
+    assertTrue(vyAtHubMetersPerSec <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec);
+  }
+
   private static class FakeShooterIO implements ShooterIO {
     double pair1SetpointRadPerSec = 0.0;
     double pair2SetpointRadPerSec = 0.0;

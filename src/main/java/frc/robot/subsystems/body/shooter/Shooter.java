@@ -454,8 +454,10 @@ public class Shooter extends SubsystemBase {
       double horizontalDistanceMeters, double targetHeightDeltaMeters) {
     Rotation2d preferredAngle = getPreferredAngle(horizontalDistanceMeters);
 
-    HubShotSolution bestSolution = null;
-    double bestScore = Double.POSITIVE_INFINITY;
+    HubShotSolution bestLoftedTopEntrySolution = null;
+    double bestLoftedTopEntryApexHeightMeters = Double.NEGATIVE_INFINITY;
+    HubShotSolution bestPreferredSolution = null;
+    double bestPreferredScore = Double.POSITIVE_INFINITY;
     for (double degrees = ShooterConstants.minLaunchAngle.getDegrees();
         degrees <= ShooterConstants.maxLaunchAngle.getDegrees();
         degrees += ShooterConstants.launchAngleSearchStepDegrees) {
@@ -473,21 +475,39 @@ public class Shooter extends SubsystemBase {
         continue;
       }
 
+      HubShotSolution candidateSolution =
+          createShotSolution(
+              horizontalDistanceMeters,
+              targetHeightDeltaMeters,
+              candidateAngle,
+              launchSpeedMetersPerSec,
+              true);
+      double candidateApexHeightMeters =
+          calculateApexHeightMeters(launchSpeedMetersPerSec, candidateAngle);
+      boolean candidateDescendingAtTarget =
+          calculateVerticalVelocityAtDistance(
+                  horizontalDistanceMeters, launchSpeedMetersPerSec, candidateAngle)
+              .orElse(Double.POSITIVE_INFINITY)
+              <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec;
+      if (candidateDescendingAtTarget
+          && (candidateApexHeightMeters > bestLoftedTopEntryApexHeightMeters)) {
+        bestLoftedTopEntryApexHeightMeters = candidateApexHeightMeters;
+        bestLoftedTopEntrySolution = candidateSolution;
+      }
+
       double score = Math.abs(candidateAngle.minus(preferredAngle).getDegrees());
-      if (score < bestScore) {
-        bestScore = score;
-        bestSolution =
-            createShotSolution(
-                horizontalDistanceMeters,
-                targetHeightDeltaMeters,
-                candidateAngle,
-                launchSpeedMetersPerSec,
-                true);
+      if (score < bestPreferredScore) {
+        bestPreferredScore = score;
+        bestPreferredSolution = candidateSolution;
       }
     }
 
-    if (bestSolution != null) {
-      return bestSolution;
+    if (bestLoftedTopEntrySolution != null) {
+      return bestLoftedTopEntrySolution;
+    }
+
+    if (bestPreferredSolution != null) {
+      return bestPreferredSolution;
     }
 
     OptionalDouble preferredLaunchSpeed =
@@ -575,6 +595,45 @@ public class Shooter extends SubsystemBase {
     }
 
     return OptionalDouble.of(Math.sqrt(launchSpeedSquared));
+  }
+
+  private OptionalDouble calculateVerticalVelocityAtDistance(
+      double horizontalDistanceMeters, double launchSpeedMetersPerSec, Rotation2d launchAngle) {
+    double launchSpeedMagnitude = Math.abs(launchSpeedMetersPerSec);
+    double cosTheta = Math.cos(launchAngle.getRadians());
+    if (horizontalDistanceMeters < 0.0
+        || launchSpeedMagnitude < 1e-6
+        || Math.abs(cosTheta) < 1e-6) {
+      return OptionalDouble.empty();
+    }
+
+    double timeSeconds = horizontalDistanceMeters / (launchSpeedMagnitude * cosTheta);
+    if (!Double.isFinite(timeSeconds) || timeSeconds < 0.0) {
+      return OptionalDouble.empty();
+    }
+
+    double initialVerticalVelocityMetersPerSec = launchSpeedMagnitude * Math.sin(launchAngle.getRadians());
+    double verticalVelocityMetersPerSec =
+        initialVerticalVelocityMetersPerSec
+            - (ShooterConstants.gravityMetersPerSecSquared * timeSeconds);
+    if (!Double.isFinite(verticalVelocityMetersPerSec)) {
+      return OptionalDouble.empty();
+    }
+    return OptionalDouble.of(verticalVelocityMetersPerSec);
+  }
+
+  private double calculateApexHeightMeters(
+      double launchSpeedMetersPerSec, Rotation2d launchAngle) {
+    double launchSpeedMagnitude = Math.abs(launchSpeedMetersPerSec);
+    if (launchSpeedMagnitude < 1e-6) {
+      return launchHeightMeters;
+    }
+    double initialVerticalVelocityMetersPerSec = launchSpeedMagnitude * Math.sin(launchAngle.getRadians());
+    double apexHeightMeters =
+        launchHeightMeters
+            + ((initialVerticalVelocityMetersPerSec * initialVerticalVelocityMetersPerSec)
+                / (2.0 * ShooterConstants.gravityMetersPerSecSquared));
+    return Double.isFinite(apexHeightMeters) ? apexHeightMeters : launchHeightMeters;
   }
 
   private double calculateAirtimeSeconds(
@@ -914,6 +973,14 @@ public class Shooter extends SubsystemBase {
       boolean motionSolveConverged) {
     Translation2d compensationOffset =
         compensatedHubPose.getTranslation().minus(baseHubPose.getTranslation());
+    double apexHeightMeters =
+        calculateApexHeightMeters(solution.launchSpeedMetersPerSec(), solution.launchAngle());
+    OptionalDouble verticalVelocityAtHubMetersPerSec =
+        calculateVerticalVelocityAtDistance(
+            solution.distanceMeters(), solution.launchSpeedMetersPerSec(), solution.launchAngle());
+    boolean topEntrySatisfied =
+        verticalVelocityAtHubMetersPerSec.orElse(Double.POSITIVE_INFINITY)
+            <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec;
     Logger.recordOutput("Shooter/HubShot/DistanceMeters", solution.distanceMeters());
     Logger.recordOutput("Shooter/HubShot/LaunchAngleDegrees", solution.launchAngle().getDegrees());
     Logger.recordOutput(
@@ -933,6 +1000,14 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/HubShot/RobotFieldVelocityY", robotFieldVelocityMetersPerSec.getY());
     Logger.recordOutput("Shooter/HubShot/CompensationOffsetX", compensationOffset.getX());
     Logger.recordOutput("Shooter/HubShot/CompensationOffsetY", compensationOffset.getY());
+    Logger.recordOutput("Shooter/HubShot/ApexHeightMeters", apexHeightMeters);
+    Logger.recordOutput(
+        "Shooter/HubShot/ApexAboveHubCenterMeters",
+        apexHeightMeters - ShooterConstants.hubCenterHeightMeters);
+    Logger.recordOutput(
+        "Shooter/HubShot/VerticalVelocityAtHubMetersPerSec",
+        optionalDoubleOrNaN(verticalVelocityAtHubMetersPerSec));
+    Logger.recordOutput("Shooter/HubShot/TopEntrySatisfied", topEntrySatisfied);
     Logger.recordOutput("Shooter/HubShot/MotionCompVelocityScale", hubMotionCompVelocityScale);
     Logger.recordOutput("Shooter/HubShot/MotionCompLeadSeconds", hubMotionCompLeadSeconds);
     Logger.recordOutput("Shooter/HubShot/MotionSolveIterations", motionSolveIterations);
