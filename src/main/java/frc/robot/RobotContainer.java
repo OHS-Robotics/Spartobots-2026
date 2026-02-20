@@ -342,7 +342,10 @@ public class RobotContainer {
             () -> -controller.getLeftX(),
             () ->
                 shooter
-                    .updateHubShotSolution(drive.getPose(), drive.getNearestHubPose())
+                    .updateHubShotSolution(
+                        drive.getPose(),
+                        drive.getNearestHubPose(),
+                        drive.getFieldRelativeVelocityMetersPerSecond())
                     .airtimeSeconds());
     Command shooterAutoAdjustCommand =
         Commands.startEnd(
@@ -367,7 +370,10 @@ public class RobotContainer {
             drive.alignToHub(() -> 0.0, () -> 0.0, shooter::getHubAirtimeSeconds),
             Commands.run(
                     () -> {
-                      shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
+                      shooter.updateHubShotSolution(
+                          drive.getPose(),
+                          drive.getNearestHubPose(),
+                          drive.getFieldRelativeVelocityMetersPerSecond());
                       shooter.setShotControlEnabled(true);
                       gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                     },
@@ -475,7 +481,8 @@ public class RobotContainer {
   }
 
   public void updateHubShotSolution() {
-    shooter.updateHubShotSolution(drive.getPose(), drive.getNearestHubPose());
+    shooter.updateHubShotSolution(
+        drive.getPose(), drive.getNearestHubPose(), drive.getFieldRelativeVelocityMetersPerSecond());
   }
 
   public void onDisabledInit() {

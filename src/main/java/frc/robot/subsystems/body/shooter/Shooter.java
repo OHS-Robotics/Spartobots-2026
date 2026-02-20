@@ -3,6 +3,7 @@ package frc.robot.subsystems.body.shooter;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -12,6 +13,8 @@ import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
   private static record WheelSpeedSetpoints(double pair1RadPerSec, double pair2RadPerSec) {}
+  private static record MotionCompensatedHubShotSolution(
+      HubShotSolution shotSolution, Pose2d compensatedHubPose, int iterations, boolean converged) {}
 
   public static record HubShotSolution(
       double distanceMeters,
@@ -220,17 +223,37 @@ public class Shooter extends SubsystemBase {
   }
 
   public HubShotSolution updateHubShotSolution(Pose2d robotPose, Pose2d hubPose) {
-    double horizontalDistanceMeters =
-        robotPose.getTranslation().getDistance(hubPose.getTranslation());
+    return updateHubShotSolution(robotPose, hubPose, new Translation2d());
+  }
+
+  public HubShotSolution updateHubShotSolution(
+      Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
+    Translation2d robotFieldVelocity =
+        robotFieldVelocityMetersPerSec != null ? robotFieldVelocityMetersPerSec : new Translation2d();
     double targetHeightDeltaMeters = ShooterConstants.hubCenterHeightMeters - launchHeightMeters;
-    latestHubShotSolution = solveHubShot(horizontalDistanceMeters, targetHeightDeltaMeters);
+    MotionCompensatedHubShotSolution motionCompensatedSolution =
+        solveHubShotWithMotionCompensation(
+            robotPose, hubPose, robotFieldVelocity, targetHeightDeltaMeters);
+    latestHubShotSolution = motionCompensatedSolution.shotSolution();
     applyHubShotSetpoints(latestHubShotSolution);
-    logHubShotSolution(latestHubShotSolution);
+    logHubShotSolution(
+        latestHubShotSolution,
+        hubPose,
+        motionCompensatedSolution.compensatedHubPose(),
+        robotFieldVelocity,
+        motionCompensatedSolution.iterations(),
+        motionCompensatedSolution.converged());
     return latestHubShotSolution;
   }
 
   public double estimateHubShotAirtimeSeconds(Pose2d robotPose, Pose2d hubPose) {
-    return updateHubShotSolution(robotPose, hubPose).airtimeSeconds();
+    return estimateHubShotAirtimeSeconds(robotPose, hubPose, new Translation2d());
+  }
+
+  public double estimateHubShotAirtimeSeconds(
+      Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
+    return updateHubShotSolution(robotPose, hubPose, robotFieldVelocityMetersPerSec)
+        .airtimeSeconds();
   }
 
   private void configureNetworkTableDefaults() {
@@ -356,6 +379,55 @@ public class Shooter extends SubsystemBase {
 
   private void clampHoodSetpointToCalibrationRange() {
     hoodSetpointMotorRotations = clampToHoodCalibrationRange(hoodSetpointMotorRotations);
+  }
+
+  private MotionCompensatedHubShotSolution solveHubShotWithMotionCompensation(
+      Pose2d robotPose,
+      Pose2d hubPose,
+      Translation2d robotFieldVelocityMetersPerSec,
+      double targetHeightDeltaMeters) {
+    double airtimeGuessSeconds = sanitizeAirtimeSeed(latestHubShotSolution.airtimeSeconds());
+    Pose2d compensatedHubPose = hubPose;
+    HubShotSolution solvedShot =
+        solveHubShot(
+            robotPose.getTranslation().getDistance(hubPose.getTranslation()),
+            targetHeightDeltaMeters);
+    int iterations = 0;
+    boolean converged = false;
+
+    for (int i = 0; i < ShooterConstants.hubMotionCompensationMaxIterations; i++) {
+      compensatedHubPose =
+          getCompensatedHubPose(hubPose, robotFieldVelocityMetersPerSec, airtimeGuessSeconds);
+      double compensatedDistanceMeters =
+          robotPose.getTranslation().getDistance(compensatedHubPose.getTranslation());
+      solvedShot = solveHubShot(compensatedDistanceMeters, targetHeightDeltaMeters);
+      iterations = i + 1;
+
+      double airtimeErrorSeconds = Math.abs(solvedShot.airtimeSeconds() - airtimeGuessSeconds);
+      if (airtimeErrorSeconds <= ShooterConstants.hubMotionCompensationAirtimeToleranceSeconds) {
+        converged = true;
+        break;
+      }
+
+      airtimeGuessSeconds = solvedShot.airtimeSeconds();
+    }
+
+    if (!converged && iterations > 0) {
+      compensatedHubPose =
+          getCompensatedHubPose(hubPose, robotFieldVelocityMetersPerSec, airtimeGuessSeconds);
+      double compensatedDistanceMeters =
+          robotPose.getTranslation().getDistance(compensatedHubPose.getTranslation());
+      solvedShot = solveHubShot(compensatedDistanceMeters, targetHeightDeltaMeters);
+    }
+
+    return new MotionCompensatedHubShotSolution(solvedShot, compensatedHubPose, iterations, converged);
+  }
+
+  private static Pose2d getCompensatedHubPose(
+      Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec, double shotAirtimeSeconds) {
+    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
+    Translation2d compensationOffset = robotFieldVelocityMetersPerSec.times(-clampedAirtimeSeconds);
+    return new Pose2d(hubPose.getTranslation().plus(compensationOffset), hubPose.getRotation());
   }
 
   private HubShotSolution solveHubShot(
@@ -531,6 +603,13 @@ public class Shooter extends SubsystemBase {
   private static double speedToPower(double launchSpeedMetersPerSec) {
     return MathUtil.clamp(
         launchSpeedMetersPerSec / ShooterConstants.maxLaunchSpeedMetersPerSec, 0.0, 1.0);
+  }
+
+  private static double sanitizeAirtimeSeed(double airtimeSeconds) {
+    if (!Double.isFinite(airtimeSeconds) || airtimeSeconds <= 0.0) {
+      return ShooterConstants.fallbackAirtimeSeconds;
+    }
+    return clampAirtime(airtimeSeconds);
   }
 
   private void applyHubShotSetpoints(HubShotSolution solution) {
@@ -787,7 +866,15 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/Status/HoodConnected", inputs.hoodConnected);
   }
 
-  private void logHubShotSolution(HubShotSolution solution) {
+  private void logHubShotSolution(
+      HubShotSolution solution,
+      Pose2d baseHubPose,
+      Pose2d compensatedHubPose,
+      Translation2d robotFieldVelocityMetersPerSec,
+      int motionSolveIterations,
+      boolean motionSolveConverged) {
+    Translation2d compensationOffset =
+        compensatedHubPose.getTranslation().minus(baseHubPose.getTranslation());
     Logger.recordOutput("Shooter/HubShot/DistanceMeters", solution.distanceMeters());
     Logger.recordOutput("Shooter/HubShot/LaunchAngleDegrees", solution.launchAngle().getDegrees());
     Logger.recordOutput(
@@ -801,5 +888,13 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/HubShot/PowerSetpoint", solution.shooterPower());
     Logger.recordOutput("Shooter/HubShot/AirtimeSeconds", solution.airtimeSeconds());
     Logger.recordOutput("Shooter/HubShot/Feasible", solution.feasible());
+    Logger.recordOutput("Shooter/HubShot/BaseTargetPose", baseHubPose);
+    Logger.recordOutput("Shooter/HubShot/CompensatedTargetPose", compensatedHubPose);
+    Logger.recordOutput("Shooter/HubShot/RobotFieldVelocityX", robotFieldVelocityMetersPerSec.getX());
+    Logger.recordOutput("Shooter/HubShot/RobotFieldVelocityY", robotFieldVelocityMetersPerSec.getY());
+    Logger.recordOutput("Shooter/HubShot/CompensationOffsetX", compensationOffset.getX());
+    Logger.recordOutput("Shooter/HubShot/CompensationOffsetY", compensationOffset.getY());
+    Logger.recordOutput("Shooter/HubShot/MotionSolveIterations", motionSolveIterations);
+    Logger.recordOutput("Shooter/HubShot/MotionSolveConverged", motionSolveConverged);
   }
 }

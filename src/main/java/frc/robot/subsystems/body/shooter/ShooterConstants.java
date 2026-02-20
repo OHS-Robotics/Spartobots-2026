@@ -98,6 +98,8 @@ public final class ShooterConstants {
   public static final double maxAirtimeSeconds = 3.0;
   public static final double fallbackAirtimeSeconds = 0.6;
   public static final double minHorizontalVelocityMetersPerSec = 0.25;
+  public static final int hubMotionCompensationMaxIterations = 8;
+  public static final double hubMotionCompensationAirtimeToleranceSeconds = 0.01;
 
   // Feed interlock readiness
   public static final double wheelReadyToleranceRatio = 0.08;

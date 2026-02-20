@@ -476,7 +476,7 @@ public class Drive extends SubsystemBase {
     return getNearestHub();
   }
 
-  private Translation2d getFieldRelativeVelocity() {
+  public Translation2d getFieldRelativeVelocityMetersPerSecond() {
     ChassisSpeeds fieldRelativeSpeeds =
         ChassisSpeeds.fromRobotRelativeSpeeds(getChassisSpeeds(), getRotation());
     return new Translation2d(
@@ -487,7 +487,8 @@ public class Drive extends SubsystemBase {
     double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
 
     // Aim opposite the current robot velocity so shot travel time is compensated in flight.
-    Translation2d compensationOffset = getFieldRelativeVelocity().times(-clampedAirtimeSeconds);
+    Translation2d compensationOffset =
+        getFieldRelativeVelocityMetersPerSecond().times(-clampedAirtimeSeconds);
     return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
   }
 

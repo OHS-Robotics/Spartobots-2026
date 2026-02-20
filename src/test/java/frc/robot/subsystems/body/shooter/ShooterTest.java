@@ -1,10 +1,12 @@
 package frc.robot.subsystems.body.shooter;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import org.junit.jupiter.api.Test;
 
 class ShooterTest {
@@ -41,6 +43,25 @@ class ShooterTest {
     io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec * 0.5;
     shooter.periodic();
     assertFalse(shooter.isReadyToFire());
+  }
+
+  @Test
+  void hubShotSolverCompensatesForRobotVelocityAndConverges() {
+    Shooter shooter = new Shooter(new FakeShooterIO());
+    Pose2d robotPose = new Pose2d(2.0, 2.0, Rotation2d.kZero);
+    Pose2d hubPose = new Pose2d(6.0, 2.0, Rotation2d.kZero);
+
+    Shooter.HubShotSolution stationarySolution =
+        shooter.updateHubShotSolution(robotPose, hubPose, new Translation2d());
+    Shooter.HubShotSolution movingSolution =
+        shooter.updateHubShotSolution(robotPose, hubPose, new Translation2d(2.0, 0.0));
+    Shooter.HubShotSolution movingSolutionRepeat =
+        shooter.updateHubShotSolution(robotPose, hubPose, new Translation2d(2.0, 0.0));
+
+    assertTrue(stationarySolution.feasible());
+    assertTrue(movingSolution.feasible());
+    assertTrue(movingSolution.distanceMeters() < stationarySolution.distanceMeters());
+    assertEquals(movingSolution.airtimeSeconds(), movingSolutionRepeat.airtimeSeconds(), 0.02);
   }
 
   private static class FakeShooterIO implements ShooterIO {
