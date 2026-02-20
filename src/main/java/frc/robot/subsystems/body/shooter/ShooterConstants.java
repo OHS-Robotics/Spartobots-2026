@@ -84,7 +84,6 @@ public final class ShooterConstants {
   public static final double maxAirtimeSeconds = 3.0;
   public static final double fallbackAirtimeSeconds = 0.6;
   public static final double minHorizontalVelocityMetersPerSec = 0.25;
-  public static final double triggerLaunchSpeedBoostScale = 1.12;
 
   // Simulated shot behavior
   public static final double simShotCadenceSeconds = 0.35;
