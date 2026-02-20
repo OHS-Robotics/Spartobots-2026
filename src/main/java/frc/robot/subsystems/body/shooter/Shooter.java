@@ -425,8 +425,11 @@ public class Shooter extends SubsystemBase {
 
   private static Pose2d getCompensatedHubPose(
       Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec, double shotAirtimeSeconds) {
-    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
-    Translation2d compensationOffset = robotFieldVelocityMetersPerSec.times(-clampedAirtimeSeconds);
+    double clampedAirtimeSeconds =
+        Math.max(0.0, shotAirtimeSeconds + ShooterConstants.hubMotionCompensationLeadSeconds);
+    double compensationScale = ShooterConstants.hubMotionCompensationVelocityScale;
+    Translation2d compensationOffset =
+        robotFieldVelocityMetersPerSec.times(-clampedAirtimeSeconds * compensationScale);
     return new Pose2d(hubPose.getTranslation().plus(compensationOffset), hubPose.getRotation());
   }
 
@@ -567,15 +570,21 @@ public class Shooter extends SubsystemBase {
       return ShooterConstants.fallbackAirtimeSeconds;
     }
 
-    double vy = launchSpeedMetersPerSec * Math.sin(launchAngle.getRadians());
     double airtimeByHorizontal = horizontalDistanceMeters / Math.abs(vx);
-    double airtimeByVertical =
-        solveVerticalAirtime(vy, targetHeightDeltaMeters).orElse(airtimeByHorizontal);
+    if (!Double.isFinite(airtimeByHorizontal) || airtimeByHorizontal <= 0.0) {
+      return ShooterConstants.fallbackAirtimeSeconds;
+    }
 
-    return clampAirtime(0.5 * (airtimeByHorizontal + airtimeByVertical));
+    double vy = launchSpeedMetersPerSec * Math.sin(launchAngle.getRadians());
+    double airtimeByVertical =
+        solveVerticalAirtimeNear(vy, targetHeightDeltaMeters, airtimeByHorizontal)
+            .orElse(airtimeByHorizontal);
+
+    return clampAirtime(airtimeByVertical);
   }
 
-  private OptionalDouble solveVerticalAirtime(double vy, double targetHeightDeltaMeters) {
+  private OptionalDouble solveVerticalAirtimeNear(
+      double vy, double targetHeightDeltaMeters, double preferredTimeSeconds) {
     double a = 0.5 * ShooterConstants.gravityMetersPerSecSquared;
     double b = -vy;
     double c = targetHeightDeltaMeters;
@@ -588,13 +597,18 @@ public class Shooter extends SubsystemBase {
     double sqrtDiscriminant = Math.sqrt(discriminant);
     double rootA = (-b - sqrtDiscriminant) / (2.0 * a);
     double rootB = (-b + sqrtDiscriminant) / (2.0 * a);
-    if (rootA > 0.0 && rootB > 0.0) {
-      return OptionalDouble.of(Math.min(rootA, rootB));
+
+    boolean rootAValid = rootA > 0.0 && Double.isFinite(rootA);
+    boolean rootBValid = rootB > 0.0 && Double.isFinite(rootB);
+    if (rootAValid && rootBValid) {
+      double rootAError = Math.abs(rootA - preferredTimeSeconds);
+      double rootBError = Math.abs(rootB - preferredTimeSeconds);
+      return OptionalDouble.of(rootAError <= rootBError ? rootA : rootB);
     }
-    if (rootA > 0.0) {
+    if (rootAValid) {
       return OptionalDouble.of(rootA);
     }
-    if (rootB > 0.0) {
+    if (rootBValid) {
       return OptionalDouble.of(rootB);
     }
     return OptionalDouble.empty();

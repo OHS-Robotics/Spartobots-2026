@@ -62,6 +62,11 @@ class ShooterTest {
     assertTrue(movingSolution.feasible());
     assertTrue(movingSolution.distanceMeters() < stationarySolution.distanceMeters());
     assertEquals(movingSolution.airtimeSeconds(), movingSolutionRepeat.airtimeSeconds(), 0.02);
+    assertEquals(
+        movingSolution.distanceMeters()
+            / (movingSolution.launchSpeedMetersPerSec() * movingSolution.launchAngle().getCos()),
+        movingSolution.airtimeSeconds(),
+        0.02);
   }
 
   private static class FakeShooterIO implements ShooterIO {

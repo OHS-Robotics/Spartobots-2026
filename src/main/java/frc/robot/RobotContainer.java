@@ -249,7 +249,8 @@ public class RobotContainer {
               shooter.setShotControlEnabled(false);
               gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
             }));
-    NamedCommands.registerCommand("alignHub", drive.alignToHub(() -> 0.0, () -> 0.0, shooter::getHubAirtimeSeconds));
+    NamedCommands.registerCommand(
+        "alignHub", drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds));
 
     // Configure the button bindings
     configureButtonBindings();
@@ -340,13 +341,7 @@ public class RobotContainer {
         drive.alignToHub(
             () -> -controller.getLeftY(),
             () -> -controller.getLeftX(),
-            () ->
-                shooter
-                    .updateHubShotSolution(
-                        drive.getPose(),
-                        drive.getNearestHubPose(),
-                        drive.getFieldRelativeVelocityMetersPerSecond())
-                    .airtimeSeconds());
+            this::updateHubShotSolutionAndGetAirtimeSeconds);
     Command shooterAutoAdjustCommand =
         Commands.startEnd(
             () -> setShooterDemandFromAlign(true), () -> setShooterDemandFromAlign(false));
@@ -367,13 +362,10 @@ public class RobotContainer {
     Command openingHubShot =
         Commands.deadline(
             Commands.waitSeconds(START_AUTO_OPENING_SHOT_SECONDS),
-            drive.alignToHub(() -> 0.0, () -> 0.0, shooter::getHubAirtimeSeconds),
+            drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds),
             Commands.run(
                     () -> {
-                      shooter.updateHubShotSolution(
-                          drive.getPose(),
-                          drive.getNearestHubPose(),
-                          drive.getFieldRelativeVelocityMetersPerSecond());
+                      updateHubShotSolutionAndGetAirtimeSeconds();
                       shooter.setShotControlEnabled(true);
                       gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                     },
@@ -481,8 +473,13 @@ public class RobotContainer {
   }
 
   public void updateHubShotSolution() {
+    updateHubShotSolutionAndGetAirtimeSeconds();
+  }
+
+  private double updateHubShotSolutionAndGetAirtimeSeconds() {
     shooter.updateHubShotSolution(
         drive.getPose(), drive.getNearestHubPose(), drive.getFieldRelativeVelocityMetersPerSecond());
+    return shooter.getHubAirtimeSeconds();
   }
 
   public void onDisabledInit() {

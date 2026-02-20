@@ -484,11 +484,13 @@ public class Drive extends SubsystemBase {
   }
 
   private Pose2d getCompensatedHub(Pose2d targetHub, double shotAirtimeSeconds) {
-    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
+    double clampedAirtimeSeconds =
+        Math.max(0.0, shotAirtimeSeconds + ShooterConstants.hubMotionCompensationLeadSeconds);
 
     // Aim opposite the current robot velocity so shot travel time is compensated in flight.
+    double compensationScale = ShooterConstants.hubMotionCompensationVelocityScale;
     Translation2d compensationOffset =
-        getFieldRelativeVelocityMetersPerSecond().times(-clampedAirtimeSeconds);
+        getFieldRelativeVelocityMetersPerSecond().times(-clampedAirtimeSeconds * compensationScale);
     return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
   }
 
