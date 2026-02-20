@@ -282,8 +282,10 @@ public class RobotContainer {
     // Right stick press (hold) = align to hub.
     controller.rightStick().whileTrue(alignToHub());
 
-    // Right trigger = run shooter + interlocked feed while held.
-    controller.rightTrigger().whileTrue(runShooterWhileHeldCommand());
+    // Right trigger = run shooter while held.
+    controller.rightTrigger().whileTrue(runShooterDemandWhileHeldCommand());
+    // Left trigger = run feed while held.
+    controller.leftTrigger().whileTrue(gamePieceManager.feedWhileHeldCommand());
 
     // Driver feed controls.
     controller.x().whileTrue(gamePieceManager.collectWhileHeldCommand());
@@ -425,11 +427,9 @@ public class RobotContainer {
         () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
   }
 
-  private Command runShooterWhileHeldCommand() {
-    return Commands.parallel(
-        Commands.startEnd(
-            () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false)),
-        gamePieceManager.feedWhileHeldCommand());
+  private Command runShooterDemandWhileHeldCommand() {
+    return Commands.startEnd(
+        () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {
