@@ -18,6 +18,7 @@ import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -30,6 +31,9 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -62,9 +66,21 @@ public class Drive extends SubsystemBase {
   private final Consumer<Pose2d> setSimulationPoseCallback;
   private final LoggedNetworkBoolean logHubAimVector =
       new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
+  private final NetworkTable hubMotionCompTuningTable =
+      NetworkTableInstance.getDefault()
+          .getTable(ShooterConstants.configTableName)
+          .getSubTable("Tuning")
+          .getSubTable("MotionCompensation")
+          .getSubTable(Constants.currentMode.name());
+  private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
+      hubMotionCompTuningTable.getEntry("VelocityScale");
+  private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
+      hubMotionCompTuningTable.getEntry("LeadSeconds");
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
+  private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
+  private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   private int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
@@ -101,6 +117,7 @@ public class Drive extends SubsystemBase {
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
     modules[3] = new Module(brModuleIO, 3);
+    configureHubMotionCompDefaults();
 
     // Usage reporting for swerve template
     HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
@@ -144,6 +161,7 @@ public class Drive extends SubsystemBase {
   @Override
   public void periodic() {
     logHubAimVector.periodic();
+    loadHubMotionCompTuning();
 
     odometryLock.lock(); // Prevents odometry updates while reading data
     gyroIO.updateInputs(gyroInputs);
@@ -484,13 +502,11 @@ public class Drive extends SubsystemBase {
   }
 
   private Pose2d getCompensatedHub(Pose2d targetHub, double shotAirtimeSeconds) {
-    double clampedAirtimeSeconds =
-        Math.max(0.0, shotAirtimeSeconds + ShooterConstants.hubMotionCompensationLeadSeconds);
+    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds + hubMotionCompLeadSeconds);
 
     // Aim opposite the current robot velocity so shot travel time is compensated in flight.
-    double compensationScale = ShooterConstants.hubMotionCompensationVelocityScale;
     Translation2d compensationOffset =
-        getFieldRelativeVelocityMetersPerSecond().times(-clampedAirtimeSeconds * compensationScale);
+        getFieldRelativeVelocityMetersPerSecond().times(-clampedAirtimeSeconds * hubMotionCompVelocityScale);
     return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
   }
 
@@ -542,6 +558,8 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("Drive/HubAim/AirtimeSeconds", airtimeSeconds);
     Logger.recordOutput("Drive/HubAim/CompensationOffsetX", compensationOffset.getX());
     Logger.recordOutput("Drive/HubAim/CompensationOffsetY", compensationOffset.getY());
+    Logger.recordOutput("Drive/HubAim/CompensationVelocityScale", hubMotionCompVelocityScale);
+    Logger.recordOutput("Drive/HubAim/CompensationLeadSeconds", hubMotionCompLeadSeconds);
     Logger.recordOutput("Drive/HubAim/VectorToTargetX", vectorToTarget.getX());
     Logger.recordOutput("Drive/HubAim/VectorToTargetY", vectorToTarget.getY());
     wasHubAimVectorLoggingEnabled = true;
@@ -555,9 +573,25 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("Drive/HubAim/AirtimeSeconds", 0.0);
     Logger.recordOutput("Drive/HubAim/CompensationOffsetX", 0.0);
     Logger.recordOutput("Drive/HubAim/CompensationOffsetY", 0.0);
+    Logger.recordOutput("Drive/HubAim/CompensationVelocityScale", 0.0);
+    Logger.recordOutput("Drive/HubAim/CompensationLeadSeconds", 0.0);
     Logger.recordOutput("Drive/HubAim/VectorToTargetX", 0.0);
     Logger.recordOutput("Drive/HubAim/VectorToTargetY", 0.0);
     wasHubAimVectorLoggingEnabled = false;
+  }
+
+  private void configureHubMotionCompDefaults() {
+    hubMotionCompVelocityScaleEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationVelocityScale);
+    hubMotionCompLeadSecondsEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationLeadSeconds);
+  }
+
+  private void loadHubMotionCompTuning() {
+    hubMotionCompVelocityScale =
+        MathUtil.clamp(hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale), 0.0, 3.0);
+    hubMotionCompLeadSeconds =
+        MathUtil.clamp(hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds), -0.25, 0.25);
+    hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
+    hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {

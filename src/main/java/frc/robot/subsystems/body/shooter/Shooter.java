@@ -8,6 +8,7 @@ import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
 import java.util.OptionalDouble;
 import org.littletonrobotics.junction.Logger;
 
@@ -40,6 +41,8 @@ public class Shooter extends SubsystemBase {
       ShooterConstants.defaultHoodRetractedPositionRotations;
   private double hoodExtendedPositionRotations =
       ShooterConstants.defaultHoodExtendedPositionRotations;
+  private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
+  private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   private double lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
   private HubShotSolution latestHubShotSolution =
       new HubShotSolution(
@@ -52,6 +55,8 @@ public class Shooter extends SubsystemBase {
   private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(ShooterConstants.configTableName);
   private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+  private final NetworkTable motionCompTuningTable =
+      tuningTable.getSubTable("MotionCompensation").getSubTable(Constants.currentMode.name());
   private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
   private final NetworkTableEntry hoodRetractedPositionEntry =
       tuningTable.getEntry("Hood/Calibration/RetractedPositionRotations");
@@ -109,6 +114,10 @@ public class Shooter extends SubsystemBase {
   private final NetworkTableEntry wheelSpeedScaleEntry = tuningTable.getEntry("Wheels/SpeedScale");
   private final NetworkTableEntry pair1DirectionEntry = tuningTable.getEntry("Wheels/Pair1Direction");
   private final NetworkTableEntry pair2DirectionEntry = tuningTable.getEntry("Wheels/Pair2Direction");
+  private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
+      motionCompTuningTable.getEntry("VelocityScale");
+  private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
+      motionCompTuningTable.getEntry("LeadSeconds");
 
   public Shooter() {
     this(new ShooterIO() {});
@@ -262,6 +271,8 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScaleEntry.setDefaultDouble(ShooterConstants.defaultWheelSpeedScale);
     pair1DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair1Direction);
     pair2DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair2Direction);
+    hubMotionCompVelocityScaleEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationVelocityScale);
+    hubMotionCompLeadSecondsEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationLeadSeconds);
     hoodMinAngleFromFloorEntry.setDefaultDouble(ShooterConstants.minHoodAngleFromFloor.getDegrees());
     hoodMaxAngleFromFloorEntry.setDefaultDouble(ShooterConstants.maxHoodAngleFromFloor.getDegrees());
   }
@@ -276,9 +287,16 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScale = clampWheelSpeedScale(wheelSpeedScaleEntry.getDouble(wheelSpeedScale));
     pair1Direction = normalizeDirection(pair1DirectionEntry.getDouble(pair1Direction));
     pair2Direction = normalizeDirection(pair2DirectionEntry.getDouble(pair2Direction));
+    hubMotionCompVelocityScale =
+        clampMotionCompVelocityScale(
+            hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale));
+    hubMotionCompLeadSeconds =
+        clampMotionCompLeadSeconds(hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds));
     wheelSpeedScaleEntry.setDouble(wheelSpeedScale);
     pair1DirectionEntry.setDouble(pair1Direction);
     pair2DirectionEntry.setDouble(pair2Direction);
+    hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
+    hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
   }
 
   private void publishHoodEncoderToNetworkTables() {
@@ -423,13 +441,12 @@ public class Shooter extends SubsystemBase {
     return new MotionCompensatedHubShotSolution(solvedShot, compensatedHubPose, iterations, converged);
   }
 
-  private static Pose2d getCompensatedHubPose(
+  private Pose2d getCompensatedHubPose(
       Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec, double shotAirtimeSeconds) {
     double clampedAirtimeSeconds =
-        Math.max(0.0, shotAirtimeSeconds + ShooterConstants.hubMotionCompensationLeadSeconds);
-    double compensationScale = ShooterConstants.hubMotionCompensationVelocityScale;
+        Math.max(0.0, shotAirtimeSeconds + hubMotionCompLeadSeconds);
     Translation2d compensationOffset =
-        robotFieldVelocityMetersPerSec.times(-clampedAirtimeSeconds * compensationScale);
+        robotFieldVelocityMetersPerSec.times(-clampedAirtimeSeconds * hubMotionCompVelocityScale);
     return new Pose2d(hubPose.getTranslation().plus(compensationOffset), hubPose.getRotation());
   }
 
@@ -678,6 +695,14 @@ public class Shooter extends SubsystemBase {
     return MathUtil.clamp(speedScale, 0.0, 1.5);
   }
 
+  private static double clampMotionCompVelocityScale(double velocityScale) {
+    return MathUtil.clamp(velocityScale, 0.0, 3.0);
+  }
+
+  private static double clampMotionCompLeadSeconds(double leadSeconds) {
+    return MathUtil.clamp(leadSeconds, -0.25, 0.25);
+  }
+
   private static double normalizeDirection(double direction) {
     return direction < 0.0 ? -1.0 : 1.0;
   }
@@ -908,6 +933,8 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/HubShot/RobotFieldVelocityY", robotFieldVelocityMetersPerSec.getY());
     Logger.recordOutput("Shooter/HubShot/CompensationOffsetX", compensationOffset.getX());
     Logger.recordOutput("Shooter/HubShot/CompensationOffsetY", compensationOffset.getY());
+    Logger.recordOutput("Shooter/HubShot/MotionCompVelocityScale", hubMotionCompVelocityScale);
+    Logger.recordOutput("Shooter/HubShot/MotionCompLeadSeconds", hubMotionCompLeadSeconds);
     Logger.recordOutput("Shooter/HubShot/MotionSolveIterations", motionSolveIterations);
     Logger.recordOutput("Shooter/HubShot/MotionSolveConverged", motionSolveConverged);
   }
