@@ -454,8 +454,9 @@ public class Shooter extends SubsystemBase {
       double horizontalDistanceMeters, double targetHeightDeltaMeters) {
     Rotation2d preferredAngle = getPreferredAngle(horizontalDistanceMeters);
 
-    HubShotSolution bestLoftedTopEntrySolution = null;
-    double bestLoftedTopEntryApexHeightMeters = Double.NEGATIVE_INFINITY;
+    HubShotSolution bestDescendingTopEntrySolution = null;
+    double bestDescendingTopEntryLaunchSpeedMetersPerSec = Double.POSITIVE_INFINITY;
+    double bestDescendingTopEntryPreferredScore = Double.POSITIVE_INFINITY;
     HubShotSolution bestPreferredSolution = null;
     double bestPreferredScore = Double.POSITIVE_INFINITY;
     for (double degrees = ShooterConstants.minLaunchAngle.getDegrees();
@@ -482,28 +483,33 @@ public class Shooter extends SubsystemBase {
               candidateAngle,
               launchSpeedMetersPerSec,
               true);
-      double candidateApexHeightMeters =
-          calculateApexHeightMeters(launchSpeedMetersPerSec, candidateAngle);
       boolean candidateDescendingAtTarget =
           calculateVerticalVelocityAtDistance(
                   horizontalDistanceMeters, launchSpeedMetersPerSec, candidateAngle)
               .orElse(Double.POSITIVE_INFINITY)
               <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec;
+      double score = Math.abs(candidateAngle.minus(preferredAngle).getDegrees());
       if (candidateDescendingAtTarget
-          && (candidateApexHeightMeters > bestLoftedTopEntryApexHeightMeters)) {
-        bestLoftedTopEntryApexHeightMeters = candidateApexHeightMeters;
-        bestLoftedTopEntrySolution = candidateSolution;
+          && ((launchSpeedMetersPerSec
+                      < (bestDescendingTopEntryLaunchSpeedMetersPerSec - 1e-6))
+              || (Math.abs(
+                          launchSpeedMetersPerSec
+                              - bestDescendingTopEntryLaunchSpeedMetersPerSec)
+                      <= 1e-6
+                  && score < bestDescendingTopEntryPreferredScore))) {
+        bestDescendingTopEntryLaunchSpeedMetersPerSec = launchSpeedMetersPerSec;
+        bestDescendingTopEntryPreferredScore = score;
+        bestDescendingTopEntrySolution = candidateSolution;
       }
 
-      double score = Math.abs(candidateAngle.minus(preferredAngle).getDegrees());
       if (score < bestPreferredScore) {
         bestPreferredScore = score;
         bestPreferredSolution = candidateSolution;
       }
     }
 
-    if (bestLoftedTopEntrySolution != null) {
-      return bestLoftedTopEntrySolution;
+    if (bestDescendingTopEntrySolution != null) {
+      return bestDescendingTopEntrySolution;
     }
 
     if (bestPreferredSolution != null) {

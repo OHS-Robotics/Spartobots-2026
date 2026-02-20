@@ -426,6 +426,10 @@ public class RobotContainer {
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {
+    if (enabled) {
+      // Re-enable automatic hood control whenever hub auto-align is engaged.
+      shooter.setManualHoodOverrideEnabled(false);
+    }
     shooterDemandFromAlign = enabled;
     refreshShooterControlDemand();
   }
