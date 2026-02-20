@@ -14,6 +14,7 @@ import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
   private static record WheelSpeedSetpoints(double pair1RadPerSec, double pair2RadPerSec) {}
+
   private static record MotionCompensatedHubShotSolution(
       HubShotSolution shotSolution, Pose2d compensatedHubPose, int iterations, boolean converged) {}
 
@@ -68,7 +69,8 @@ public class Shooter extends SubsystemBase {
       telemetryTable.getEntry("Hood/EncoderVelocityRotationsPerSec");
   private final NetworkTableEntry hoodEncoderNormalizedPositionEntry =
       telemetryTable.getEntry("Hood/EncoderPositionNormalized");
-  private final NetworkTableEntry hoodSetpointEntry = telemetryTable.getEntry("Hood/SetpointRotations");
+  private final NetworkTableEntry hoodSetpointEntry =
+      telemetryTable.getEntry("Hood/SetpointRotations");
   private final NetworkTableEntry hoodSetpointAngleEntry =
       telemetryTable.getEntry("Hood/SetpointAngleFromFloorDegrees");
   private final NetworkTableEntry hoodMeasuredAngleEntry =
@@ -112,8 +114,10 @@ public class Shooter extends SubsystemBase {
   private final NetworkTableEntry shotOverlayMaxAngleClearanceEntry =
       telemetryTable.getEntry("Overlay/Calibration/MaxAngleClearanceAtTargetMeters");
   private final NetworkTableEntry wheelSpeedScaleEntry = tuningTable.getEntry("Wheels/SpeedScale");
-  private final NetworkTableEntry pair1DirectionEntry = tuningTable.getEntry("Wheels/Pair1Direction");
-  private final NetworkTableEntry pair2DirectionEntry = tuningTable.getEntry("Wheels/Pair2Direction");
+  private final NetworkTableEntry pair1DirectionEntry =
+      tuningTable.getEntry("Wheels/Pair1Direction");
+  private final NetworkTableEntry pair2DirectionEntry =
+      tuningTable.getEntry("Wheels/Pair2Direction");
   private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
       motionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
@@ -222,7 +226,8 @@ public class Shooter extends SubsystemBase {
             motorRotationsToHoodAngle(hoodSetpointMotorRotations).getDegrees() + deltaDegrees,
             ShooterConstants.minLaunchAngle.getDegrees(),
             ShooterConstants.maxLaunchAngle.getDegrees());
-    hoodSetpointMotorRotations = hoodAngleToMotorRotations(Rotation2d.fromDegrees(targetAngleDegrees));
+    hoodSetpointMotorRotations =
+        hoodAngleToMotorRotations(Rotation2d.fromDegrees(targetAngleDegrees));
   }
 
   public void adjustHoodSetpointRotations(double deltaRotations) {
@@ -238,7 +243,9 @@ public class Shooter extends SubsystemBase {
   public HubShotSolution updateHubShotSolution(
       Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
     Translation2d robotFieldVelocity =
-        robotFieldVelocityMetersPerSec != null ? robotFieldVelocityMetersPerSec : new Translation2d();
+        robotFieldVelocityMetersPerSec != null
+            ? robotFieldVelocityMetersPerSec
+            : new Translation2d();
     double targetHeightDeltaMeters = ShooterConstants.hubCenterHeightMeters - launchHeightMeters;
     MotionCompensatedHubShotSolution motionCompensatedSolution =
         solveHubShotWithMotionCompensation(
@@ -266,15 +273,21 @@ public class Shooter extends SubsystemBase {
   }
 
   private void configureNetworkTableDefaults() {
-    hoodRetractedPositionEntry.setDefaultDouble(ShooterConstants.defaultHoodRetractedPositionRotations);
-    hoodExtendedPositionEntry.setDefaultDouble(ShooterConstants.defaultHoodExtendedPositionRotations);
+    hoodRetractedPositionEntry.setDefaultDouble(
+        ShooterConstants.defaultHoodRetractedPositionRotations);
+    hoodExtendedPositionEntry.setDefaultDouble(
+        ShooterConstants.defaultHoodExtendedPositionRotations);
     wheelSpeedScaleEntry.setDefaultDouble(ShooterConstants.defaultWheelSpeedScale);
     pair1DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair1Direction);
     pair2DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair2Direction);
-    hubMotionCompVelocityScaleEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationVelocityScale);
-    hubMotionCompLeadSecondsEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationLeadSeconds);
-    hoodMinAngleFromFloorEntry.setDefaultDouble(ShooterConstants.minHoodAngleFromFloor.getDegrees());
-    hoodMaxAngleFromFloorEntry.setDefaultDouble(ShooterConstants.maxHoodAngleFromFloor.getDegrees());
+    hubMotionCompVelocityScaleEntry.setDefaultDouble(
+        ShooterConstants.hubMotionCompensationVelocityScale);
+    hubMotionCompLeadSecondsEntry.setDefaultDouble(
+        ShooterConstants.hubMotionCompensationLeadSeconds);
+    hoodMinAngleFromFloorEntry.setDefaultDouble(
+        ShooterConstants.minHoodAngleFromFloor.getDegrees());
+    hoodMaxAngleFromFloorEntry.setDefaultDouble(
+        ShooterConstants.maxHoodAngleFromFloor.getDegrees());
   }
 
   private void loadNetworkTableConfig() {
@@ -291,7 +304,8 @@ public class Shooter extends SubsystemBase {
         clampMotionCompVelocityScale(
             hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale));
     hubMotionCompLeadSeconds =
-        clampMotionCompLeadSeconds(hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds));
+        clampMotionCompLeadSeconds(
+            hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds));
     wheelSpeedScaleEntry.setDouble(wheelSpeedScale);
     pair1DirectionEntry.setDouble(pair1Direction);
     pair2DirectionEntry.setDouble(pair2Direction);
@@ -304,7 +318,8 @@ public class Shooter extends SubsystemBase {
     Rotation2d measuredAngle = motorRotationsToHoodAngle(inputs.hoodPositionRotations);
     hoodEncoderPositionEntry.setDouble(inputs.hoodPositionRotations);
     hoodEncoderVelocityEntry.setDouble(inputs.hoodVelocityRotationsPerSec);
-    hoodEncoderNormalizedPositionEntry.setDouble(getHoodNormalizedPosition(inputs.hoodPositionRotations));
+    hoodEncoderNormalizedPositionEntry.setDouble(
+        getHoodNormalizedPosition(inputs.hoodPositionRotations));
     hoodSetpointEntry.setDouble(hoodSetpointMotorRotations);
     hoodSetpointAngleEntry.setDouble(setpointAngle.getDegrees());
     hoodMeasuredAngleEntry.setDouble(measuredAngle.getDegrees());
@@ -329,7 +344,8 @@ public class Shooter extends SubsystemBase {
     double setpointLaunchSpeedMetersPerSec =
         estimateLaunchSpeedFromWheelVelocitiesMetersPerSec(
             pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
-    double measuredLaunchSpeedMetersPerSec = getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec();
+    double measuredLaunchSpeedMetersPerSec =
+        getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec();
 
     double targetDistanceMeters = Math.max(0.0, latestHubShotSolution.distanceMeters());
     double hubCenterHeightMeters = ShooterConstants.hubCenterHeightMeters;
@@ -438,13 +454,13 @@ public class Shooter extends SubsystemBase {
       solvedShot = solveHubShot(compensatedDistanceMeters, targetHeightDeltaMeters);
     }
 
-    return new MotionCompensatedHubShotSolution(solvedShot, compensatedHubPose, iterations, converged);
+    return new MotionCompensatedHubShotSolution(
+        solvedShot, compensatedHubPose, iterations, converged);
   }
 
   private Pose2d getCompensatedHubPose(
       Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec, double shotAirtimeSeconds) {
-    double clampedAirtimeSeconds =
-        Math.max(0.0, shotAirtimeSeconds + hubMotionCompLeadSeconds);
+    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds + hubMotionCompLeadSeconds);
     Translation2d compensationOffset =
         robotFieldVelocityMetersPerSec.times(-clampedAirtimeSeconds * hubMotionCompVelocityScale);
     return new Pose2d(hubPose.getTranslation().plus(compensationOffset), hubPose.getRotation());
@@ -485,16 +501,13 @@ public class Shooter extends SubsystemBase {
               true);
       boolean candidateDescendingAtTarget =
           calculateVerticalVelocityAtDistance(
-                  horizontalDistanceMeters, launchSpeedMetersPerSec, candidateAngle)
-              .orElse(Double.POSITIVE_INFINITY)
+                      horizontalDistanceMeters, launchSpeedMetersPerSec, candidateAngle)
+                  .orElse(Double.POSITIVE_INFINITY)
               <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec;
       double score = Math.abs(candidateAngle.minus(preferredAngle).getDegrees());
       if (candidateDescendingAtTarget
-          && ((launchSpeedMetersPerSec
-                      < (bestDescendingTopEntryLaunchSpeedMetersPerSec - 1e-6))
-              || (Math.abs(
-                          launchSpeedMetersPerSec
-                              - bestDescendingTopEntryLaunchSpeedMetersPerSec)
+          && ((launchSpeedMetersPerSec < (bestDescendingTopEntryLaunchSpeedMetersPerSec - 1e-6))
+              || (Math.abs(launchSpeedMetersPerSec - bestDescendingTopEntryLaunchSpeedMetersPerSec)
                       <= 1e-6
                   && score < bestDescendingTopEntryPreferredScore))) {
         bestDescendingTopEntryLaunchSpeedMetersPerSec = launchSpeedMetersPerSec;
@@ -618,7 +631,8 @@ public class Shooter extends SubsystemBase {
       return OptionalDouble.empty();
     }
 
-    double initialVerticalVelocityMetersPerSec = launchSpeedMagnitude * Math.sin(launchAngle.getRadians());
+    double initialVerticalVelocityMetersPerSec =
+        launchSpeedMagnitude * Math.sin(launchAngle.getRadians());
     double verticalVelocityMetersPerSec =
         initialVerticalVelocityMetersPerSec
             - (ShooterConstants.gravityMetersPerSecSquared * timeSeconds);
@@ -628,13 +642,13 @@ public class Shooter extends SubsystemBase {
     return OptionalDouble.of(verticalVelocityMetersPerSec);
   }
 
-  private double calculateApexHeightMeters(
-      double launchSpeedMetersPerSec, Rotation2d launchAngle) {
+  private double calculateApexHeightMeters(double launchSpeedMetersPerSec, Rotation2d launchAngle) {
     double launchSpeedMagnitude = Math.abs(launchSpeedMetersPerSec);
     if (launchSpeedMagnitude < 1e-6) {
       return launchHeightMeters;
     }
-    double initialVerticalVelocityMetersPerSec = launchSpeedMagnitude * Math.sin(launchAngle.getRadians());
+    double initialVerticalVelocityMetersPerSec =
+        launchSpeedMagnitude * Math.sin(launchAngle.getRadians());
     double apexHeightMeters =
         launchHeightMeters
             + ((initialVerticalVelocityMetersPerSec * initialVerticalVelocityMetersPerSec)
@@ -1002,8 +1016,10 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/HubShot/Feasible", solution.feasible());
     Logger.recordOutput("Shooter/HubShot/BaseTargetPose", baseHubPose);
     Logger.recordOutput("Shooter/HubShot/CompensatedTargetPose", compensatedHubPose);
-    Logger.recordOutput("Shooter/HubShot/RobotFieldVelocityX", robotFieldVelocityMetersPerSec.getX());
-    Logger.recordOutput("Shooter/HubShot/RobotFieldVelocityY", robotFieldVelocityMetersPerSec.getY());
+    Logger.recordOutput(
+        "Shooter/HubShot/RobotFieldVelocityX", robotFieldVelocityMetersPerSec.getX());
+    Logger.recordOutput(
+        "Shooter/HubShot/RobotFieldVelocityY", robotFieldVelocityMetersPerSec.getY());
     Logger.recordOutput("Shooter/HubShot/CompensationOffsetX", compensationOffset.getX());
     Logger.recordOutput("Shooter/HubShot/CompensationOffsetY", compensationOffset.getY());
     Logger.recordOutput("Shooter/HubShot/ApexHeightMeters", apexHeightMeters);

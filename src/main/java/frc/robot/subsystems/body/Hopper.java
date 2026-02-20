@@ -91,7 +91,8 @@ public class Hopper extends SubsystemBase {
 
   public void updateBelt() {
     lastAppliedBeltSpeed =
-        applyDirection(targetBeltSpeed, hopperBeltDirectionEntry, HopperConstants.defaultHopperBeltDirection);
+        applyDirection(
+            targetBeltSpeed, hopperBeltDirectionEntry, HopperConstants.defaultHopperBeltDirection);
     hopperBelt.set(lastAppliedBeltSpeed);
     beltRunning = Math.abs(lastAppliedBeltSpeed) > 1e-3;
   }
@@ -191,7 +192,8 @@ public class Hopper extends SubsystemBase {
     hopperExtensionRetractedPositionEntry.setDouble(hopperExtensionRetractedPositionRotations);
     hopperExtensionExtendedPositionEntry.setDouble(hopperExtensionExtendedPositionRotations);
     double hopperBeltDirection =
-        normalizeDirection(hopperBeltDirectionEntry.getDouble(HopperConstants.defaultHopperBeltDirection));
+        normalizeDirection(
+            hopperBeltDirectionEntry.getDouble(HopperConstants.defaultHopperBeltDirection));
     hopperBeltDirectionEntry.setDouble(hopperBeltDirection);
   }
 
@@ -201,7 +203,8 @@ public class Hopper extends SubsystemBase {
     return applyInversion(scaledSpeed, invertedEntry);
   }
 
-  private double applyDirection(double speed, NetworkTableEntry directionEntry, double defaultDirection) {
+  private double applyDirection(
+      double speed, NetworkTableEntry directionEntry, double defaultDirection) {
     return clampSpeed(speed) * normalizeDirection(directionEntry.getDouble(defaultDirection));
   }
 
@@ -228,7 +231,8 @@ public class Hopper extends SubsystemBase {
     double beltAppliedOutput = hopperBelt.get();
     double estimatedBeltVelocityRotationsPerSec =
         beltAppliedOutput * hopperBeltEstimatedMaxVelocityRotationsPerSec;
-    hopperBeltEstimatedPositionRotations += estimatedBeltVelocityRotationsPerSec * loopPeriodSeconds;
+    hopperBeltEstimatedPositionRotations +=
+        estimatedBeltVelocityRotationsPerSec * loopPeriodSeconds;
 
     hopperBeltAppliedOutputEntry.setDouble(beltAppliedOutput);
     hopperBeltEstimatedVelocityEntry.setDouble(estimatedBeltVelocityRotationsPerSec);
@@ -287,7 +291,8 @@ public class Hopper extends SubsystemBase {
                 HopperConstants.defaultHopperExtensionSpeedScale)));
     Logger.recordOutput(
         "Hopper/Config/BeltDirection",
-        normalizeDirection(hopperBeltDirectionEntry.getDouble(HopperConstants.defaultHopperBeltDirection)));
+        normalizeDirection(
+            hopperBeltDirectionEntry.getDouble(HopperConstants.defaultHopperBeltDirection)));
     Logger.recordOutput(
         "Hopper/Config/ExtensionInverted",
         hopperExtensionInvertedEntry.getBoolean(HopperConstants.defaultHopperExtensionInverted));

@@ -234,10 +234,14 @@ public class RobotContainer {
     // Register commands to be used in PathPlanner autos.
     NamedCommands.registerCommand("trench", autoDriveUnderTrenchCommand());
     NamedCommands.registerCommand("outpost", driveToOutpostCommand());
-    NamedCommands.registerCommand("collectStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.COLLECT));
-    NamedCommands.registerCommand("collectStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
-    NamedCommands.registerCommand("feedStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.FEED));
-    NamedCommands.registerCommand("feedStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
+    NamedCommands.registerCommand(
+        "collectStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.COLLECT));
+    NamedCommands.registerCommand(
+        "collectStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
+    NamedCommands.registerCommand(
+        "feedStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.FEED));
+    NamedCommands.registerCommand(
+        "feedStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
     NamedCommands.registerCommand(
         "shooterOn",
         Commands.runOnce(() -> shooter.setShotControlEnabled(true))
@@ -250,7 +254,8 @@ public class RobotContainer {
               gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
             }));
     NamedCommands.registerCommand(
-        "alignHub", drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds));
+        "alignHub",
+        drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds));
 
     // Configure the button bindings
     configureButtonBindings();
@@ -303,7 +308,9 @@ public class RobotContainer {
     controller.povRight().whileTrue(runIntakePivotWhileHeldCommand(MANUAL_INTAKE_PIVOT_SPEED));
     // Y/start = hopper extension out/in.
     controller.y().whileTrue(runHopperExtensionWhileHeldCommand(MANUAL_HOPPER_EXTENSION_SPEED));
-    controller.start().whileTrue(runHopperExtensionWhileHeldCommand(-MANUAL_HOPPER_EXTENSION_SPEED));
+    controller
+        .start()
+        .whileTrue(runHopperExtensionWhileHeldCommand(-MANUAL_HOPPER_EXTENSION_SPEED));
 
     // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
     new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
@@ -482,7 +489,9 @@ public class RobotContainer {
 
   private double updateHubShotSolutionAndGetAirtimeSeconds() {
     shooter.updateHubShotSolution(
-        drive.getPose(), drive.getNearestHubPose(), drive.getFieldRelativeVelocityMetersPerSecond());
+        drive.getPose(),
+        drive.getNearestHubPose(),
+        drive.getFieldRelativeVelocityMetersPerSecond());
     return shooter.getHubAirtimeSeconds();
   }
 
@@ -542,15 +551,11 @@ public class RobotContainer {
         "FieldSimulation/RobotParts/SwerveModules",
         getSimulatedModulePoses(robotPose, humpPoseSample));
     Logger.recordOutput("FieldSimulation/GamePieces/Fuel", arena.getGamePiecesArrayByType("Fuel"));
+    Logger.recordOutput("FieldSimulation/GamePieces/Note", arena.getGamePiecesArrayByType("Note"));
     Logger.recordOutput(
-        "FieldSimulation/GamePieces/Note",
-        arena.getGamePiecesArrayByType("Note"));
+        "FieldSimulation/GamePieces/Coral", arena.getGamePiecesArrayByType("Coral"));
     Logger.recordOutput(
-        "FieldSimulation/GamePieces/Coral",
-        arena.getGamePiecesArrayByType("Coral"));
-    Logger.recordOutput(
-        "FieldSimulation/GamePieces/Algae",
-        arena.getGamePiecesArrayByType("Algae"));
+        "FieldSimulation/GamePieces/Algae", arena.getGamePiecesArrayByType("Algae"));
     Logger.recordOutput(
         "Shooter/Simulation/ActiveFuelProjectiles", getActiveFuelProjectilePoses(arena));
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);

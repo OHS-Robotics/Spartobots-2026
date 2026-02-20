@@ -45,9 +45,11 @@ public class Intake extends SubsystemBase {
   private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
 
   private final NetworkTableEntry intakeSpeedEntry = tuningTable.getEntry("Drive/Speed");
-  private final NetworkTableEntry intakePivotSpeedScaleEntry = tuningTable.getEntry("Pivot/SpeedScale");
+  private final NetworkTableEntry intakePivotSpeedScaleEntry =
+      tuningTable.getEntry("Pivot/SpeedScale");
   private final NetworkTableEntry intakePivotInvertedEntry = tuningTable.getEntry("Pivot/Inverted");
-  private final NetworkTableEntry intakeDriveDirectionEntry = tuningTable.getEntry("Drive/Direction");
+  private final NetworkTableEntry intakeDriveDirectionEntry =
+      tuningTable.getEntry("Drive/Direction");
   private final NetworkTableEntry intakePivotRetractedPositionEntry =
       tuningTable.getEntry("Pivot/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry intakePivotExtendedPositionEntry =
@@ -89,7 +91,10 @@ public class Intake extends SubsystemBase {
 
   public void updateIntake() {
     lastAppliedIntakeDriveSpeed =
-        applyDirection(targetIntakeSpeed, intakeDriveDirectionEntry, IntakeConstants.defaultIntakeDriveDirection);
+        applyDirection(
+            targetIntakeSpeed,
+            intakeDriveDirectionEntry,
+            IntakeConstants.defaultIntakeDriveDirection);
     intakeDrive.set(lastAppliedIntakeDriveSpeed);
     intakeRunning = Math.abs(lastAppliedIntakeDriveSpeed) > 1e-3;
   }
@@ -187,7 +192,8 @@ public class Intake extends SubsystemBase {
     intakePivotRetractedPositionEntry.setDouble(intakePivotRetractedPositionRotations);
     intakePivotExtendedPositionEntry.setDouble(intakePivotExtendedPositionRotations);
     double intakeDriveDirection =
-        normalizeDirection(intakeDriveDirectionEntry.getDouble(IntakeConstants.defaultIntakeDriveDirection));
+        normalizeDirection(
+            intakeDriveDirectionEntry.getDouble(IntakeConstants.defaultIntakeDriveDirection));
     intakeDriveDirectionEntry.setDouble(intakeDriveDirection);
   }
 
@@ -197,7 +203,8 @@ public class Intake extends SubsystemBase {
     return applyInversion(scaledSpeed, invertedEntry);
   }
 
-  private double applyDirection(double speed, NetworkTableEntry directionEntry, double defaultDirection) {
+  private double applyDirection(
+      double speed, NetworkTableEntry directionEntry, double defaultDirection) {
     return clampSpeed(speed) * normalizeDirection(directionEntry.getDouble(defaultDirection));
   }
 
@@ -282,7 +289,8 @@ public class Intake extends SubsystemBase {
             intakePivotSpeedScaleEntry.getDouble(IntakeConstants.defaultIntakePivotSpeedScale)));
     Logger.recordOutput(
         "Intake/Config/DriveDirection",
-        normalizeDirection(intakeDriveDirectionEntry.getDouble(IntakeConstants.defaultIntakeDriveDirection)));
+        normalizeDirection(
+            intakeDriveDirectionEntry.getDouble(IntakeConstants.defaultIntakeDriveDirection)));
     Logger.recordOutput(
         "Intake/Config/PivotInverted",
         intakePivotInvertedEntry.getBoolean(IntakeConstants.defaultIntakePivotInverted));
@@ -300,7 +308,8 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput("Intake/Measured/PivotCurrentAmps", intakePivot.getOutputCurrent());
     Logger.recordOutput(
         "Intake/Measured/PivotEncoderPositionRotations", getIntakePivotMeasuredPositionRotations());
-    Logger.recordOutput("Intake/Measured/PivotEncoderVelocityRpm", intakePivotEncoder.getVelocity());
+    Logger.recordOutput(
+        "Intake/Measured/PivotEncoderVelocityRpm", intakePivotEncoder.getVelocity());
     Logger.recordOutput(
         "Intake/Measured/PivotEncoderPositionNormalized",
         getIntakePivotMeasuredPositionNormalized());

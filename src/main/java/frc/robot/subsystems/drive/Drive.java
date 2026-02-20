@@ -410,14 +410,21 @@ public class Drive extends SubsystemBase {
       case 1 -> new Translation2d[] {Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner};
       case 2 -> new Translation2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
       case 3 -> new Translation2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
-      case 4 ->
-          new Translation2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
-      case 5 ->
-          new Translation2d[] {Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner};
-      case 6 -> new Translation2d[] {Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner};
-      case 7 -> new Translation2d[] {Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter};
-      default ->
-          new Translation2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
+      case 4 -> new Translation2d[] {
+        Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
+      };
+      case 5 -> new Translation2d[] {
+        Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner
+      };
+      case 6 -> new Translation2d[] {
+        Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner
+      };
+      case 7 -> new Translation2d[] {
+        Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter
+      };
+      default -> new Translation2d[] {
+        Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
+      };
     };
   }
 
@@ -506,7 +513,8 @@ public class Drive extends SubsystemBase {
 
     // Aim opposite the current robot velocity so shot travel time is compensated in flight.
     Translation2d compensationOffset =
-        getFieldRelativeVelocityMetersPerSecond().times(-clampedAirtimeSeconds * hubMotionCompVelocityScale);
+        getFieldRelativeVelocityMetersPerSecond()
+            .times(-clampedAirtimeSeconds * hubMotionCompVelocityScale);
     return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
   }
 
@@ -581,15 +589,19 @@ public class Drive extends SubsystemBase {
   }
 
   private void configureHubMotionCompDefaults() {
-    hubMotionCompVelocityScaleEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationVelocityScale);
-    hubMotionCompLeadSecondsEntry.setDefaultDouble(ShooterConstants.hubMotionCompensationLeadSeconds);
+    hubMotionCompVelocityScaleEntry.setDefaultDouble(
+        ShooterConstants.hubMotionCompensationVelocityScale);
+    hubMotionCompLeadSecondsEntry.setDefaultDouble(
+        ShooterConstants.hubMotionCompensationLeadSeconds);
   }
 
   private void loadHubMotionCompTuning() {
     hubMotionCompVelocityScale =
-        MathUtil.clamp(hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale), 0.0, 3.0);
+        MathUtil.clamp(
+            hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale), 0.0, 3.0);
     hubMotionCompLeadSeconds =
-        MathUtil.clamp(hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds), -0.25, 0.25);
+        MathUtil.clamp(
+            hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds), -0.25, 0.25);
     hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
     hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
   }

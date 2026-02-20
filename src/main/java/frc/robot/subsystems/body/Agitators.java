@@ -80,7 +80,9 @@ public class Agitators extends SubsystemBase {
   public void updateAgitators() {
     lastAppliedTopAgitatorSpeed =
         applyDirection(
-            targetTopAgitatorSpeed, topAgitatorDirectionEntry, AgitatorsConstants.defaultTopAgitatorDirection);
+            targetTopAgitatorSpeed,
+            topAgitatorDirectionEntry,
+            AgitatorsConstants.defaultTopAgitatorDirection);
     lastAppliedBottomAgitatorSpeed =
         applyDirection(
             targetBottomAgitatorSpeed,
@@ -89,7 +91,8 @@ public class Agitators extends SubsystemBase {
     topAgitator.set(lastAppliedTopAgitatorSpeed);
     bottomAgitator.set(lastAppliedBottomAgitatorSpeed);
     agitatorRunning =
-        Math.abs(lastAppliedTopAgitatorSpeed) > 1e-3 || Math.abs(lastAppliedBottomAgitatorSpeed) > 1e-3;
+        Math.abs(lastAppliedTopAgitatorSpeed) > 1e-3
+            || Math.abs(lastAppliedBottomAgitatorSpeed) > 1e-3;
   }
 
   public void reverseAgitatorSpeed() {
@@ -159,7 +162,8 @@ public class Agitators extends SubsystemBase {
     topAgitatorSpeedEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorSpeed);
     bottomAgitatorSpeedEntry.setDefaultDouble(AgitatorsConstants.defaultBottomAgitatorSpeed);
     topAgitatorDirectionEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorDirection);
-    bottomAgitatorDirectionEntry.setDefaultDouble(AgitatorsConstants.defaultBottomAgitatorDirection);
+    bottomAgitatorDirectionEntry.setDefaultDouble(
+        AgitatorsConstants.defaultBottomAgitatorDirection);
   }
 
   private void loadNetworkTableConfig() {
@@ -169,7 +173,8 @@ public class Agitators extends SubsystemBase {
     topAgitatorSpeedEntry.setDouble(targetTopAgitatorSpeed);
     bottomAgitatorSpeedEntry.setDouble(targetBottomAgitatorSpeed);
     double topDirection =
-        normalizeDirection(topAgitatorDirectionEntry.getDouble(AgitatorsConstants.defaultTopAgitatorDirection));
+        normalizeDirection(
+            topAgitatorDirectionEntry.getDouble(AgitatorsConstants.defaultTopAgitatorDirection));
     double bottomDirection =
         normalizeDirection(
             bottomAgitatorDirectionEntry.getDouble(
@@ -178,7 +183,8 @@ public class Agitators extends SubsystemBase {
     bottomAgitatorDirectionEntry.setDouble(bottomDirection);
   }
 
-  private double applyDirection(double speed, NetworkTableEntry directionEntry, double defaultDirection) {
+  private double applyDirection(
+      double speed, NetworkTableEntry directionEntry, double defaultDirection) {
     return clampSpeed(speed) * normalizeDirection(directionEntry.getDouble(defaultDirection));
   }
 
@@ -216,7 +222,8 @@ public class Agitators extends SubsystemBase {
     double bottomEstimatedVelocityRotationsPerSec =
         bottomAppliedOutput * agitatorEstimatedMaxVelocityRotationsPerSec;
 
-    topAgitatorEstimatedPositionRotations += topEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
+    topAgitatorEstimatedPositionRotations +=
+        topEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
     bottomAgitatorEstimatedPositionRotations +=
         bottomEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
 

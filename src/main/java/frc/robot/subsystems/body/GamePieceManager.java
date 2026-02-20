@@ -190,7 +190,8 @@ public class GamePieceManager extends SubsystemBase {
         jamTimerActive = false;
       }
 
-      if (mode != Mode.UNJAM && jamTimer.hasElapsed(GamePieceManagerConstants.jamDetectionSeconds)) {
+      if (mode != Mode.UNJAM
+          && jamTimer.hasElapsed(GamePieceManagerConstants.jamDetectionSeconds)) {
         modeBeforeUnjam = mode;
         mode = Mode.UNJAM;
         modeTimer.restart();
@@ -286,8 +287,10 @@ public class GamePieceManager extends SubsystemBase {
     Logger.recordOutput("GamePieceManager/Sensor/IntakeDetected", intakeDetected);
     Logger.recordOutput("GamePieceManager/Sensor/HopperDetected", hopperDetected);
     Logger.recordOutput("GamePieceManager/Sensor/ShooterDetected", shooterDetected);
-    Logger.recordOutput("GamePieceManager/Interlock/ShooterReady", shooterReadySupplier.getAsBoolean());
-    Logger.recordOutput("GamePieceManager/Interlock/PieceAvailableForFeed", hasPieceAvailableForFeed());
+    Logger.recordOutput(
+        "GamePieceManager/Interlock/ShooterReady", shooterReadySupplier.getAsBoolean());
+    Logger.recordOutput(
+        "GamePieceManager/Interlock/PieceAvailableForFeed", hasPieceAvailableForFeed());
     Logger.recordOutput("GamePieceManager/Current/FeedCurrentAmps", getFeedCurrentAmps());
   }
 }
