@@ -116,6 +116,8 @@ public class RobotContainer {
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
   private Command activeAutoAssistCommand = null;
+  private boolean shooterDemandFromAlign = false;
+  private boolean shooterDemandFromTrigger = false;
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -315,13 +317,18 @@ public class RobotContainer {
   }
 
   public Command alignToHub() {
-    return drive.alignToHub(
-        () -> -controller.getLeftY(),
-        () -> -controller.getLeftX(),
-        () ->
-            shooter
-                .updateHubShotSolution(drive.getPose(), drive.getNearestHubPose())
-                .airtimeSeconds());
+    Command driveAlignCommand =
+        drive.alignToHub(
+            () -> -controller.getLeftY(),
+            () -> -controller.getLeftX(),
+            () ->
+                shooter
+                    .updateHubShotSolution(drive.getPose(), drive.getNearestHubPose())
+                    .airtimeSeconds());
+    Command shooterAutoAdjustCommand =
+        Commands.startEnd(
+            () -> setShooterDemandFromAlign(true), () -> setShooterDemandFromAlign(false));
+    return driveAlignCommand.alongWith(shooterAutoAdjustCommand);
   }
 
   public Command alignToOutpost() {
@@ -355,9 +362,21 @@ public class RobotContainer {
 
   private Command runShooterWhileHeldCommand() {
     return Commands.startEnd(
-        () -> shooter.setShotControlEnabled(true),
-        () -> shooter.setShotControlEnabled(false),
-        shooter);
+        () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
+  }
+
+  private void setShooterDemandFromAlign(boolean enabled) {
+    shooterDemandFromAlign = enabled;
+    refreshShooterControlDemand();
+  }
+
+  private void setShooterDemandFromTrigger(boolean enabled) {
+    shooterDemandFromTrigger = enabled;
+    refreshShooterControlDemand();
+  }
+
+  private void refreshShooterControlDemand() {
+    shooter.setShotControlEnabled(shooterDemandFromAlign || shooterDemandFromTrigger);
   }
 
   private Command continueAutoSequenceCommand() {
