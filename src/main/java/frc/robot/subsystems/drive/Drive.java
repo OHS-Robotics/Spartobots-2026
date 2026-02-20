@@ -11,6 +11,8 @@ import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
@@ -64,6 +66,9 @@ public class Drive extends SubsystemBase {
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
   public int octant;
+
+  private PathPlannerAuto outpost;
+  private PathPlannerAuto defaultAuto;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -126,6 +131,14 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
+
+    // register commmands to be used in PathPlanner autos
+    NamedCommands.registerCommand("trench", Commands.runOnce(() -> autoDriveUnderTrench(), this));
+    NamedCommands.registerCommand("outpost", Commands.runOnce(() -> driveToOutpost(), this));
+
+    // define autos here
+    outpost = new PathPlannerAuto("Outpost");
+    defaultAuto = new PathPlannerAuto("Default");
 
     // Configure SysId
     sysId =
@@ -361,7 +374,7 @@ public class Drive extends SubsystemBase {
   }
 
   public Command getAutonomousCommand() {
-    return outpostLoadAuto();
+    return outpost;
   }
 
   public void autoDriveUnderTrench() {
@@ -458,26 +471,12 @@ public class Drive extends SubsystemBase {
     return AutoBuilder.pathfindToPose(target, pathConstraints);
   }
 
-  public Command outpostLoadAuto() {
-    return AutoBuilder.pathfindToPose(getNearestOutpost(), pathConstraints);
-  }
-
   private Pose2d getNearestHub() {
     double distanceToRedHub =
         getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
     double distanceToBlueHub =
         getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
     return distanceToRedHub < distanceToBlueHub ? Constants.redHub : Constants.blueHub;
-  }
-
-  private Pose2d getNearestOutpost() {
-    if (DriverStation.getAlliance().isPresent()) {
-      if (DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
-        return Constants.redOutpost;
-      }
-      return Constants.blueOutpost;
-    }
-    return Constants.blueOutpost;
   }
 
   public Pose2d getNearestHubPose() {

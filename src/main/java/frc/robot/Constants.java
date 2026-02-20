@@ -85,6 +85,8 @@ public final class Constants {
   // define outpost positions
   public static final Pose2d blueOutpost = new Pose2d(.5, .66, new Rotation2d(0));
   public static final Pose2d blueOutpostBefore = new Pose2d(1, .66, new Rotation2d(0));
-  public static final Pose2d redOutpost = new Pose2d(16, 7.38, new Rotation2d(Units.degreesToRadians(180)));
-  public static final Pose2d redOutpostBefore = new Pose2d(15.5, 7.38, new Rotation2d(Units.degreesToRadians(180)));
+  public static final Pose2d redOutpost =
+      new Pose2d(16, 7.38, new Rotation2d(Units.degreesToRadians(180)));
+  public static final Pose2d redOutpostBefore =
+      new Pose2d(15.5, 7.38, new Rotation2d(Units.degreesToRadians(180)));
 }

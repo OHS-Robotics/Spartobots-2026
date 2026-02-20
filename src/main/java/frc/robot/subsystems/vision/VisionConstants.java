@@ -13,6 +13,7 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import frc.robot.subsystems.drive.DriveConstants;
 
 public class VisionConstants {
   // AprilTag layout
@@ -25,13 +26,21 @@ public class VisionConstants {
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
+
+  // we need to update these probably
   public static Transform3d robotToCamera0 =
       new Transform3d(
           new Translation3d(
-              Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
-          new Rotation3d(0, 0, Units.degreesToRadians(-90)));
+              -DriveConstants.trackWidth / 2.0,
+              DriveConstants.wheelBase / 2.0,
+              Units.inchesToMeters(4.0)),
+          new Rotation3d(0, Units.degreesToRadians(40), Units.degreesToRadians(135)));
   public static Transform3d robotToCamera1 =
-      new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI));
+      new Transform3d(
+          -DriveConstants.trackWidth / 2.0,
+          -DriveConstants.wheelBase / 2.0,
+          Units.inchesToMeters(4.0),
+          new Rotation3d(0.0, Units.degreesToRadians(40), Units.degreesToRadians(-135)));
 
   // Basic filtering thresholds
   public static double maxAmbiguity = 0.3;
