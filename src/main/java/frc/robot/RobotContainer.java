@@ -56,7 +56,6 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
-import java.util.Set;
 import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -300,16 +299,7 @@ public class RobotContainer {
   }
 
   public Command autoDriveUnderTrenchCommand() {
-    return Commands.defer(
-        () -> {
-          Translation2d[] poses = drive.determineTrenchPoses();
-          double robotAngleRadians = drive.getRotation().getRadians();
-          double angleRadians =
-              DriveConstants.trenchSnapTo
-                  * Math.round(robotAngleRadians / DriveConstants.trenchSnapTo);
-          return drive.autoDriveUnderTrenchCommand(poses, angleRadians);
-        },
-        Set.of(drive));
+    return drive.autoDriveUnderTrenchCommand();
   }
 
   public Command driveToOutpostCommand() {

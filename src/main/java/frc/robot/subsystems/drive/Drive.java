@@ -44,6 +44,7 @@ import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
 import frc.robot.util.LocalADStarAK;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -64,7 +65,7 @@ public class Drive extends SubsystemBase {
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
-  public int octant;
+  private int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -365,51 +366,41 @@ public class Drive extends SubsystemBase {
     return outpostLoadAuto();
   }
 
-  public void autoDriveUnderTrench() {
-    Translation2d[] poses = determineTrenchPoses();
-    double robotAngleRadians = getRotation().getRadians();
-    double angleRadians =
-        (DriveConstants.trenchSnapTo)
-            * Math.round(robotAngleRadians / (DriveConstants.trenchSnapTo));
-    CommandScheduler.getInstance().schedule(autoDriveUnderTrenchCommand(poses, angleRadians));
+  public Command autoDriveUnderTrenchCommand() {
+    return Commands.defer(
+        () -> {
+          Translation2d[] trenchPoses = determineTrenchPoses();
+          double snappedAngleRadians =
+              DriveConstants.trenchSnapTo
+                  * Math.round(getRotation().getRadians() / DriveConstants.trenchSnapTo);
+          return buildTrenchPathCommand(trenchPoses[0], trenchPoses[1], snappedAngleRadians);
+        },
+        Set.of(this));
   }
 
-  public Command autoDriveUnderTrenchCommand(Translation2d[] poses, double angle) {
-    return AutoBuilder.pathfindToPose(
-            new Pose2d(poses[0], new Rotation2d(angle)), pathConstraints, 0)
+  private Command buildTrenchPathCommand(
+      Translation2d firstPose, Translation2d secondPose, double angleRadians) {
+    Rotation2d trenchHeading = new Rotation2d(angleRadians);
+    return AutoBuilder.pathfindToPose(new Pose2d(firstPose, trenchHeading), pathConstraints, 0)
         .andThen(
-            AutoBuilder.pathfindToPose(
-                new Pose2d(poses[1], new Rotation2d(angle)), pathConstraints, 0));
+            AutoBuilder.pathfindToPose(new Pose2d(secondPose, trenchHeading), pathConstraints, 0));
   }
 
-  public Translation2d[] determineTrenchPoses() {
-    Translation2d[] poses =
-        switch (octant) {
-          case 0 -> new Translation2d[] {
-            Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter
-          };
-          case 1 -> new Translation2d[] {
-            Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner
-          };
-          case 2 -> new Translation2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
-          case 3 -> new Translation2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
-          case 4 -> new Translation2d[] {
-            Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
-          };
-          case 5 -> new Translation2d[] {
-            Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner
-          };
-          case 6 -> new Translation2d[] {
-            Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner
-          };
-          case 7 -> new Translation2d[] {
-            Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter
-          };
-          default -> new Translation2d[] {
-            Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter
-          };
-        };
-    return poses;
+  private Translation2d[] determineTrenchPoses() {
+    return switch (octant) {
+      case 0 -> new Translation2d[] {Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter};
+      case 1 -> new Translation2d[] {Constants.blueTrenchTopOuter, Constants.blueTrenchTopInner};
+      case 2 -> new Translation2d[] {Constants.redTrenchTopOuter, Constants.redTrenchTopInner};
+      case 3 -> new Translation2d[] {Constants.redTrenchTopInner, Constants.redTrenchTopOuter};
+      case 4 ->
+          new Translation2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
+      case 5 ->
+          new Translation2d[] {Constants.blueTrenchBottomOuter, Constants.blueTrenchBottomInner};
+      case 6 -> new Translation2d[] {Constants.redTrenchBottomOuter, Constants.redTrenchBottomInner};
+      case 7 -> new Translation2d[] {Constants.redTrenchBottomInner, Constants.redTrenchBottomOuter};
+      default ->
+          new Translation2d[] {Constants.blueTrenchBottomInner, Constants.blueTrenchBottomOuter};
+    };
   }
 
   public void driveToOutpost() {
@@ -428,7 +419,7 @@ public class Drive extends SubsystemBase {
         .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
   }
 
-  public void determineOctant() {
+  private void determineOctant() {
     double x = this.getPose().getX();
     double y = this.getPose().getY();
 
