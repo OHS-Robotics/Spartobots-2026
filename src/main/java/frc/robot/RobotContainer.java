@@ -372,6 +372,7 @@ public class RobotContainer {
 
   private void setShooterDemandFromTrigger(boolean enabled) {
     shooterDemandFromTrigger = enabled;
+    shooter.setTriggerSpeedBoostEnabled(enabled);
     refreshShooterControlDemand();
   }
 
