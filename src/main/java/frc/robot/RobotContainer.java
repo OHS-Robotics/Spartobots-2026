@@ -563,7 +563,9 @@ public class RobotContainer {
   }
 
   private void maybeLaunchSimulatedFuel(Pose2d robotPose, ChassisSpeeds fieldRelativeSpeeds) {
-    if (!shooter.shouldTriggerSimulatedShot(Timer.getFPGATimestamp())) {
+    double shooterFeedRateRatio = gamePieceManager.getFeedRateRatioForShooterSim();
+    Logger.recordOutput("Shooter/Simulation/FeedRateRatio", shooterFeedRateRatio);
+    if (!shooter.shouldTriggerSimulatedShot(Timer.getFPGATimestamp(), shooterFeedRateRatio)) {
       return;
     }
 

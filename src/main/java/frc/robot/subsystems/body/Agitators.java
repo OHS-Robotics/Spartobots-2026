@@ -208,6 +208,10 @@ public class Agitators extends SubsystemBase {
     return 0.5 * (getTopAgitatorCurrentAmps() + getBottomAgitatorCurrentAmps());
   }
 
+  public double getAverageAppliedOutput() {
+    return 0.5 * (topAgitator.get() + bottomAgitator.get());
+  }
+
   private void stopCommand(Command command) {
     if (command != null) {
       CommandScheduler.getInstance().cancel(command);

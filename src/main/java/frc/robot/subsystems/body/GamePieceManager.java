@@ -1,5 +1,6 @@
 package frc.robot.subsystems.body;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -124,6 +125,20 @@ public class GamePieceManager extends SubsystemBase {
 
   public boolean hasGamePieceAtShooter() {
     return shooterDetected;
+  }
+
+  public double getFeedRateRatioForShooterSim() {
+    if (mode != Mode.FEED) {
+      return 0.0;
+    }
+
+    double nominalFeedAgitatorOutput = Math.abs(GamePieceManagerConstants.feedAgitatorSpeed);
+    if (nominalFeedAgitatorOutput < 1e-6) {
+      return 0.0;
+    }
+
+    return MathUtil.clamp(
+        Math.abs(agitators.getAverageAppliedOutput()) / nominalFeedAgitatorOutput, 0.0, 1.0);
   }
 
   private void runMode() {

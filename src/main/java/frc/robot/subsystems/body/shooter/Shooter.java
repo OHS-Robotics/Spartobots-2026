@@ -832,12 +832,18 @@ public class Shooter extends SubsystemBase {
         && areWheelsAtSpeedForShot();
   }
 
-  public boolean shouldTriggerSimulatedShot(double timestampSeconds) {
+  public boolean shouldTriggerSimulatedShot(double timestampSeconds, double feedRateRatio) {
     if (!areWheelsReadyForSimulatedShot()) {
       return false;
     }
 
-    if ((timestampSeconds - lastSimShotTimestampSeconds) < ShooterConstants.simShotCadenceSeconds) {
+    double clampedFeedRateRatio = MathUtil.clamp(Math.abs(feedRateRatio), 0.0, 1.0);
+    if (clampedFeedRateRatio < 1e-3) {
+      return false;
+    }
+
+    double shotCadenceSeconds = ShooterConstants.simShotCadenceSeconds / clampedFeedRateRatio;
+    if ((timestampSeconds - lastSimShotTimestampSeconds) < shotCadenceSeconds) {
       return false;
     }
 
