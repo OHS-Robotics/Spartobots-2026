@@ -25,7 +25,7 @@ import com.team4687.frc2026.subsystems.body.HubSolver;
 public class LauncherSubsystem extends SubsystemBase {
     public class LauncherSendables implements Sendable {
 
-        public double targetIntakeSpeed = 0.67;
+        public double targetIntakeSpeed = 0.3;
         public double targetLaunchSpeed = 0.05;
 
         @Override
@@ -63,7 +63,7 @@ public class LauncherSubsystem extends SubsystemBase {
     boolean intakeRunning = false;
 
     DigitalInput limitSwitch = new DigitalInput(0);
-    SparkMax launcherAngleDrive = new SparkMax(35, MotorType.kBrushless);
+    public SparkMax launcherAngleDrive = new SparkMax(35, MotorType.kBrushless);
     public RelativeEncoder launcherEncoder = launcherAngleDrive.getEncoder();
 
     SparkMax primaryLauncherLeft    = new SparkMax(31, MotorType.kBrushless); // runs same as primary right
@@ -90,7 +90,7 @@ public class LauncherSubsystem extends SubsystemBase {
         // all launcher motors must be coast
 
         // top Agitator, bottom Agitator
-        SparkBaseConfig tA = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
+        SparkBaseConfig tA = new SparkMaxConfig().idleMode(IdleMode.kCoast);
         // note: check orientations of these
         SparkBaseConfig bA = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
 
@@ -162,6 +162,7 @@ public class LauncherSubsystem extends SubsystemBase {
 
     public Command toggleLauncherCommand() {
         return runOnce(() -> {
+            System.out.println("launcher toggle");
             if (!launcherRunning) {
                 updateLauncher();
 
@@ -176,6 +177,20 @@ public class LauncherSubsystem extends SubsystemBase {
                 currentLauncherRunCommand = null;
                 launcherRunning = false;
             }
+        });
+    }
+
+    public Command autoRunLauncherCommand() {
+        return runOnce(() -> {
+            updateLauncher();
+            updateIntake();
+        });
+    }
+
+    public Command autoStopLauncherCommand() {
+        return runOnce(() -> {
+            stopLauncher();
+            stopIntake();
         });
     }
 
@@ -242,7 +257,7 @@ public class LauncherSubsystem extends SubsystemBase {
         return run(() -> {
             //if (limitSwitch.get()) {
             System.out.printf("Decrease %f\n", launcherEncoder.getPosition());
-            if (launcherEncoder.getPosition() < -13) {
+            if (launcherEncoder.getPosition() < -16) {
                 launcherAngleDrive.set(0.0);
             }
             else {

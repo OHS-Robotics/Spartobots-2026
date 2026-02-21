@@ -23,9 +23,9 @@ public class AutoSubsystem {
         swerveDrive = useSwerve;
         launcher = useLauncher;
         intake = useIntake;
-
+  
         configureAutoBuilder();
-        pathChooser = AutoBuilder.buildAutoChooser("Back fuel launch");
+        pathChooser = AutoBuilder.buildAutoChooser("trenchLeft");
         SmartDashboard.putData("Auto path", pathChooser);
     }
 
@@ -73,8 +73,10 @@ public class AutoSubsystem {
     }
 
     private void registerNamedCommands() {
-        NamedCommands.registerCommand("ingestFuel", intake.toggleIntakeCommand());
-        NamedCommands.registerCommand("expelFuel", launcher.toggleIntakeCommand().andThen(launcher.toggleLauncherCommand()));
+        NamedCommands.registerCommand("runIntake", intake.runIntake());
+        NamedCommands.registerCommand("stopIntake", intake.stopIntakeCommand());
+        NamedCommands.registerCommand("runLauncher", launcher.autoRunLauncherCommand());
+        NamedCommands.registerCommand("stopLauncher", launcher.autoStopLauncherCommand());
     }
 
     private void registerPaths() {

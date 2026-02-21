@@ -1,0 +1,43 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "ingestFuel"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "fuelPickup"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ingestFuel"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "launch2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "expelFuel"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

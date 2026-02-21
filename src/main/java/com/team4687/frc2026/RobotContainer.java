@@ -146,7 +146,7 @@ public class RobotContainer {
     // todo: intake/hopper movement
 
     manipulatorJoystick.a().onTrue(intake.toggleIntakeCommand());
-    manipulatorJoystick.b().onTrue(Commands.parallel(intake.toggleBeltCommand()/*, launcher.toggleIntakeCommand()*/));
+    manipulatorJoystick.b().onTrue(Commands.parallel(intake.toggleBeltCommand(), launcher.toggleIntakeCommand()));
 
     manipulatorJoystick.b().onTrue(Commands.runOnce(() -> {
       if (manipulatorRumbling) {
@@ -167,7 +167,9 @@ public class RobotContainer {
     manipulatorJoystick.leftTrigger().onFalse(launcher.stopLauncherCommand());
 
     manipulatorJoystick.povLeft().whileTrue(launcher.decreaseLauncherAngle());
+    manipulatorJoystick.povLeft().whileFalse(Commands.runOnce(() -> launcher.launcherAngleDrive.set(0.0), launcher));
     manipulatorJoystick.povRight().whileTrue(launcher.increaseLauncherAngle());
+    manipulatorJoystick.povRight().whileFalse(Commands.runOnce(() -> launcher.launcherAngleDrive.set(0.0), launcher));
   }
 
   private void configureInputStreams() {
