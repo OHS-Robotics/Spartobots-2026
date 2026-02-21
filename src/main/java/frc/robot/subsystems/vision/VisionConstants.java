@@ -26,6 +26,8 @@ public class VisionConstants {
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
+
+  // we need to update these probably
   public static Transform3d robotToCamera0 =
       new Transform3d(
           new Translation3d(

@@ -8,7 +8,6 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -175,9 +174,6 @@ public class RobotContainer {
     autoChooser.addOption(
         "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
-    // register commmands to be used in PathPlanner autos
-    NamedCommands.registerCommand("trench", autoDriveUnderTrenchCommand());
-
     // Configure the button bindings
     configureButtonBindings();
   }
@@ -211,7 +207,7 @@ public class RobotContainer {
     // Switch to X pattern when X button is pressed
     controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
 
-    // Reset gyro to 0 when B button is pressed
+    // Reset gyro to 0 when B button is pressed
     controller
         .b()
         .onTrue(
@@ -226,8 +222,6 @@ public class RobotContainer {
 
     controller.povUp().whileTrue(alignToHub());
 
-    controller.povLeft().onTrue(driveToOutpostCommand());
-
     controller.povRight().toggleOnTrue(alignToHub());
 
     controller.povDown().onTrue(Commands.runOnce(() -> robotOrientedDrive = !robotOrientedDrive));
@@ -236,15 +230,7 @@ public class RobotContainer {
 
     controller.rightBumper().onTrue(autoDriveUnderTrenchCommand());
 
-    // trench drive testing stuff
-    controller
-        .rightTrigger()
-        .onTrue(
-            Commands.runOnce(
-                () -> {
-                  drive.setPose(new Pose2d(3.5, .6, new Rotation2d()));
-                },
-                drive));
+    controller.rightTrigger().onTrue(driveToOutpostCommand());
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
