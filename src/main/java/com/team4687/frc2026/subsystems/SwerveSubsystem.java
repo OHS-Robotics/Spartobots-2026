@@ -156,6 +156,7 @@ public class SwerveSubsystem extends SubsystemBase {
             double finalVelocity = Math.copySign(speed, -change);
             if (Math.abs(change) < speed) finalVelocity = -change;
             if (Math.abs(change) < Constants.MIN_AUTO_ROTATIONAL_SPEED*0.75) finalVelocity = Math.copySign(Constants.MIN_AUTO_ROTATIONAL_SPEED*0.75, -change);
+            if (Math.abs(change) < Units.degreesToRadians(4.0)) finalVelocity = 0;
 
             this.drive(
                 sendables.getFieldOriented() ?

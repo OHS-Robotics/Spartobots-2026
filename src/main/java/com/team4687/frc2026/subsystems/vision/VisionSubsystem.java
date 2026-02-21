@@ -19,21 +19,25 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import swervelib.SwerveDrive;
 
 public class VisionSubsystem extends SubsystemBase {
-    private PhotonPoseEstimator poseEstimator;
-    // todo: change the name of this camera because it's very long
-    private PhotonCamera camera;
+    PhotonCamera[] cameras;
+    private PhotonPoseEstimator[] poseEstimators;
 
     public Matrix<N3, N1> stdDevs;
 
     boolean didWarn = false;
 
     public VisionSubsystem() {
-        poseEstimator = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPosition);
-        camera = new PhotonCamera("Arducam_OV9281_USB_Camera");
-        camera.setPipelineIndex(0);
+        cameras = new PhotonCamera[Constants.cameraNames.length];
+        poseEstimators = new PhotonPoseEstimator[Constants.cameraNames.length];
+
+        for (int i = 0; i < Constants.cameraNames.length; i++) {
+            cameras[i] = new PhotonCamera(Constants.cameraNames[i]);
+            cameras[i].setPipelineIndex(0);
+            poseEstimators[i] = new PhotonPoseEstimator(Constants.FIELD_LAYOUT, Constants.cameraPositions[i]);
+        }
     }
 
-    public void updateStdDevs(Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {
+    public void updateStdDevs(Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets, PhotonPoseEstimator poseEstimator) {
         /*
          * Get the standard deviations for pipeline results.
          * I'm still not 100% sure what this is *supposed* to be measuring,
@@ -78,28 +82,37 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     public void updatePoseEstimate(SwerveDrive swerveDrive) {
-        if (!camera.isConnected()) {
+        if (!cameras[0].isConnected()) {
             if (!didWarn) {
                 didWarn = true;
                 System.out.println("*\nCAMERA DISABLED\n*");
             }
             return;
         }
-        List<PhotonPipelineResult> results = camera.getAllUnreadResults();
-        Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
+
+        for (int i = 0; i < cameras.length; i++) {
+            PhotonCamera camera = cameras[i];
+            PhotonPoseEstimator poseEstimator = poseEstimators[i];
+
+            List<PhotonPipelineResult> results = camera.getAllUnreadResults();
+            Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
 
 
-        for (var result : results) {
-            visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-            if (visionEstimatedPose.isEmpty()) visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
+            for (var result : results) {
+                if (result.hasTargets()) System.out.println("Result has targets");
+                visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
+                if (visionEstimatedPose.isEmpty()) visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
 
-            updateStdDevs(visionEstimatedPose, result.getTargets());
-            // todo: update standard deviations
-            visionEstimatedPose.ifPresent(
-                est -> {
-                    swerveDrive.setVisionMeasurementStdDevs(stdDevs);
-                    swerveDrive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds);
-            });
+                if (visionEstimatedPose.isPresent()) System.out.printf("Vision pose: %f %f", visionEstimatedPose.get().estimatedPose.getX(), visionEstimatedPose.get().estimatedPose.getY());
+
+                updateStdDevs(visionEstimatedPose, result.getTargets(), poseEstimator);
+                // todo: update standard deviations
+                visionEstimatedPose.ifPresent(
+                    est -> {
+                        swerveDrive.setVisionMeasurementStdDevs(stdDevs);
+                        swerveDrive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds);
+                });
+            }
         }
     }
 }
