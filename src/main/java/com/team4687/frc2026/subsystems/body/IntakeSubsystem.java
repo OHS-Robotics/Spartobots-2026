@@ -10,6 +10,7 @@ import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
 import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.util.sendable.SendableBuilder;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -22,7 +23,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
         @Override
         public void initSendable(SendableBuilder builder) {
-            builder.setSmartDashboardType("LauncherConfig");
+            builder.setSmartDashboardType("IntakeConfig");
             builder.addDoubleProperty("intakeSpeed", this::getIntakeSpeed, this::setIntakeSpeed);
             builder.addDoubleProperty("beltSpeed", this::getBeltSpeed, this::setBeltSpeed);
         }
@@ -57,6 +58,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
         hopperBelt.configure(hopperBeltConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
         hopperExtender.configure(hopperExtenderConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        SmartDashboard.putData( "Intake Config", sendables);
     }
 
     public void updateIntake() {

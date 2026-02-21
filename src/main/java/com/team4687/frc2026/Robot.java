@@ -30,8 +30,8 @@ public class Robot extends TimedRobot {
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
 
-    m_robotContainer.swerveDrive.resetPose(new Pose2d(3.5, 3.5, new Rotation2d(0)));
-  }
+    // m_robotContainer.swerveDrive.resetPose(new Pose2d(3.5, 3.5, new Rotation2d(0)));
+  } 
 
   /**
    * This function is called every 20 ms, no matter the mode. Use this for items like diagnostics

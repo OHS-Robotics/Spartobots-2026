@@ -159,11 +159,10 @@ public class RobotContainer {
       }
     }));
   
-
-    manipulatorJoystick.rightTrigger().onTrue(Commands.runOnce(() -> launcher.sendables.setLaunchSpeed(0.3), launcher).andThen(launcher.runLauncherCommand()));
+    manipulatorJoystick.rightTrigger().onTrue(launcher.runLauncherCommand(manipulatorJoystick::getRightTriggerAxis));
     manipulatorJoystick.rightTrigger().onFalse(launcher.stopLauncherCommand());
 
-    manipulatorJoystick.leftTrigger().onTrue(Commands.runOnce(() -> launcher.sendables.setLaunchSpeed(0.5), launcher).andThen(launcher.runLauncherCommand()));
+    manipulatorJoystick.leftTrigger().onTrue(launcher.runLauncherCommand(() -> manipulatorJoystick.getRightTriggerAxis() * 0.75));
     manipulatorJoystick.leftTrigger().onFalse(launcher.stopLauncherCommand());
 
     manipulatorJoystick.povLeft().whileTrue(launcher.decreaseLauncherAngle());

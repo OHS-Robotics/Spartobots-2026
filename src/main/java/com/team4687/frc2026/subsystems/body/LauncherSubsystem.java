@@ -1,5 +1,6 @@
 package com.team4687.frc2026.subsystems.body;
 
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.revrobotics.PersistMode;
@@ -15,6 +16,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -26,7 +28,7 @@ public class LauncherSubsystem extends SubsystemBase {
     public class LauncherSendables implements Sendable {
 
         public double targetIntakeSpeed = 0.3;
-        public double targetLaunchSpeed = 0.05;
+        public double targetLaunchSpeed = 0.5;
 
         @Override
         public void initSendable(SendableBuilder builder) {
@@ -107,6 +109,8 @@ public class LauncherSubsystem extends SubsystemBase {
         bottomAgitator.configure(bA, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
 
         launcherAngleDrive.configure(angleConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+
+        SmartDashboard.putData( "Launcher Config", sendables);
     }
 
     public void reverseSpeeds() {
@@ -154,6 +158,12 @@ public class LauncherSubsystem extends SubsystemBase {
         bottomAgitator.set(sendables.targetIntakeSpeed);
     }
 
+    public void updateLauncher(double scale) {
+        // will update right as well because of the followers
+        primaryLauncherLeft.set(sendables.targetLaunchSpeed * scale);
+        primaryLauncherRight.set(sendables.targetLaunchSpeed * scale);
+    }
+
     public void updateLauncher() {
         // will update right as well because of the followers
         primaryLauncherLeft.set(sendables.targetLaunchSpeed);
@@ -194,12 +204,12 @@ public class LauncherSubsystem extends SubsystemBase {
         });
     }
 
-    public Command runLauncherCommand() {
+    public Command runLauncherCommand(DoubleSupplier scale) {
         return runOnce(() -> {
             if (!launcherRunning) {
-                updateLauncher();
+                updateLauncher(scale.getAsDouble());
 
-                currentLauncherRunCommand = run(this::updateLauncher);
+                currentLauncherRunCommand = run(() -> updateLauncher(scale.getAsDouble()));
                 CommandScheduler.getInstance().schedule(currentLauncherRunCommand);
                 launcherRunning = true;
             }
@@ -279,6 +289,7 @@ public class LauncherSubsystem extends SubsystemBase {
     }
 
     public Command autoAlignAngle(Supplier<Pose2d> robotPose, Supplier<Pose2d> hubPose) {
+        // this will not reset the angle drive when the command ends!
         return run(() -> {
             solver.updateHubShotSolution(robotPose.get(), hubPose.get());
             if (!solver.isHubShotSolutionFeasible()) return;
@@ -290,7 +301,7 @@ public class LauncherSubsystem extends SubsystemBase {
                 else launcherAngleDrive.set(0.0);
             }
             else if (target + launcherEncoder.getPosition() > 0.2) {
-                if (launcherEncoder.getPosition() > -13) launcherAngleDrive.set(-0.1);
+                if (launcherEncoder.getPosition() > -16) launcherAngleDrive.set(-0.1);
                 else launcherAngleDrive.set(0.0);
             }
             else {
