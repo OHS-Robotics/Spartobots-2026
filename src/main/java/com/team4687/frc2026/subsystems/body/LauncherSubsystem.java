@@ -27,8 +27,8 @@ import com.team4687.frc2026.subsystems.body.HubSolver;
 public class LauncherSubsystem extends SubsystemBase {
     public class LauncherSendables implements Sendable {
 
-        public double targetIntakeSpeed = 0.4;
-        public double targetLaunchSpeed = 0.75;
+        public double targetIntakeSpeed = 0.3;
+        public double targetLaunchSpeed = 0.5;
 
         @Override
         public void initSendable(SendableBuilder builder) {
@@ -279,7 +279,7 @@ public class LauncherSubsystem extends SubsystemBase {
     public Command increaseLauncherAngle() {
         return run(() -> {
             System.out.printf("Increase %f\n", launcherEncoder.getPosition());
-            if (launcherEncoder.getPosition() > -0.1) {
+            if (launcherEncoder.getPosition() > 0) {
                 launcherAngleDrive.set(0.0);
             }
             else {
@@ -309,25 +309,6 @@ public class LauncherSubsystem extends SubsystemBase {
             }
         }).until(() -> Math.abs(solver.getHubLaunchAngleSetpoint().getDegrees() * 14.5/45 + launcherEncoder.getPosition()) < 0.2);
 
-    }
 
-    // todo: test this
-    public Command alignAngle(DoubleSupplier target) {
-        return run(() -> {
-
-            double targetDegrees = target.getAsDouble() * 14.5/45; // might be wrong
-
-            if (targetDegrees + launcherEncoder.getPosition() < 0.2) {
-                if (launcherEncoder.getPosition() < 0) launcherAngleDrive.set(0.1);
-                else launcherAngleDrive.set(0.0);
-            }
-            else if (targetDegrees + launcherEncoder.getPosition() > 0.2) {
-                if (launcherEncoder.getPosition() > -16) launcherAngleDrive.set(-0.1);
-                else launcherAngleDrive.set(0.0);
-            }
-            else {
-                launcherAngleDrive.set(0.0);
-            }
-        }).until(() -> Math.abs(target.getAsDouble() * 14.5/45 + launcherEncoder.getPosition()) < 0.2);
     }
 }

@@ -17,7 +17,6 @@ import java.util.Optional;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
@@ -37,7 +36,6 @@ public class RobotContainer {
   public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
   public IntakeSubsystem intake      = new IntakeSubsystem();
   public LauncherSubsystem launcher  = new LauncherSubsystem();
-
 
   public AutoSubsystem auto = new AutoSubsystem(swerveDrive, launcher, intake);
 

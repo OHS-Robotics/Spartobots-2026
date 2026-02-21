@@ -30,7 +30,7 @@ public class Robot extends TimedRobot {
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
 
-    if (!this.isReal()) m_robotContainer.swerveDrive.resetPose(new Pose2d(3.5, 3.5, new Rotation2d(0)));
+    // m_robotContainer.swerveDrive.resetPose(new Pose2d(3.5, 3.5, new Rotation2d(0)));
   } 
 
   /**

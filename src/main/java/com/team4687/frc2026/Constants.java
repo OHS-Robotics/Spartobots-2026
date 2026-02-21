@@ -29,7 +29,7 @@ public final class Constants {
   }
 
   public static final double MAX_SPEED = Units.feetToMeters(13.5);
-  public static final double MAX_ACCELERATION = Units.feetToMeters(4.1);
+  public static final double MAX_ACCELERATION = Units.feetToMeters(6.7);
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(270.0);
   public static final double MIN_AUTO_ROTATIONAL_SPEED = Units.degreesToRadians(120.0);
   public static final double MAX_ROTATIONAL_ACCELERATION = Units.degreesToRadians(90.0);
@@ -37,15 +37,11 @@ public final class Constants {
     AprilTagFields.k2026RebuiltWelded
   );
 
-  public static final Transform3d[] cameraPositions = {
-      new Transform3d(
-          new Translation3d(
-            Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
-          new Rotation3d(0, 0, Units.degreesToRadians(-90))),
-
-      new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI))
-  };
-  public static final String[] cameraNames = {"Arducam_Right_Front", "Arducam_Left_Front"};
+  public static final Transform3d cameraPosition = new Transform3d(new Translation3d(
+    Units.inchesToMeters(0),
+    Units.inchesToMeters(-5),
+    Units.inchesToMeters(10.5)),
+    new Rotation3d(0, 0, 0));
 
   public static final Pose2d redHub = new Pose2d(11.9, 4.0, new Rotation2d(Math.PI));
   public static final Pose2d blueHub = new Pose2d(3, 4.0, new Rotation2d(0));
