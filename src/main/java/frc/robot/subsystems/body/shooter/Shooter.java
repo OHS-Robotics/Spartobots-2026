@@ -763,6 +763,20 @@ public class Shooter extends SubsystemBase {
         launchSpeedMetersPerSec / ShooterConstants.maxLaunchSpeedMetersPerSec, 0.0, 1.0);
   }
 
+  private static double launchSpeedToAverageWheelSurfaceSpeedMetersPerSec(
+      double launchSpeedMetersPerSec) {
+    if (ShooterConstants.launchSpeedFromWheelSurfaceSpeedScale < 1e-6) {
+      return 0.0;
+    }
+    return launchSpeedMetersPerSec / ShooterConstants.launchSpeedFromWheelSurfaceSpeedScale;
+  }
+
+  private static double averageWheelSurfaceSpeedToLaunchSpeedMetersPerSec(
+      double averageWheelSurfaceSpeedMetersPerSec) {
+    return ShooterConstants.launchSpeedFromWheelSurfaceSpeedScale
+        * averageWheelSurfaceSpeedMetersPerSec;
+  }
+
   private static double sanitizeAirtimeSeed(double airtimeSeconds) {
     if (!Double.isFinite(airtimeSeconds) || airtimeSeconds <= 0.0) {
       return ShooterConstants.fallbackAirtimeSeconds;
@@ -791,13 +805,14 @@ public class Shooter extends SubsystemBase {
       double launchSpeedMetersPerSec) {
     double launchSpeedMagnitude = Math.abs(launchSpeedMetersPerSec);
     double baseWheelSurfaceSpeedMetersPerSec =
-        launchSpeedMagnitude / ShooterConstants.launchSlipFactor;
+        launchSpeedToAverageWheelSurfaceSpeedMetersPerSec(launchSpeedMagnitude);
 
     // Differential wheel speed creates controlled backspin.
     double ballSpinRadPerSec =
         (ShooterConstants.targetBallSpinRatio * launchSpeedMagnitude)
             / ShooterConstants.fuelBallRadiusMeters;
-    double spinSurfaceDeltaMetersPerSec = ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
+    double spinSurfaceDeltaMetersPerSec =
+        ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
 
     double pair1WheelSpeedRadPerSec =
         (baseWheelSurfaceSpeedMetersPerSec + spinSurfaceDeltaMetersPerSec)
@@ -938,7 +953,8 @@ public class Shooter extends SubsystemBase {
         Math.abs(pair2WheelVelocityRadPerSec) * ShooterConstants.shooterWheelRadiusMeters;
     double averageWheelSurfaceSpeedMetersPerSec =
         0.5 * (pair1SurfaceSpeedMetersPerSec + pair2SurfaceSpeedMetersPerSec);
-    return ShooterConstants.launchSlipFactor * averageWheelSurfaceSpeedMetersPerSec;
+    return averageWheelSurfaceSpeedToLaunchSpeedMetersPerSec(
+        averageWheelSurfaceSpeedMetersPerSec);
   }
 
   private double getPair1VelocityCommandSetpointRadPerSec() {

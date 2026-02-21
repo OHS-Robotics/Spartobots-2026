@@ -49,9 +49,19 @@ public final class ShooterConstants {
   public static final double defaultPair2Direction = 1.0;
 
   // Hardware geometry
-  public static final double shooterWheelRadiusMeters = Units.inchesToMeters(2.0);
-  public static final double fuelBallRadiusMeters = 0.075;
+  public static final double shooterWheelDiameterInches = 3.965;
+  public static final double fuelBallDiameterInches = 5.9;
+  public static final double shooterWheelRadiusMeters =
+      Units.inchesToMeters(shooterWheelDiameterInches / 2.0);
+  public static final double fuelBallRadiusMeters =
+      Units.inchesToMeters(fuelBallDiameterInches / 2.0);
+
+  // Ball runs between moving shooter wheels and a stationary hood panel.
+  // Ideal no-slip rolling gives ball center speed = 0.5 * wheel surface speed.
+  public static final double ballCenterSpeedFromWheelSurfaceRatio = 0.5;
   public static final double launchSlipFactor = 0.93;
+  public static final double launchSpeedFromWheelSurfaceSpeedScale =
+      launchSlipFactor * ballCenterSpeedFromWheelSurfaceRatio;
   public static final double targetBallSpinRatio = 0.10;
 
   // Shooter kinematic limits
@@ -89,9 +99,9 @@ public final class ShooterConstants {
 
   // Measured/estimated launch capability of the mechanism
   public static final double minLaunchSpeedMetersPerSec =
-      launchSlipFactor * shooterWheelRadiusMeters * minWheelSpeedRadPerSec;
+      launchSpeedFromWheelSurfaceSpeedScale * shooterWheelRadiusMeters * minWheelSpeedRadPerSec;
   public static final double maxLaunchSpeedMetersPerSec =
-      launchSlipFactor * shooterWheelRadiusMeters * maxWheelSpeedRadPerSec;
+      launchSpeedFromWheelSurfaceSpeedScale * shooterWheelRadiusMeters * maxWheelSpeedRadPerSec;
   public static final double defaultLaunchSpeedMetersPerSec = 11.5;
   public static final Rotation2d defaultLaunchAngle = Rotation2d.fromDegrees(56.0);
   public static final double minAirtimeSeconds = 0.05;
