@@ -18,11 +18,9 @@ import java.util.Optional;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.util.sendable.Sendable;
-import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -40,24 +38,6 @@ public class RobotContainer {
   public IntakeSubsystem intake      = new IntakeSubsystem();
   public LauncherSubsystem launcher  = new LauncherSubsystem();
 
-  class MiscSendables implements Sendable {
-
-    boolean hubActive = true;
-
-    @Override
-    public void initSendable(SendableBuilder builder) {
-        builder.setSmartDashboardType("MiscData");
-        builder.addBooleanProperty("hubActive", this::getHubActive, this::setHubActive);
-    }
-
-    public boolean getHubActive() {
-      return hubActive;
-    }
-
-    public void setHubActive(boolean set) { hubActive = set; }
-  }
-
-  private MiscSendables sendables = new MiscSendables();
 
   public AutoSubsystem auto = new AutoSubsystem(swerveDrive, launcher, intake);
 
@@ -80,8 +60,6 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-
-    SmartDashboard.putData("Misc Data", sendables);
     // Configure the trigger bindings
     configureInputStreams();
     configureBindings();
@@ -98,6 +76,8 @@ public class RobotContainer {
       System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
       driverJoystick.rightStick().whileTrue(
         DriverStation.getAlliance().get() == Alliance.Blue ?
+        /*swerveDrive.pointTowardsFixed(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED) :
+        swerveDrive.pointTowardsFixed(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED)*/
         swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
         swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
       );
@@ -150,8 +130,6 @@ public class RobotContainer {
     } else {
       driverJoystick.setRumble(RumbleType.kBothRumble, 0.0);
     }
-
-    sendables.setHubActive(isHubActive());
   }
 
   /**
@@ -198,9 +176,9 @@ public class RobotContainer {
   private void configureInputStreams() {
     driveFieldAngularVelocityStream = SwerveInputStream.of(
       swerveDrive.swerveDrive,
-      () -> -driverJoystick.getLeftY(),
-      () ->  -driverJoystick.getLeftX()
-    ).withControllerRotationAxis(() -> driverJoystick.getRightX())
+      () -> driverJoystick.getLeftY(),
+      () -> (DebugMode == 0 ? driverJoystick.getLeftX() : 0.0)
+    ).withControllerRotationAxis(() -> DebugMode == 0 ? driverJoystick.getRightX() : 0.0)
      .deadband(Constants.OperatorConstants.deadband)
      .allianceRelativeControl(true);
 
