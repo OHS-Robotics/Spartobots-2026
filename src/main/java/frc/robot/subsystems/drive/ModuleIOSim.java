@@ -116,4 +116,14 @@ public class ModuleIOSim implements ModuleIO {
     turnClosedLoop = true;
     turnController.setSetpoint(rotation.getRadians());
   }
+
+  @Override
+  public void setDriveVelocityGains(double kp, double ki, double kd) {
+    driveController.setPID(kp, ki, kd);
+  }
+
+  @Override
+  public void setTurnPositionGains(double kp, double ki, double kd) {
+    turnController.setPID(kp, ki, kd);
+  }
 }

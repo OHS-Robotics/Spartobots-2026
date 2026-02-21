@@ -39,6 +39,7 @@ import java.util.function.Supplier;
 public class DriveCommands {
   private static final double DEADBAND = 0.1;
   private static final double ANGLE_KP = 5.5;
+  private static final double ANGLE_KI = 0.0;
   private static final double ANGLE_KD = 2.1;
   private static final double ANGLE_MAX_VELOCITY = 45.0;
   private static final double ANGLE_MAX_ACCELERATION = 90.0;
@@ -52,6 +53,7 @@ public class DriveCommands {
           .getSubTable("Tuning")
           .getSubTable(Constants.currentMode.name());
   private static final NetworkTableEntry angleKpEntry = tuningTable.getEntry("AlignToAngle/Kp");
+  private static final NetworkTableEntry angleKiEntry = tuningTable.getEntry("AlignToAngle/Ki");
   private static final NetworkTableEntry angleKdEntry = tuningTable.getEntry("AlignToAngle/Kd");
   private static final NetworkTableEntry angleMaxVelocityEntry =
       tuningTable.getEntry("AlignToAngle/MaxVelocityRadPerSec");
@@ -60,6 +62,7 @@ public class DriveCommands {
 
   static {
     angleKpEntry.setDefaultDouble(ANGLE_KP);
+    angleKiEntry.setDefaultDouble(ANGLE_KI);
     angleKdEntry.setDefaultDouble(ANGLE_KD);
     angleMaxVelocityEntry.setDefaultDouble(ANGLE_MAX_VELOCITY);
     angleMaxAccelerationEntry.setDefaultDouble(ANGLE_MAX_ACCELERATION);
@@ -137,6 +140,7 @@ public class DriveCommands {
       DoubleSupplier ySupplier,
       Supplier<Rotation2d> rotationSupplier) {
     double initialAngleKp = getTunedValue(angleKpEntry, ANGLE_KP, 0.0, 30.0);
+    double initialAngleKi = getTunedValue(angleKiEntry, ANGLE_KI, 0.0, 10.0);
     double initialAngleKd = getTunedValue(angleKdEntry, ANGLE_KD, 0.0, 10.0);
     double initialAngleMaxVelocity =
         getTunedValue(angleMaxVelocityEntry, ANGLE_MAX_VELOCITY, 0.1, 100.0);
@@ -147,7 +151,7 @@ public class DriveCommands {
     ProfiledPIDController angleController =
         new ProfiledPIDController(
             initialAngleKp,
-            0.0,
+            initialAngleKi,
             initialAngleKd,
             new TrapezoidProfile.Constraints(initialAngleMaxVelocity, initialAngleMaxAcceleration));
     angleController.enableContinuousInput(-Math.PI, Math.PI);
@@ -156,12 +160,13 @@ public class DriveCommands {
     return Commands.run(
             () -> {
               double tunedAngleKp = getTunedValue(angleKpEntry, ANGLE_KP, 0.0, 30.0);
+              double tunedAngleKi = getTunedValue(angleKiEntry, ANGLE_KI, 0.0, 10.0);
               double tunedAngleKd = getTunedValue(angleKdEntry, ANGLE_KD, 0.0, 10.0);
               double tunedAngleMaxVelocity =
                   getTunedValue(angleMaxVelocityEntry, ANGLE_MAX_VELOCITY, 0.1, 100.0);
               double tunedAngleMaxAcceleration =
                   getTunedValue(angleMaxAccelerationEntry, ANGLE_MAX_ACCELERATION, 0.1, 200.0);
-              angleController.setPID(tunedAngleKp, 0.0, tunedAngleKd);
+              angleController.setPID(tunedAngleKp, tunedAngleKi, tunedAngleKd);
               angleController.setConstraints(
                   new TrapezoidProfile.Constraints(
                       tunedAngleMaxVelocity, tunedAngleMaxAcceleration));

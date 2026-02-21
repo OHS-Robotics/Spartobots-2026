@@ -12,7 +12,6 @@ import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
@@ -58,14 +57,50 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
+  private static final double defaultPathTranslationKp = 5.0;
+  private static final double defaultPathTranslationKi = 0.0;
+  private static final double defaultPathTranslationKd = 1.0;
+  private static final double defaultPathRotationKp = 5.0;
+  private static final double defaultPathRotationKi = 0.0;
+  private static final double defaultPathRotationKd = 1.0;
+
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final Module[] modules = new Module[4]; // FL, FR, BL, BR
   private final SysIdRoutine sysId;
   private final Consumer<Pose2d> setSimulationPoseCallback;
+  private final TunableHolonomicPathController pathController =
+      new TunableHolonomicPathController(
+          new PIDConstants(
+              defaultPathTranslationKp, defaultPathTranslationKi, defaultPathTranslationKd),
+          new PIDConstants(defaultPathRotationKp, defaultPathRotationKi, defaultPathRotationKd),
+          0.02);
   private final LoggedNetworkBoolean logHubAimVector =
       new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
+  private final NetworkTable driveTuningTable =
+      NetworkTableInstance.getDefault()
+          .getTable("Drive")
+          .getSubTable("Tuning")
+          .getSubTable(Constants.currentMode.name());
+  private final NetworkTableEntry moduleDriveKpEntry = driveTuningTable.getEntry("Module/DrivePID/Kp");
+  private final NetworkTableEntry moduleDriveKiEntry = driveTuningTable.getEntry("Module/DrivePID/Ki");
+  private final NetworkTableEntry moduleDriveKdEntry = driveTuningTable.getEntry("Module/DrivePID/Kd");
+  private final NetworkTableEntry moduleTurnKpEntry = driveTuningTable.getEntry("Module/TurnPID/Kp");
+  private final NetworkTableEntry moduleTurnKiEntry = driveTuningTable.getEntry("Module/TurnPID/Ki");
+  private final NetworkTableEntry moduleTurnKdEntry = driveTuningTable.getEntry("Module/TurnPID/Kd");
+  private final NetworkTableEntry pathTranslationKpEntry =
+      driveTuningTable.getEntry("PathPlanner/TranslationPID/Kp");
+  private final NetworkTableEntry pathTranslationKiEntry =
+      driveTuningTable.getEntry("PathPlanner/TranslationPID/Ki");
+  private final NetworkTableEntry pathTranslationKdEntry =
+      driveTuningTable.getEntry("PathPlanner/TranslationPID/Kd");
+  private final NetworkTableEntry pathRotationKpEntry =
+      driveTuningTable.getEntry("PathPlanner/RotationPID/Kp");
+  private final NetworkTableEntry pathRotationKiEntry =
+      driveTuningTable.getEntry("PathPlanner/RotationPID/Ki");
+  private final NetworkTableEntry pathRotationKdEntry =
+      driveTuningTable.getEntry("PathPlanner/RotationPID/Kd");
   private final NetworkTable hubMotionCompTuningTable =
       NetworkTableInstance.getDefault()
           .getTable(ShooterConstants.configTableName)
@@ -79,6 +114,18 @@ public class Drive extends SubsystemBase {
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
+  private double moduleDriveKp = Constants.currentMode == Mode.SIM ? driveSimP : driveKp;
+  private double moduleDriveKi = Constants.currentMode == Mode.SIM ? 0.0 : driveKi;
+  private double moduleDriveKd = Constants.currentMode == Mode.SIM ? driveSimD : driveKd;
+  private double moduleTurnKp = Constants.currentMode == Mode.SIM ? turnSimP : turnKp;
+  private double moduleTurnKi = Constants.currentMode == Mode.SIM ? 0.0 : turnKi;
+  private double moduleTurnKd = Constants.currentMode == Mode.SIM ? turnSimD : turnKd;
+  private double pathTranslationKp = defaultPathTranslationKp;
+  private double pathTranslationKi = defaultPathTranslationKi;
+  private double pathTranslationKd = defaultPathTranslationKd;
+  private double pathRotationKp = defaultPathRotationKp;
+  private double pathRotationKi = defaultPathRotationKi;
+  private double pathRotationKd = defaultPathRotationKd;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   private int octant;
@@ -117,6 +164,8 @@ public class Drive extends SubsystemBase {
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
     modules[3] = new Module(brModuleIO, 3);
+    configureDrivePidDefaults();
+    loadDrivePidTuning();
     configureHubMotionCompDefaults();
 
     // Usage reporting for swerve template
@@ -131,8 +180,7 @@ public class Drive extends SubsystemBase {
         this::setPose,
         this::getChassisSpeeds,
         this::runVelocity,
-        new PPHolonomicDriveController(
-            new PIDConstants(5.0, 0.0, 1.0), new PIDConstants(5.0, 0.0, 1.0)),
+        pathController,
         ppConfig,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
@@ -161,6 +209,7 @@ public class Drive extends SubsystemBase {
   @Override
   public void periodic() {
     logHubAimVector.periodic();
+    loadDrivePidTuning();
     loadHubMotionCompTuning();
 
     odometryLock.lock(); // Prevents odometry updates while reading data
@@ -586,6 +635,63 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("Drive/HubAim/VectorToTargetX", 0.0);
     Logger.recordOutput("Drive/HubAim/VectorToTargetY", 0.0);
     wasHubAimVectorLoggingEnabled = false;
+  }
+
+  private void configureDrivePidDefaults() {
+    moduleDriveKpEntry.setDefaultDouble(moduleDriveKp);
+    moduleDriveKiEntry.setDefaultDouble(moduleDriveKi);
+    moduleDriveKdEntry.setDefaultDouble(moduleDriveKd);
+    moduleTurnKpEntry.setDefaultDouble(moduleTurnKp);
+    moduleTurnKiEntry.setDefaultDouble(moduleTurnKi);
+    moduleTurnKdEntry.setDefaultDouble(moduleTurnKd);
+    pathTranslationKpEntry.setDefaultDouble(defaultPathTranslationKp);
+    pathTranslationKiEntry.setDefaultDouble(defaultPathTranslationKi);
+    pathTranslationKdEntry.setDefaultDouble(defaultPathTranslationKd);
+    pathRotationKpEntry.setDefaultDouble(defaultPathRotationKp);
+    pathRotationKiEntry.setDefaultDouble(defaultPathRotationKi);
+    pathRotationKdEntry.setDefaultDouble(defaultPathRotationKd);
+  }
+
+  private void loadDrivePidTuning() {
+    moduleDriveKp = sanitizeGain(moduleDriveKpEntry.getDouble(moduleDriveKp), moduleDriveKp);
+    moduleDriveKi = sanitizeGain(moduleDriveKiEntry.getDouble(moduleDriveKi), moduleDriveKi);
+    moduleDriveKd = sanitizeGain(moduleDriveKdEntry.getDouble(moduleDriveKd), moduleDriveKd);
+    moduleTurnKp = sanitizeGain(moduleTurnKpEntry.getDouble(moduleTurnKp), moduleTurnKp);
+    moduleTurnKi = sanitizeGain(moduleTurnKiEntry.getDouble(moduleTurnKi), moduleTurnKi);
+    moduleTurnKd = sanitizeGain(moduleTurnKdEntry.getDouble(moduleTurnKd), moduleTurnKd);
+    pathTranslationKp =
+        sanitizeGain(pathTranslationKpEntry.getDouble(pathTranslationKp), pathTranslationKp);
+    pathTranslationKi =
+        sanitizeGain(pathTranslationKiEntry.getDouble(pathTranslationKi), pathTranslationKi);
+    pathTranslationKd =
+        sanitizeGain(pathTranslationKdEntry.getDouble(pathTranslationKd), pathTranslationKd);
+    pathRotationKp = sanitizeGain(pathRotationKpEntry.getDouble(pathRotationKp), pathRotationKp);
+    pathRotationKi = sanitizeGain(pathRotationKiEntry.getDouble(pathRotationKi), pathRotationKi);
+    pathRotationKd = sanitizeGain(pathRotationKdEntry.getDouble(pathRotationKd), pathRotationKd);
+
+    moduleDriveKpEntry.setDouble(moduleDriveKp);
+    moduleDriveKiEntry.setDouble(moduleDriveKi);
+    moduleDriveKdEntry.setDouble(moduleDriveKd);
+    moduleTurnKpEntry.setDouble(moduleTurnKp);
+    moduleTurnKiEntry.setDouble(moduleTurnKi);
+    moduleTurnKdEntry.setDouble(moduleTurnKd);
+    pathTranslationKpEntry.setDouble(pathTranslationKp);
+    pathTranslationKiEntry.setDouble(pathTranslationKi);
+    pathTranslationKdEntry.setDouble(pathTranslationKd);
+    pathRotationKpEntry.setDouble(pathRotationKp);
+    pathRotationKiEntry.setDouble(pathRotationKi);
+    pathRotationKdEntry.setDouble(pathRotationKd);
+
+    for (var module : modules) {
+      module.setDriveVelocityGains(moduleDriveKp, moduleDriveKi, moduleDriveKd);
+      module.setTurnPositionGains(moduleTurnKp, moduleTurnKi, moduleTurnKd);
+    }
+    pathController.setTranslationPID(pathTranslationKp, pathTranslationKi, pathTranslationKd);
+    pathController.setRotationPID(pathRotationKp, pathRotationKi, pathRotationKd);
+  }
+
+  private double sanitizeGain(double value, double fallback) {
+    return Double.isFinite(value) ? value : fallback;
   }
 
   private void configureHubMotionCompDefaults() {

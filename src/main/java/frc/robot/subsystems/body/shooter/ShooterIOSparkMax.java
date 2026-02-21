@@ -45,6 +45,13 @@ public class ShooterIOSparkMax implements ShooterIO {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
   private final Debouncer hoodConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private double wheelVelocityKp = ShooterConstants.shooterVelocityKp;
+  private double wheelVelocityKi = ShooterConstants.shooterVelocityKi;
+  private double wheelVelocityKd = ShooterConstants.shooterVelocityKd;
+  private double wheelVelocityKv = ShooterConstants.shooterVelocityKv;
+  private double hoodPositionKp = ShooterConstants.hoodPositionKp;
+  private double hoodPositionKi = ShooterConstants.hoodPositionKi;
+  private double hoodPositionKd = ShooterConstants.hoodPositionKd;
 
   public ShooterIOSparkMax() {
     final double shooterVelocityConversionFactorRadPerSec = (2.0 * Math.PI) / 60.0;
@@ -258,6 +265,65 @@ public class ShooterIOSparkMax implements ShooterIO {
   @Override
   public void setHoodPositionSetpointRotations(double hoodPositionRotations) {
     hoodController.setSetpoint(hoodPositionRotations, ControlType.kPosition, ClosedLoopSlot.kSlot0);
+  }
+
+  @Override
+  public void setWheelVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {
+    if (!hasGainChange(wheelVelocityKp, kp)
+        && !hasGainChange(wheelVelocityKi, ki)
+        && !hasGainChange(wheelVelocityKd, kd)
+        && !hasGainChange(wheelVelocityKv, kv)) {
+      return;
+    }
+
+    wheelVelocityKp = kp;
+    wheelVelocityKi = ki;
+    wheelVelocityKd = kd;
+    wheelVelocityKv = kv;
+
+    var wheelConfig = new SparkMaxConfig();
+    wheelConfig.closedLoop.pid(kp, ki, kd).velocityFF(kv);
+
+    tryUntilOk(
+        pair1Leader,
+        5,
+        () ->
+            pair1Leader.configure(
+                wheelConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
+    tryUntilOk(
+        pair2Leader,
+        5,
+        () ->
+            pair2Leader.configure(
+                wheelConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
+  }
+
+  @Override
+  public void setHoodPositionClosedLoopGains(double kp, double ki, double kd) {
+    if (!hasGainChange(hoodPositionKp, kp)
+        && !hasGainChange(hoodPositionKi, ki)
+        && !hasGainChange(hoodPositionKd, kd)) {
+      return;
+    }
+
+    hoodPositionKp = kp;
+    hoodPositionKi = ki;
+    hoodPositionKd = kd;
+
+    var hoodPidConfig = new SparkMaxConfig();
+    hoodPidConfig.closedLoop.pid(kp, ki, kd);
+    tryUntilOk(
+        hoodMotor,
+        5,
+        () ->
+            hoodMotor.configure(
+                hoodPidConfig,
+                ResetMode.kNoResetSafeParameters,
+                PersistMode.kNoPersistParameters));
+  }
+
+  private boolean hasGainChange(double oldValue, double newValue) {
+    return Math.abs(oldValue - newValue) > 1e-9;
   }
 
   @Override

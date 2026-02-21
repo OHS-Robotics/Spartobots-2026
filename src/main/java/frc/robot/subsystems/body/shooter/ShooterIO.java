@@ -31,5 +31,9 @@ public interface ShooterIO {
 
   public default void setHoodPositionSetpointRotations(double hoodPositionRotations) {}
 
+  public default void setWheelVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {}
+
+  public default void setHoodPositionClosedLoopGains(double kp, double ki, double kd) {}
+
   public default void stop() {}
 }

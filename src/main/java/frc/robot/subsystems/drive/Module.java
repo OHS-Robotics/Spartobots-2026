@@ -122,4 +122,14 @@ public class Module {
   public double getFFCharacterizationVelocity() {
     return inputs.driveVelocityRadPerSec;
   }
+
+  /** Update drive motor velocity loop gains. */
+  public void setDriveVelocityGains(double kp, double ki, double kd) {
+    io.setDriveVelocityGains(kp, ki, kd);
+  }
+
+  /** Update turn motor position loop gains. */
+  public void setTurnPositionGains(double kp, double ki, double kd) {
+    io.setTurnPositionGains(kp, ki, kd);
+  }
 }

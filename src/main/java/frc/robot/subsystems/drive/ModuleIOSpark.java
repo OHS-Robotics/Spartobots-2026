@@ -57,6 +57,12 @@ public class ModuleIOSpark implements ModuleIO {
   private boolean turnClosedLoop = false;
   private double lastTurnPositionRad = 0.0;
   private double turnAppliedVolts = 0.0;
+  private double driveVelocityKp = driveKp;
+  private double driveVelocityKi = driveKi;
+  private double driveVelocityKd = driveKd;
+  private double turnPositionKp = turnKp;
+  private double turnPositionKi = turnKi;
+  private double turnPositionKd = turnKd;
   private final StatusSignal<Angle> turnAbsolutePosition;
   private final StatusSignal<AngularVelocity> turnVelocity;
 
@@ -135,7 +141,7 @@ public class ModuleIOSpark implements ModuleIO {
     driveConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(driveKp, 0.0, driveKd);
+        .pid(driveKp, driveKi, driveKd);
     driveConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -284,5 +290,47 @@ public class ModuleIOSpark implements ModuleIO {
     turnAppliedVolts =
         MathUtil.clamp(turnController.calculate(lastTurnPositionRad, setpointRad), -12.0, 12.0);
     turnSpark.setVoltage(turnAppliedVolts);
+  }
+
+  @Override
+  public void setDriveVelocityGains(double kp, double ki, double kd) {
+    if (!hasGainChange(driveVelocityKp, kp)
+        && !hasGainChange(driveVelocityKi, ki)
+        && !hasGainChange(driveVelocityKd, kd)) {
+      return;
+    }
+
+    driveVelocityKp = kp;
+    driveVelocityKi = ki;
+    driveVelocityKd = kd;
+
+    var drivePidConfig = new SparkMaxConfig();
+    drivePidConfig.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder).pid(kp, ki, kd);
+    tryUntilOk(
+        driveSpark,
+        5,
+        () ->
+            driveSpark.configure(
+                drivePidConfig,
+                ResetMode.kNoResetSafeParameters,
+                PersistMode.kNoPersistParameters));
+  }
+
+  @Override
+  public void setTurnPositionGains(double kp, double ki, double kd) {
+    if (!hasGainChange(turnPositionKp, kp)
+        && !hasGainChange(turnPositionKi, ki)
+        && !hasGainChange(turnPositionKd, kd)) {
+      return;
+    }
+
+    turnPositionKp = kp;
+    turnPositionKi = ki;
+    turnPositionKd = kd;
+    turnController.setPID(kp, ki, kd);
+  }
+
+  private boolean hasGainChange(double oldValue, double newValue) {
+    return Math.abs(oldValue - newValue) > 1e-9;
   }
 }

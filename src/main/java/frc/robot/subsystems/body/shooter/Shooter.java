@@ -42,6 +42,13 @@ public class Shooter extends SubsystemBase {
       ShooterConstants.defaultHoodRetractedPositionRotations;
   private double hoodExtendedPositionRotations =
       ShooterConstants.defaultHoodExtendedPositionRotations;
+  private double wheelVelocityKp = ShooterConstants.shooterVelocityKp;
+  private double wheelVelocityKi = ShooterConstants.shooterVelocityKi;
+  private double wheelVelocityKd = ShooterConstants.shooterVelocityKd;
+  private double wheelVelocityKv = ShooterConstants.shooterVelocityKv;
+  private double hoodPositionKp = ShooterConstants.hoodPositionKp;
+  private double hoodPositionKi = ShooterConstants.hoodPositionKi;
+  private double hoodPositionKd = ShooterConstants.hoodPositionKd;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   private double lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
@@ -56,6 +63,8 @@ public class Shooter extends SubsystemBase {
   private final NetworkTable subsystemTable =
       NetworkTableInstance.getDefault().getTable(ShooterConstants.configTableName);
   private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+  private final NetworkTable pidTuningTable =
+      tuningTable.getSubTable("PID").getSubTable(Constants.currentMode.name());
   private final NetworkTable motionCompTuningTable =
       tuningTable.getSubTable("MotionCompensation").getSubTable(Constants.currentMode.name());
   private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
@@ -118,6 +127,17 @@ public class Shooter extends SubsystemBase {
       tuningTable.getEntry("Wheels/Pair1Direction");
   private final NetworkTableEntry pair2DirectionEntry =
       tuningTable.getEntry("Wheels/Pair2Direction");
+  private final NetworkTableEntry wheelVelocityKpEntry =
+      pidTuningTable.getEntry("Wheels/Velocity/Kp");
+  private final NetworkTableEntry wheelVelocityKiEntry =
+      pidTuningTable.getEntry("Wheels/Velocity/Ki");
+  private final NetworkTableEntry wheelVelocityKdEntry =
+      pidTuningTable.getEntry("Wheels/Velocity/Kd");
+  private final NetworkTableEntry wheelVelocityKvEntry =
+      pidTuningTable.getEntry("Wheels/Velocity/Kv");
+  private final NetworkTableEntry hoodPositionKpEntry = pidTuningTable.getEntry("Hood/Position/Kp");
+  private final NetworkTableEntry hoodPositionKiEntry = pidTuningTable.getEntry("Hood/Position/Ki");
+  private final NetworkTableEntry hoodPositionKdEntry = pidTuningTable.getEntry("Hood/Position/Kd");
   private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
       motionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
@@ -145,6 +165,9 @@ public class Shooter extends SubsystemBase {
     double pair2VelocityCommandRadPerSec =
         shotControlEnabled ? getPair2VelocityCommandSetpointRadPerSec() : 0.0;
 
+    io.setWheelVelocityClosedLoopGains(
+        wheelVelocityKp, wheelVelocityKi, wheelVelocityKd, wheelVelocityKv);
+    io.setHoodPositionClosedLoopGains(hoodPositionKp, hoodPositionKi, hoodPositionKd);
     io.setWheelVelocitySetpoints(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     io.setHoodPositionSetpointRotations(hoodSetpointMotorRotations);
     publishHoodEncoderToNetworkTables();
@@ -280,6 +303,13 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScaleEntry.setDefaultDouble(ShooterConstants.defaultWheelSpeedScale);
     pair1DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair1Direction);
     pair2DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair2Direction);
+    wheelVelocityKpEntry.setDefaultDouble(ShooterConstants.shooterVelocityKp);
+    wheelVelocityKiEntry.setDefaultDouble(ShooterConstants.shooterVelocityKi);
+    wheelVelocityKdEntry.setDefaultDouble(ShooterConstants.shooterVelocityKd);
+    wheelVelocityKvEntry.setDefaultDouble(ShooterConstants.shooterVelocityKv);
+    hoodPositionKpEntry.setDefaultDouble(ShooterConstants.hoodPositionKp);
+    hoodPositionKiEntry.setDefaultDouble(ShooterConstants.hoodPositionKi);
+    hoodPositionKdEntry.setDefaultDouble(ShooterConstants.hoodPositionKd);
     hubMotionCompVelocityScaleEntry.setDefaultDouble(
         ShooterConstants.hubMotionCompensationVelocityScale);
     hubMotionCompLeadSecondsEntry.setDefaultDouble(
@@ -300,6 +330,13 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScale = clampWheelSpeedScale(wheelSpeedScaleEntry.getDouble(wheelSpeedScale));
     pair1Direction = normalizeDirection(pair1DirectionEntry.getDouble(pair1Direction));
     pair2Direction = normalizeDirection(pair2DirectionEntry.getDouble(pair2Direction));
+    wheelVelocityKp = sanitizeGain(wheelVelocityKpEntry.getDouble(wheelVelocityKp), wheelVelocityKp);
+    wheelVelocityKi = sanitizeGain(wheelVelocityKiEntry.getDouble(wheelVelocityKi), wheelVelocityKi);
+    wheelVelocityKd = sanitizeGain(wheelVelocityKdEntry.getDouble(wheelVelocityKd), wheelVelocityKd);
+    wheelVelocityKv = sanitizeGain(wheelVelocityKvEntry.getDouble(wheelVelocityKv), wheelVelocityKv);
+    hoodPositionKp = sanitizeGain(hoodPositionKpEntry.getDouble(hoodPositionKp), hoodPositionKp);
+    hoodPositionKi = sanitizeGain(hoodPositionKiEntry.getDouble(hoodPositionKi), hoodPositionKi);
+    hoodPositionKd = sanitizeGain(hoodPositionKdEntry.getDouble(hoodPositionKd), hoodPositionKd);
     hubMotionCompVelocityScale =
         clampMotionCompVelocityScale(
             hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale));
@@ -309,8 +346,19 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScaleEntry.setDouble(wheelSpeedScale);
     pair1DirectionEntry.setDouble(pair1Direction);
     pair2DirectionEntry.setDouble(pair2Direction);
+    wheelVelocityKpEntry.setDouble(wheelVelocityKp);
+    wheelVelocityKiEntry.setDouble(wheelVelocityKi);
+    wheelVelocityKdEntry.setDouble(wheelVelocityKd);
+    wheelVelocityKvEntry.setDouble(wheelVelocityKv);
+    hoodPositionKpEntry.setDouble(hoodPositionKp);
+    hoodPositionKiEntry.setDouble(hoodPositionKi);
+    hoodPositionKdEntry.setDouble(hoodPositionKd);
     hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
     hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
+  }
+
+  private double sanitizeGain(double value, double fallback) {
+    return Double.isFinite(value) ? value : fallback;
   }
 
   private void publishHoodEncoderToNetworkTables() {
