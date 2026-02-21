@@ -121,6 +121,7 @@ public class RobotContainer {
   private final Hopper hopper;
   private final Agitators agitators;
   private final GamePieceManager gamePieceManager;
+  private final Vision vision;
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
