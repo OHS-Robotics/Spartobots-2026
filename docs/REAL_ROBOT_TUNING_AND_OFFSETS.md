@@ -231,8 +231,8 @@ These are open-loop settings (not PID):
   - `/Body/Hopper/Tuning/Extension/SpeedScale`
   - `/Body/Hopper/Tuning/Extension/Inverted`
 - Agitators:
-  - `/Body/Agitators/Tuning/Top/Speed`, `/Top/Direction`
-  - `/Body/Agitators/Tuning/Bottom/Speed`, `/Bottom/Direction`
+  - `/Body/Agitators/Tuning/Top/Speed`, `/Top/SpeedScale`, `/Top/Direction`
+  - `/Body/Agitators/Tuning/Bottom/Speed`, `/Bottom/SpeedScale`, `/Bottom/Direction`
 
 ## 3) Persist tuned values back to code
 

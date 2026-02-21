@@ -16,8 +16,10 @@ public class GamePieceManager extends SubsystemBase {
   public enum Mode {
     IDLE,
     COLLECT,
+    COLLECT_NO_AGITATOR,
     HOLD,
     FEED,
+    MANUAL_FEED,
     REVERSE,
     UNJAM
   }
@@ -103,8 +105,18 @@ public class GamePieceManager extends SubsystemBase {
     return Commands.startEnd(() -> requestMode(Mode.COLLECT), () -> requestMode(Mode.HOLD), this);
   }
 
+  public Command collectWithoutAgitatorWhileHeldCommand() {
+    return Commands.startEnd(
+        () -> requestMode(Mode.COLLECT_NO_AGITATOR), () -> requestMode(Mode.HOLD), this);
+  }
+
   public Command feedWhileHeldCommand() {
     return Commands.startEnd(() -> requestMode(Mode.FEED), () -> requestMode(Mode.HOLD), this);
+  }
+
+  public Command manualFeedWhileHeldCommand() {
+    return Commands.startEnd(
+        () -> requestMode(Mode.MANUAL_FEED), () -> requestMode(Mode.HOLD), this);
   }
 
   public Command reverseWhileHeldCommand() {
@@ -128,7 +140,7 @@ public class GamePieceManager extends SubsystemBase {
   }
 
   public double getFeedRateRatioForShooterSim() {
-    if (mode != Mode.FEED) {
+    if (mode != Mode.FEED && mode != Mode.MANUAL_FEED) {
       return 0.0;
     }
 
@@ -160,6 +172,20 @@ public class GamePieceManager extends SubsystemBase {
         }
         applyCollect();
         break;
+      case COLLECT_NO_AGITATOR:
+        if (hasMeasuredStagedPiece()) {
+          requestMode(Mode.HOLD);
+          applyHold();
+          break;
+        }
+        if (!hasAnyBeamBreakConfigured()
+            && modeTimer.hasElapsed(GamePieceManagerConstants.sensorlessCollectToHoldSeconds)) {
+          requestMode(Mode.HOLD);
+          applyHold();
+          break;
+        }
+        applyCollectWithoutAgitator();
+        break;
       case HOLD:
         applyHold();
         break;
@@ -172,6 +198,9 @@ public class GamePieceManager extends SubsystemBase {
         } else {
           applyHold();
         }
+        break;
+      case MANUAL_FEED:
+        applyFeed();
         break;
       case REVERSE:
         applyReverse();
@@ -193,7 +222,10 @@ public class GamePieceManager extends SubsystemBase {
   }
 
   private void updateJamDetection() {
-    if (mode == Mode.COLLECT || mode == Mode.FEED) {
+    if (mode == Mode.COLLECT
+        || mode == Mode.COLLECT_NO_AGITATOR
+        || mode == Mode.FEED
+        || mode == Mode.MANUAL_FEED) {
       if (getFeedCurrentAmps() >= GamePieceManagerConstants.jamCurrentThresholdAmps) {
         if (!jamTimerActive) {
           jamTimer.restart();
@@ -233,6 +265,14 @@ public class GamePieceManager extends SubsystemBase {
     intake.updateIntake();
     hopper.updateBelt();
     agitators.updateAgitators();
+  }
+
+  private void applyCollectWithoutAgitator() {
+    intake.setTargetIntakeSpeed(GamePieceManagerConstants.collectIntakeSpeed);
+    hopper.setTargetBeltSpeed(GamePieceManagerConstants.collectHopperSpeed);
+    intake.updateIntake();
+    hopper.updateBelt();
+    agitators.stopAgitators();
   }
 
   private void applyHold() {

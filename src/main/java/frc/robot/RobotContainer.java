@@ -87,15 +87,23 @@ public class RobotContainer {
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
-  private static final double MANUAL_INTAKE_PIVOT_SPEED = 0.35;
-  private static final double MANUAL_HOPPER_EXTENSION_SPEED = 0.40;
   private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
   private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
+  private static final double START_AUTO_OUTPOST_TO_SHOOT_TIMEOUT_SECONDS = 4.0;
+  private static final double START_AUTO_OUTPOST_SHOOT_SECONDS = 4.0;
+  private static final double START_AUTO_LADDER_ALIGN_TIMEOUT_SECONDS = 4.0;
   private static final int TOP_LEFT_PADDLE_BUTTON = 7;
   private static final int TOP_RIGHT_PADDLE_BUTTON = 8;
   private static final int BOTTOM_LEFT_PADDLE_BUTTON = 11;
   // Estimated field poses; tune after on-field validation.
+  private static final Pose2d BLUE_OUTPOST_OPENING_SHOT_POSE =
+      new Pose2d(2.85, 2.1, Rotation2d.fromDegrees(-130.0));
+  private static final Pose2d RED_OUTPOST_OPENING_SHOT_POSE =
+      new Pose2d(
+          Constants.fieldLength - 2.85,
+          Constants.fieldWidth - 2.1,
+          Rotation2d.fromDegrees(50.0));
   private static final Pose2d BLUE_LADDER_ALIGN_POSE =
       new Pose2d(1.25, Constants.fieldWidth - 0.75, Rotation2d.kZero);
   private static final Pose2d RED_LADDER_ALIGN_POSE =
@@ -210,6 +218,8 @@ public class RobotContainer {
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+    autoChooser.addOption(
+        "Start Match (Outpost -> Shoot -> Ladder)", outpostStartShootAndLadderAutoRoutine());
     autoChooser.addOption("Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
     autoChooser.addOption("Hub Opening Shot (Interlocked Feed)", openingHubShotAutoRoutine());
     autoChooser.addOption("Trench Collect (Timed)", trenchCollectAutoRoutine());
@@ -277,18 +287,16 @@ public class RobotContainer {
             () -> -controller.getRightX(),
             () -> false));
 
-    // Left stick press = continue auto sequence.
-    controller.leftStick().onTrue(scheduleAutoAssist(this::continueAutoSequenceCommand));
     // Right stick press (hold) = align to hub.
     controller.rightStick().whileTrue(alignToHub());
 
     // Right trigger = run shooter while held.
     controller.rightTrigger().whileTrue(runShooterDemandWhileHeldCommand());
-    // Left trigger = run feed while held.
-    controller.leftTrigger().whileTrue(gamePieceManager.feedWhileHeldCommand());
+    // Left trigger = run belt + agitators while held.
+    controller.leftTrigger().whileTrue(gamePieceManager.manualFeedWhileHeldCommand());
 
     // Driver feed controls.
-    controller.x().whileTrue(gamePieceManager.collectWhileHeldCommand());
+    controller.x().whileTrue(gamePieceManager.collectWithoutAgitatorWhileHeldCommand());
     controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
     controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
 
@@ -305,15 +313,6 @@ public class RobotContainer {
         .povDown()
         .whileTrue(
             Commands.run(() -> shooter.adjustHoodSetpointDegrees(-MANUAL_HOOD_STEP_DEGREES)));
-    // D-pad left/right = manual intake pivot control.
-    controller.povLeft().whileTrue(runIntakePivotWhileHeldCommand(-MANUAL_INTAKE_PIVOT_SPEED));
-    controller.povRight().whileTrue(runIntakePivotWhileHeldCommand(MANUAL_INTAKE_PIVOT_SPEED));
-    // Y/start = hopper extension out/in.
-    controller.y().whileTrue(runHopperExtensionWhileHeldCommand(MANUAL_HOPPER_EXTENSION_SPEED));
-    controller
-        .start()
-        .whileTrue(runHopperExtensionWhileHeldCommand(-MANUAL_HOPPER_EXTENSION_SPEED));
-
     // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
     new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
         .onTrue(scheduleAutoAssist(this::alignToLadderCommand));
@@ -334,7 +333,7 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     Command selectedAuto = autoChooser.get();
-    return selectedAuto != null ? selectedAuto : startOfMatchAutoRoutine();
+    return selectedAuto != null ? selectedAuto : outpostStartShootAndLadderAutoRoutine();
   }
 
   public Command autoDriveUnderTrenchCommand() {
@@ -368,25 +367,47 @@ public class RobotContainer {
   }
 
   private Command openingHubShotAutoRoutine() {
-    Command openingHubShot =
-        Commands.deadline(
-            Commands.waitSeconds(START_AUTO_OPENING_SHOT_SECONDS),
-            drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds),
-            Commands.run(
-                    () -> {
-                      updateHubShotSolutionAndGetAirtimeSeconds();
-                      shooter.setShotControlEnabled(true);
-                      gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
-                    },
-                    shooter,
-                    gamePieceManager)
-                .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false))
-                .finallyDo(
-                    () -> {
-                      shooter.setShotControlEnabled(false);
-                      gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
-                    }));
-    return openingHubShot;
+    return timedHubShotAutoRoutine(START_AUTO_OPENING_SHOT_SECONDS);
+  }
+
+  private Command outpostStartShootAndLadderAutoRoutine() {
+    Pose2d outpostStartPose = getAlliancePose(Constants.blueOutpost, Constants.redOutpost);
+    Pose2d openingShotPose =
+        getAlliancePose(BLUE_OUTPOST_OPENING_SHOT_POSE, RED_OUTPOST_OPENING_SHOT_POSE);
+
+    return Commands.sequence(
+            Commands.runOnce(() -> drive.setPose(outpostStartPose), drive),
+            drive
+                .alignToPose(openingShotPose)
+                .withTimeout(START_AUTO_OUTPOST_TO_SHOOT_TIMEOUT_SECONDS),
+            timedHubShotAutoRoutine(START_AUTO_OUTPOST_SHOOT_SECONDS),
+            alignToLadderCommand().withTimeout(START_AUTO_LADDER_ALIGN_TIMEOUT_SECONDS))
+        .finallyDo(
+            () -> {
+              shooter.setShotControlEnabled(false);
+              gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
+            });
+  }
+
+  private Command timedHubShotAutoRoutine(double shotDurationSeconds) {
+    return Commands.deadline(
+        Commands.waitSeconds(shotDurationSeconds),
+        drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds),
+        Commands.run(
+                () -> {
+                  updateHubShotSolutionAndGetAirtimeSeconds();
+                  shooter.setShotControlEnabled(true);
+                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock is met.
+                  gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
+                },
+                shooter,
+                gamePieceManager)
+            .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false))
+            .finallyDo(
+                () -> {
+                  shooter.setShotControlEnabled(false);
+                  gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
+                }));
   }
 
   private Command trenchCollectAutoRoutine() {
@@ -417,16 +438,6 @@ public class RobotContainer {
     return DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red ? redPose : bluePose;
   }
 
-  private Command runIntakePivotWhileHeldCommand(double speed) {
-    return Commands.startEnd(
-        () -> intake.setIntakePivotSpeed(speed), intake::stopIntakePivot, intake);
-  }
-
-  private Command runHopperExtensionWhileHeldCommand(double speed) {
-    return Commands.startEnd(
-        () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
-  }
-
   private Command runShooterDemandWhileHeldCommand() {
     return Commands.startEnd(
         () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
@@ -448,10 +459,6 @@ public class RobotContainer {
 
   private void refreshShooterControlDemand() {
     shooter.setShotControlEnabled(shooterDemandFromAlign || shooterDemandFromTrigger);
-  }
-
-  private Command continueAutoSequenceCommand() {
-    return getAutonomousCommand();
   }
 
   private Command scheduleAutoAssist(Supplier<Command> commandSupplier) {

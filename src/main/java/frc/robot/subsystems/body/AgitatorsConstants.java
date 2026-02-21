@@ -18,6 +18,8 @@ public final class AgitatorsConstants {
   // Default open-loop speeds
   public static final double defaultTopAgitatorSpeed = 0.55;
   public static final double defaultBottomAgitatorSpeed = 0.55;
+  public static final double defaultTopAgitatorSpeedScale = 1.0;
+  public static final double defaultBottomAgitatorSpeedScale = 1.25;
 
   // Default direction/inversion
   public static final double defaultTopAgitatorDirection = 1.0;

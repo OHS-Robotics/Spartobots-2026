@@ -23,6 +23,8 @@ public class Agitators extends SubsystemBase {
 
   private double targetTopAgitatorSpeed = AgitatorsConstants.defaultTopAgitatorSpeed;
   private double targetBottomAgitatorSpeed = AgitatorsConstants.defaultBottomAgitatorSpeed;
+  private double topAgitatorSpeedScale = AgitatorsConstants.defaultTopAgitatorSpeedScale;
+  private double bottomAgitatorSpeedScale = AgitatorsConstants.defaultBottomAgitatorSpeedScale;
   private Command currentAgitatorRunCommand;
   private boolean agitatorRunning = false;
   private double lastAppliedTopAgitatorSpeed = 0.0;
@@ -42,6 +44,10 @@ public class Agitators extends SubsystemBase {
 
   private final NetworkTableEntry topAgitatorSpeedEntry = tuningTable.getEntry("Top/Speed");
   private final NetworkTableEntry bottomAgitatorSpeedEntry = tuningTable.getEntry("Bottom/Speed");
+  private final NetworkTableEntry topAgitatorSpeedScaleEntry =
+      tuningTable.getEntry("Top/SpeedScale");
+  private final NetworkTableEntry bottomAgitatorSpeedScaleEntry =
+      tuningTable.getEntry("Bottom/SpeedScale");
   private final NetworkTableEntry topAgitatorDirectionEntry = tuningTable.getEntry("Top/Direction");
   private final NetworkTableEntry bottomAgitatorDirectionEntry =
       tuningTable.getEntry("Bottom/Direction");
@@ -79,13 +85,15 @@ public class Agitators extends SubsystemBase {
 
   public void updateAgitators() {
     lastAppliedTopAgitatorSpeed =
-        applyDirection(
+        applyDirectionAndScale(
             targetTopAgitatorSpeed,
+            topAgitatorSpeedScale,
             topAgitatorDirectionEntry,
             AgitatorsConstants.defaultTopAgitatorDirection);
     lastAppliedBottomAgitatorSpeed =
-        applyDirection(
+        applyDirectionAndScale(
             targetBottomAgitatorSpeed,
+            bottomAgitatorSpeedScale,
             bottomAgitatorDirectionEntry,
             AgitatorsConstants.defaultBottomAgitatorDirection);
     topAgitator.set(lastAppliedTopAgitatorSpeed);
@@ -161,6 +169,9 @@ public class Agitators extends SubsystemBase {
   private void configureNetworkTableDefaults() {
     topAgitatorSpeedEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorSpeed);
     bottomAgitatorSpeedEntry.setDefaultDouble(AgitatorsConstants.defaultBottomAgitatorSpeed);
+    topAgitatorSpeedScaleEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorSpeedScale);
+    bottomAgitatorSpeedScaleEntry.setDefaultDouble(
+        AgitatorsConstants.defaultBottomAgitatorSpeedScale);
     topAgitatorDirectionEntry.setDefaultDouble(AgitatorsConstants.defaultTopAgitatorDirection);
     bottomAgitatorDirectionEntry.setDefaultDouble(
         AgitatorsConstants.defaultBottomAgitatorDirection);
@@ -172,6 +183,15 @@ public class Agitators extends SubsystemBase {
         clampSpeed(bottomAgitatorSpeedEntry.getDouble(targetBottomAgitatorSpeed));
     topAgitatorSpeedEntry.setDouble(targetTopAgitatorSpeed);
     bottomAgitatorSpeedEntry.setDouble(targetBottomAgitatorSpeed);
+    topAgitatorSpeedScale =
+        clampSpeedScale(
+            topAgitatorSpeedScaleEntry.getDouble(AgitatorsConstants.defaultTopAgitatorSpeedScale));
+    bottomAgitatorSpeedScale =
+        clampSpeedScale(
+            bottomAgitatorSpeedScaleEntry.getDouble(
+                AgitatorsConstants.defaultBottomAgitatorSpeedScale));
+    topAgitatorSpeedScaleEntry.setDouble(topAgitatorSpeedScale);
+    bottomAgitatorSpeedScaleEntry.setDouble(bottomAgitatorSpeedScale);
     double topDirection =
         normalizeDirection(
             topAgitatorDirectionEntry.getDouble(AgitatorsConstants.defaultTopAgitatorDirection));
@@ -183,13 +203,21 @@ public class Agitators extends SubsystemBase {
     bottomAgitatorDirectionEntry.setDouble(bottomDirection);
   }
 
-  private double applyDirection(
-      double speed, NetworkTableEntry directionEntry, double defaultDirection) {
-    return clampSpeed(speed) * normalizeDirection(directionEntry.getDouble(defaultDirection));
+  private double applyDirectionAndScale(
+      double speed,
+      double speedScale,
+      NetworkTableEntry directionEntry,
+      double defaultDirection) {
+    double scaledSpeed = clampSpeed(speed) * clampSpeedScale(speedScale);
+    return clampSpeed(scaledSpeed * normalizeDirection(directionEntry.getDouble(defaultDirection)));
   }
 
   private double clampSpeed(double speed) {
     return MathUtil.clamp(speed, -1.0, 1.0);
+  }
+
+  private double clampSpeedScale(double speedScale) {
+    return MathUtil.clamp(speedScale, 0.0, 2.0);
   }
 
   private static double normalizeDirection(double direction) {
@@ -242,6 +270,8 @@ public class Agitators extends SubsystemBase {
   private void logTelemetry() {
     Logger.recordOutput("Agitators/Config/TargetTopSpeed", targetTopAgitatorSpeed);
     Logger.recordOutput("Agitators/Config/TargetBottomSpeed", targetBottomAgitatorSpeed);
+    Logger.recordOutput("Agitators/Config/TopSpeedScale", topAgitatorSpeedScale);
+    Logger.recordOutput("Agitators/Config/BottomSpeedScale", bottomAgitatorSpeedScale);
     Logger.recordOutput(
         "Agitators/Config/TopDirection",
         normalizeDirection(
