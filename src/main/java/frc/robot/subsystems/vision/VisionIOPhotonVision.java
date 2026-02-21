@@ -16,7 +16,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import frc.robot.subsystems.drive.Drive;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,7 +24,6 @@ import java.util.Set;
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
 /** IO implementation for real PhotonVision hardware. */
@@ -43,6 +41,7 @@ public class VisionIOPhotonVision implements VisionIO {
    */
   public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
     camera = new PhotonCamera(name);
+    camera.setPipelineIndex(0);
     this.robotToCamera = robotToCamera;
     poseEstimator = new PhotonPoseEstimator(aprilTagLayout, robotToCamera);
   }
@@ -133,26 +132,6 @@ public class VisionIOPhotonVision implements VisionIO {
     int i = 0;
     for (int id : tagIds) {
       inputs.tagIds[i++] = id;
-    }
-  }
-
-  @Override
-  public void updatePoseEstimate(Drive drive) {
-    List<PhotonPipelineResult> results = camera.getAllUnreadResults();
-    Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
-
-    for (var result : results) {
-      visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-      if (visionEstimatedPose.isEmpty()) {
-        visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
-      }
-
-      updateStdDevs(visionEstimatedPose, result.getTargets());
-
-      visionEstimatedPose.ifPresent(
-          est -> {
-            drive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds, stdDevs);
-          });
     }
   }
 

@@ -11,6 +11,8 @@ import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
@@ -130,6 +132,9 @@ public class Drive extends SubsystemBase {
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   private int octant;
 
+  private PathPlannerAuto outpost;
+  private PathPlannerAuto defaultAuto;
+
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
   private SwerveModulePosition[] lastModulePositions = // For delta tracking
@@ -193,6 +198,14 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
+
+    // register commmands to be used in PathPlanner autos
+    NamedCommands.registerCommand("trench", Commands.runOnce(() -> autoDriveUnderTrench(), this));
+    NamedCommands.registerCommand("outpost", Commands.runOnce(() -> driveToOutpost(), this));
+
+    // define autos here
+    outpost = new PathPlannerAuto("Outpost");
+    defaultAuto = new PathPlannerAuto("Default");
 
     // Configure SysId
     sysId =
@@ -417,6 +430,7 @@ public class Drive extends SubsystemBase {
       Matrix<N3, N1> visionMeasurementStdDevs) {
     poseEstimator.addVisionMeasurement(
         visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
+    Logger.recordOutput("Vision pose thing", visionRobotPoseMeters);
   }
 
   /** Returns the maximum linear speed in meters per sec. */
@@ -430,7 +444,7 @@ public class Drive extends SubsystemBase {
   }
 
   public Command getAutonomousCommand() {
-    return outpostLoadAuto();
+    return outpost;
   }
 
   public Command autoDriveUnderTrenchCommand() {
@@ -524,26 +538,12 @@ public class Drive extends SubsystemBase {
     return AutoBuilder.pathfindToPose(target, pathConstraints);
   }
 
-  public Command outpostLoadAuto() {
-    return AutoBuilder.pathfindToPose(getNearestOutpost(), pathConstraints);
-  }
-
   private Pose2d getNearestHub() {
     double distanceToRedHub =
         getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
     double distanceToBlueHub =
         getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
     return distanceToRedHub < distanceToBlueHub ? Constants.redHub : Constants.blueHub;
-  }
-
-  private Pose2d getNearestOutpost() {
-    if (DriverStation.getAlliance().isPresent()) {
-      if (DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
-        return Constants.redOutpost;
-      }
-      return Constants.blueOutpost;
-    }
-    return Constants.blueOutpost;
   }
 
   public Pose2d getNearestHubPose() {
