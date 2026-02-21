@@ -279,7 +279,7 @@ public class LauncherSubsystem extends SubsystemBase {
     public Command increaseLauncherAngle() {
         return run(() -> {
             System.out.printf("Increase %f\n", launcherEncoder.getPosition());
-            if (launcherEncoder.getPosition() > 0) {
+            if (launcherEncoder.getPosition() > -0.1) {
                 launcherAngleDrive.set(0.0);
             }
             else {

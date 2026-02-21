@@ -216,6 +216,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public void update() {
         swerveDrive.updateOdometry();
-        vision.updatePoseEstimate(swerveDrive);
+        //vision.updatePoseEstimate(swerveDrive);
     }
 }

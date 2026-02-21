@@ -29,7 +29,7 @@ public final class Constants {
   }
 
   public static final double MAX_SPEED = Units.feetToMeters(13.5);
-  public static final double MAX_ACCELERATION = Units.feetToMeters(6.7);
+  public static final double MAX_ACCELERATION = Units.feetToMeters(4.1);
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(270.0);
   public static final double MIN_AUTO_ROTATIONAL_SPEED = Units.degreesToRadians(120.0);
   public static final double MAX_ROTATIONAL_ACCELERATION = Units.degreesToRadians(90.0);
