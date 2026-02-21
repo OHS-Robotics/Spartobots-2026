@@ -12,6 +12,7 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Radians;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -68,7 +69,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
-  private static final Pose2d SIM_START_POSE = new Pose2d(9.0, 3.0, Rotation2d.kZero);
+  private static final Pose2d SIM_START_POSE = new Pose2d(3.0, 3.0, Rotation2d.kZero);
   private static final double HUB_TOP_LENGTH_Y_METERS = Units.inchesToMeters(47.0);
   private static final double HUB_RAMP_LENGTH_Y_METERS = Units.inchesToMeters(73.0);
   private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
@@ -132,6 +133,7 @@ public class RobotContainer {
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
 
+  private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
@@ -156,12 +158,12 @@ public class RobotContainer {
                 new ModuleIOSpark(3));
         shooter = new Shooter(new ShooterIOSparkMax());
         vision =
-        new Vision(
-            drive::addVisionMeasurement,
-            new VisionIOPhotonVision(
-                VisionConstants.camera0Name, VisionConstants.robotToCamera0),
-            new VisionIOPhotonVision(
-                VisionConstants.camera1Name, VisionConstants.robotToCamera1));
+            new Vision(
+                drive::addVisionMeasurement,
+                new VisionIOPhotonVision(
+                    VisionConstants.camera0Name, VisionConstants.robotToCamera0),
+                new VisionIOPhotonVision(
+                    VisionConstants.camera1Name, VisionConstants.robotToCamera1));
         break;
 
       case SIM:
@@ -184,6 +186,10 @@ public class RobotContainer {
                 new VisionIOPhotonVisionSim(
                     VisionConstants.camera0Name,
                     VisionConstants.robotToCamera0,
+                    driveSimulation::getSimulatedDriveTrainPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.camera1Name,
+                    VisionConstants.robotToCamera1,
                     driveSimulation::getSimulatedDriveTrainPose));
         resetSimulationField();
         break;
