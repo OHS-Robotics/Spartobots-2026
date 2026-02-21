@@ -33,13 +33,13 @@ public class VisionConstants {
           new Translation3d(
               -DriveConstants.trackWidth / 2.0,
               DriveConstants.wheelBase / 2.0,
-              Units.inchesToMeters(4.0)),
+              Units.inchesToMeters(6.0)),
           new Rotation3d(0.0, Units.degreesToRadians(-40), Units.degreesToRadians(135)));
   public static Transform3d robotToCamera1 =
       new Transform3d(
           -DriveConstants.trackWidth / 2.0,
           -DriveConstants.wheelBase / 2.0,
-          Units.inchesToMeters(4.0),
+          Units.inchesToMeters(6.0),
           new Rotation3d(0.0, Units.degreesToRadians(-40), Units.degreesToRadians(-135)));
 
   // Basic filtering thresholds
