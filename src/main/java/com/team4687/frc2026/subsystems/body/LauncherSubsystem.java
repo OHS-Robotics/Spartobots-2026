@@ -28,7 +28,7 @@ public class LauncherSubsystem extends SubsystemBase {
     public class LauncherSendables implements Sendable {
 
         public double targetIntakeSpeed = 0.4;
-        public double targetLaunchSpeed = 0.75;
+        public double targetLaunchSpeed = 1.0;
 
         @Override
         public void initSendable(SendableBuilder builder) {
