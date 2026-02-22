@@ -317,9 +317,7 @@ public class ShooterIOSparkMax implements ShooterIO {
         5,
         () ->
             hoodMotor.configure(
-                hoodPidConfig,
-                ResetMode.kNoResetSafeParameters,
-                PersistMode.kNoPersistParameters));
+                hoodPidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
   }
 
   private boolean hasGainChange(double oldValue, double newValue) {

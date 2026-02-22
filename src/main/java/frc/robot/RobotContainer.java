@@ -101,9 +101,7 @@ public class RobotContainer {
       new Pose2d(2.85, 2.1, Rotation2d.fromDegrees(-130.0));
   private static final Pose2d RED_OUTPOST_OPENING_SHOT_POSE =
       new Pose2d(
-          Constants.fieldLength - 2.85,
-          Constants.fieldWidth - 2.1,
-          Rotation2d.fromDegrees(50.0));
+          Constants.fieldLength - 2.85, Constants.fieldWidth - 2.1, Rotation2d.fromDegrees(50.0));
   private static final Pose2d BLUE_LADDER_ALIGN_POSE =
       new Pose2d(1.25, Constants.fieldWidth - 0.75, Rotation2d.kZero);
   private static final Pose2d RED_LADDER_ALIGN_POSE =
@@ -112,9 +110,6 @@ public class RobotContainer {
       new Pose2d(Constants.blueLine - 0.6, Constants.midLineY, Rotation2d.kZero);
   private static final Pose2d RED_DEPOT_ALIGN_POSE =
       new Pose2d(Constants.redLine + 0.6, Constants.midLineY, Rotation2d.fromDegrees(180.0));
-  private static final HumpPoseSample FLAT_GROUND_SAMPLE =
-      new HumpPoseSample(new double[] {0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 0.0);
-
   // Subsystems
   private final Drive drive;
   private final Shooter shooter;
@@ -122,6 +117,8 @@ public class RobotContainer {
   private final Hopper hopper;
   private final Agitators agitators;
   private final GamePieceManager gamePieceManager;
+
+  @SuppressWarnings("unused")
   private final Vision vision;
 
   // Controller
@@ -133,7 +130,6 @@ public class RobotContainer {
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
 
-  private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
@@ -398,7 +394,8 @@ public class RobotContainer {
                 () -> {
                   updateHubShotSolutionAndGetAirtimeSeconds();
                   shooter.setShotControlEnabled(true);
-                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock is met.
+                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock
+                  // is met.
                   gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                 },
                 shooter,

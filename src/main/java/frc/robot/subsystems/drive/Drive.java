@@ -83,12 +83,18 @@ public class Drive extends SubsystemBase {
           .getTable("Drive")
           .getSubTable("Tuning")
           .getSubTable(Constants.currentMode.name());
-  private final NetworkTableEntry moduleDriveKpEntry = driveTuningTable.getEntry("Module/DrivePID/Kp");
-  private final NetworkTableEntry moduleDriveKiEntry = driveTuningTable.getEntry("Module/DrivePID/Ki");
-  private final NetworkTableEntry moduleDriveKdEntry = driveTuningTable.getEntry("Module/DrivePID/Kd");
-  private final NetworkTableEntry moduleTurnKpEntry = driveTuningTable.getEntry("Module/TurnPID/Kp");
-  private final NetworkTableEntry moduleTurnKiEntry = driveTuningTable.getEntry("Module/TurnPID/Ki");
-  private final NetworkTableEntry moduleTurnKdEntry = driveTuningTable.getEntry("Module/TurnPID/Kd");
+  private final NetworkTableEntry moduleDriveKpEntry =
+      driveTuningTable.getEntry("Module/DrivePID/Kp");
+  private final NetworkTableEntry moduleDriveKiEntry =
+      driveTuningTable.getEntry("Module/DrivePID/Ki");
+  private final NetworkTableEntry moduleDriveKdEntry =
+      driveTuningTable.getEntry("Module/DrivePID/Kd");
+  private final NetworkTableEntry moduleTurnKpEntry =
+      driveTuningTable.getEntry("Module/TurnPID/Kp");
+  private final NetworkTableEntry moduleTurnKiEntry =
+      driveTuningTable.getEntry("Module/TurnPID/Ki");
+  private final NetworkTableEntry moduleTurnKdEntry =
+      driveTuningTable.getEntry("Module/TurnPID/Kd");
   private final NetworkTableEntry pathTranslationKpEntry =
       driveTuningTable.getEntry("PathPlanner/TranslationPID/Kp");
   private final NetworkTableEntry pathTranslationKiEntry =
