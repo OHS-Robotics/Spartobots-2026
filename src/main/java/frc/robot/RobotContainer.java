@@ -133,7 +133,6 @@ public class RobotContainer {
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
 
-  private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
