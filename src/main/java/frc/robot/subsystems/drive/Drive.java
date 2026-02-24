@@ -376,15 +376,6 @@ public class Drive extends SubsystemBase {
     return states;
   }
 
-  /** Returns the current steering angle for each module (FL, FR, BL, BR). */
-  public Rotation2d[] getModuleSteerAngles() {
-    Rotation2d[] angles = new Rotation2d[4];
-    for (int i = 0; i < 4; i++) {
-      angles[i] = modules[i].getState().angle;
-    }
-    return angles;
-  }
-
   /** Returns the measured chassis speeds of the robot. */
   @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
   private ChassisSpeeds getChassisSpeeds() {

@@ -85,19 +85,10 @@ public class RobotContainer {
   private static final double WALL_RUMBLE_DURATION_SECS = 0.22;
   private static final double WALL_RUMBLE_STRENGTH = 1.0;
   private static final String ROBOT_COMPONENTS_LOG_KEY = "AdvantageScope/Robot/Components";
-  private static final int COMPONENT_INDEX_FRONT_LEFT_MODULE = 0;
-  private static final int COMPONENT_INDEX_FRONT_RIGHT_MODULE = 1;
-  private static final int COMPONENT_INDEX_BACK_LEFT_MODULE = 2;
-  private static final int COMPONENT_INDEX_BACK_RIGHT_MODULE = 3;
-  private static final int COMPONENT_INDEX_INTAKE_PIVOT = 4;
-  private static final int COMPONENT_INDEX_HOPPER_EXTENSION = 5;
-  private static final int COMPONENT_INDEX_SHOOTER_HOOD = 6;
-  private static final int ROBOT_COMPONENT_COUNT = 7;
-  private static final double MODULE_COMPONENT_Z_METERS = Units.inchesToMeters(2.0);
-  private static final Rotation2d[] MODULE_MODEL_YAW_OFFSETS =
-      new Rotation2d[] {
-        Rotation2d.kZero, Rotation2d.kZero, Rotation2d.kZero, Rotation2d.kZero
-      };
+  private static final int COMPONENT_INDEX_INTAKE_PIVOT = 0;
+  private static final int COMPONENT_INDEX_HOPPER_EXTENSION = 1;
+  private static final int COMPONENT_INDEX_SHOOTER_HOOD = 2;
+  private static final int ROBOT_COMPONENT_COUNT = 3;
   private static final Translation3d INTAKE_PIVOT_ORIGIN_ON_ROBOT =
       new Translation3d(0.305, 0.0, 0.215);
   private static final Rotation2d INTAKE_PIVOT_RETRACTED_ANGLE = Rotation2d.fromDegrees(0.0);
@@ -531,19 +522,6 @@ public class RobotContainer {
 
   private Pose3d[] getRobotRelativeComponentPoses() {
     Pose3d[] componentPoses = new Pose3d[ROBOT_COMPONENT_COUNT];
-    Rotation2d[] moduleSteerAngles = drive.getModuleSteerAngles();
-
-    for (int i = COMPONENT_INDEX_FRONT_LEFT_MODULE;
-        i <= COMPONENT_INDEX_BACK_RIGHT_MODULE;
-        i++) {
-      Translation2d moduleTranslation = DriveConstants.moduleTranslations[i];
-      Rotation2d moduleYaw = moduleSteerAngles[i].plus(MODULE_MODEL_YAW_OFFSETS[i]);
-      componentPoses[i] =
-          new Pose3d(
-              new Translation3d(
-                  moduleTranslation.getX(), moduleTranslation.getY(), MODULE_COMPONENT_Z_METERS),
-              new Rotation3d(0.0, 0.0, moduleYaw.getRadians()));
-    }
 
     double intakePivotNormalized = intake.getIntakePivotMeasuredPositionNormalized();
     Rotation2d intakePivotPitch =
