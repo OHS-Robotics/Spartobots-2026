@@ -16,7 +16,7 @@ public class GamePieceManager extends SubsystemBase {
   public enum Mode {
     IDLE,
     COLLECT,
-    COLLECT_NO_AGITATOR,
+    COLLECT_NO_INDEXER,
     HOLD,
     FEED,
     MANUAL_FEED,
@@ -26,7 +26,7 @@ public class GamePieceManager extends SubsystemBase {
 
   private final Intake intake;
   private final Hopper hopper;
-  private final Agitators agitators;
+  private final Indexers indexers;
 
   private final DigitalInput intakeBeamBreak;
   private final DigitalInput hopperBeamBreak;
@@ -56,10 +56,10 @@ public class GamePieceManager extends SubsystemBase {
   private boolean shooterDetected = false;
   private boolean jamTimerActive = false;
 
-  public GamePieceManager(Intake intake, Hopper hopper, Agitators agitators) {
+  public GamePieceManager(Intake intake, Hopper hopper, Indexers indexers) {
     this.intake = intake;
     this.hopper = hopper;
-    this.agitators = agitators;
+    this.indexers = indexers;
 
     intakeBeamBreak = createBeamBreak(GamePieceManagerConstants.intakeBeamBreakChannel);
     hopperBeamBreak = createBeamBreak(GamePieceManagerConstants.hopperBeamBreakChannel);
@@ -105,9 +105,9 @@ public class GamePieceManager extends SubsystemBase {
     return Commands.startEnd(() -> requestMode(Mode.COLLECT), () -> requestMode(Mode.HOLD), this);
   }
 
-  public Command collectWithoutAgitatorWhileHeldCommand() {
+  public Command collectWithoutIndexerWhileHeldCommand() {
     return Commands.startEnd(
-        () -> requestMode(Mode.COLLECT_NO_AGITATOR), () -> requestMode(Mode.HOLD), this);
+        () -> requestMode(Mode.COLLECT_NO_INDEXER), () -> requestMode(Mode.HOLD), this);
   }
 
   public Command feedWhileHeldCommand() {
@@ -144,13 +144,13 @@ public class GamePieceManager extends SubsystemBase {
       return 0.0;
     }
 
-    double nominalFeedAgitatorOutput = Math.abs(GamePieceManagerConstants.feedAgitatorSpeed);
-    if (nominalFeedAgitatorOutput < 1e-6) {
+    double nominalFeedIndexerOutput = Math.abs(GamePieceManagerConstants.feedIndexerSpeed);
+    if (nominalFeedIndexerOutput < 1e-6) {
       return 0.0;
     }
 
     return MathUtil.clamp(
-        Math.abs(agitators.getAverageAppliedOutput()) / nominalFeedAgitatorOutput, 0.0, 1.0);
+        Math.abs(indexers.getAverageAppliedOutput()) / nominalFeedIndexerOutput, 0.0, 1.0);
   }
 
   private void runMode() {
@@ -164,27 +164,25 @@ public class GamePieceManager extends SubsystemBase {
           applyHold();
           break;
         }
-        if (!hasAnyBeamBreakConfigured()
-            && modeTimer.hasElapsed(GamePieceManagerConstants.sensorlessCollectToHoldSeconds)) {
+        if (shouldAutoHoldDuringSensorlessCollect()) {
           requestMode(Mode.HOLD);
           applyHold();
           break;
         }
         applyCollect();
         break;
-      case COLLECT_NO_AGITATOR:
+      case COLLECT_NO_INDEXER:
         if (hasMeasuredStagedPiece()) {
           requestMode(Mode.HOLD);
           applyHold();
           break;
         }
-        if (!hasAnyBeamBreakConfigured()
-            && modeTimer.hasElapsed(GamePieceManagerConstants.sensorlessCollectToHoldSeconds)) {
+        if (shouldAutoHoldDuringSensorlessCollect()) {
           requestMode(Mode.HOLD);
           applyHold();
           break;
         }
-        applyCollectWithoutAgitator();
+        applyCollectWithoutIndexer();
         break;
       case HOLD:
         applyHold();
@@ -223,7 +221,7 @@ public class GamePieceManager extends SubsystemBase {
 
   private void updateJamDetection() {
     if (mode == Mode.COLLECT
-        || mode == Mode.COLLECT_NO_AGITATOR
+        || mode == Mode.COLLECT_NO_INDEXER
         || mode == Mode.FEED
         || mode == Mode.MANUAL_FEED) {
       if (getFeedCurrentAmps() >= GamePieceManagerConstants.jamCurrentThresholdAmps) {
@@ -260,19 +258,19 @@ public class GamePieceManager extends SubsystemBase {
 
   private void applyCollect() {
     intake.setTargetIntakeSpeed(GamePieceManagerConstants.collectIntakeSpeed);
-    hopper.setTargetBeltSpeed(GamePieceManagerConstants.collectHopperSpeed);
-    agitators.setTargetAgitatorSpeed(GamePieceManagerConstants.collectAgitatorSpeed);
+    hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.collectAgitatorSpeed);
+    indexers.setTargetIndexerSpeed(GamePieceManagerConstants.collectIndexerSpeed);
     intake.updateIntake();
-    hopper.updateBelt();
-    agitators.updateAgitators();
+    hopper.updateAgitator();
+    indexers.updateIndexers();
   }
 
-  private void applyCollectWithoutAgitator() {
+  private void applyCollectWithoutIndexer() {
     intake.setTargetIntakeSpeed(GamePieceManagerConstants.collectIntakeSpeed);
-    hopper.setTargetBeltSpeed(GamePieceManagerConstants.collectHopperSpeed);
+    hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.collectAgitatorSpeed);
     intake.updateIntake();
-    hopper.updateBelt();
-    agitators.stopAgitators();
+    hopper.updateAgitator();
+    indexers.stopIndexers();
   }
 
   private void applyHold() {
@@ -281,25 +279,25 @@ public class GamePieceManager extends SubsystemBase {
 
   private void applyFeed() {
     intake.stopIntake();
-    hopper.setTargetBeltSpeed(GamePieceManagerConstants.feedHopperSpeed);
-    agitators.setTargetAgitatorSpeed(GamePieceManagerConstants.feedAgitatorSpeed);
-    hopper.updateBelt();
-    agitators.updateAgitators();
+    hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.feedAgitatorSpeed);
+    indexers.setTargetIndexerSpeed(GamePieceManagerConstants.feedIndexerSpeed);
+    hopper.updateAgitator();
+    indexers.updateIndexers();
   }
 
   private void applyReverse() {
     intake.setTargetIntakeSpeed(GamePieceManagerConstants.reverseSpeed);
-    hopper.setTargetBeltSpeed(GamePieceManagerConstants.reverseSpeed);
-    agitators.setTargetAgitatorSpeed(GamePieceManagerConstants.reverseSpeed);
+    hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.reverseSpeed);
+    indexers.setTargetIndexerSpeed(GamePieceManagerConstants.reverseSpeed);
     intake.updateIntake();
-    hopper.updateBelt();
-    agitators.updateAgitators();
+    hopper.updateAgitator();
+    indexers.updateIndexers();
   }
 
   private void stopFeedMotors() {
     intake.stopIntake();
-    hopper.stopBelt();
-    agitators.stopAgitators();
+    hopper.stopAgitator();
+    indexers.stopIndexers();
   }
 
   private boolean hasMeasuredStagedPiece() {
@@ -314,10 +312,16 @@ public class GamePieceManager extends SubsystemBase {
     return intakeBeamBreak != null || hopperBeamBreak != null || shooterBeamBreak != null;
   }
 
+  private boolean shouldAutoHoldDuringSensorlessCollect() {
+    return !hasAnyBeamBreakConfigured()
+        && GamePieceManagerConstants.sensorlessCollectToHoldSeconds > 0.0
+        && modeTimer.hasElapsed(GamePieceManagerConstants.sensorlessCollectToHoldSeconds);
+  }
+
   private double getFeedCurrentAmps() {
     return intake.getIntakeDriveCurrentAmps()
-        + hopper.getHopperBeltCurrentAmps()
-        + agitators.getAverageAgitatorCurrentAmps();
+        + hopper.getHopperAgitatorCurrentAmps()
+        + indexers.getAverageIndexerCurrentAmps();
   }
 
   private static DigitalInput createBeamBreak(int channel) {

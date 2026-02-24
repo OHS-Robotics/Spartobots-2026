@@ -217,7 +217,7 @@ Tune by shooting while translating laterally:
 - If shots trail robot motion, increase `VelocityScale` or `LeadSeconds`.
 - If shots over-lead, decrease them.
 
-## 2.7 Intake/hopper/agitator runtime parameters
+## 2.7 Intake/hopper agitator/indexer runtime parameters
 
 These are open-loop settings (not PID):
 - Intake:
@@ -226,13 +226,13 @@ These are open-loop settings (not PID):
   - `/Body/Intake/Tuning/Pivot/SpeedScale`
   - `/Body/Intake/Tuning/Pivot/Inverted`
 - Hopper:
-  - `/Body/Hopper/Tuning/Belt/Speed`
-  - `/Body/Hopper/Tuning/Belt/Direction`
+  - `/Body/Hopper/Tuning/Agitator/Speed`
+  - `/Body/Hopper/Tuning/Agitator/Direction`
   - `/Body/Hopper/Tuning/Extension/SpeedScale`
   - `/Body/Hopper/Tuning/Extension/Inverted`
-- Agitators:
-  - `/Body/Agitators/Tuning/Top/Speed`, `/Top/SpeedScale`, `/Top/Direction`
-  - `/Body/Agitators/Tuning/Bottom/Speed`, `/Bottom/SpeedScale`, `/Bottom/Direction`
+- Indexers:
+  - `/Body/Indexers/Tuning/Top/Speed`, `/Top/SpeedScale`, `/Top/Direction`
+  - `/Body/Indexers/Tuning/Bottom/Speed`, `/Bottom/SpeedScale`, `/Bottom/Direction`
 
 ## 3) Persist tuned values back to code
 
@@ -246,10 +246,10 @@ NetworkTables live tuning is great for iteration, but final comp values should b
    - `src/main/java/frc/robot/subsystems/drive/Drive.java` (default path PID constants)
 4. Shooter defaults:
    - `src/main/java/frc/robot/subsystems/body/shooter/ShooterConstants.java`
-5. Intake/hopper/agitator defaults:
+5. Intake/hopper agitator/indexer defaults:
    - `src/main/java/frc/robot/subsystems/body/IntakeConstants.java`
    - `src/main/java/frc/robot/subsystems/body/HopperConstants.java`
-   - `src/main/java/frc/robot/subsystems/body/AgitatorsConstants.java`
+   - `src/main/java/frc/robot/subsystems/body/IndexersConstants.java`
 6. Vision transforms:
    - `src/main/java/frc/robot/subsystems/vision/VisionConstants.java`
 

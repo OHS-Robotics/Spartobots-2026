@@ -33,7 +33,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
-import frc.robot.subsystems.body.Agitators;
+import frc.robot.subsystems.body.Indexers;
 import frc.robot.subsystems.body.GamePieceManager;
 import frc.robot.subsystems.body.Hopper;
 import frc.robot.subsystems.body.Intake;
@@ -131,7 +131,7 @@ public class RobotContainer {
   private final Shooter shooter;
   private final Intake intake;
   private final Hopper hopper;
-  private final Agitators agitators;
+  private final Indexers indexers;
   private final GamePieceManager gamePieceManager;
 
   @SuppressWarnings("unused")
@@ -156,7 +156,7 @@ public class RobotContainer {
   public RobotContainer() {
     intake = new Intake();
     hopper = new Hopper();
-    agitators = new Agitators();
+    indexers = new Indexers();
 
     switch (Constants.currentMode) {
       case REAL:
@@ -226,7 +226,7 @@ public class RobotContainer {
         break;
     }
 
-    gamePieceManager = new GamePieceManager(intake, hopper, agitators);
+    gamePieceManager = new GamePieceManager(intake, hopper, indexers);
     gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
 
     // Set up auto routines
@@ -305,11 +305,12 @@ public class RobotContainer {
 
     // Right trigger = run shooter while held.
     controller.rightTrigger().whileTrue(runShooterDemandWhileHeldCommand());
-    // Left trigger = run belt + agitators while held.
+    // Left trigger = run agitator + indexers while held.
     controller.leftTrigger().whileTrue(gamePieceManager.manualFeedWhileHeldCommand());
 
-    // Driver feed controls.
-    controller.x().whileTrue(gamePieceManager.collectWithoutAgitatorWhileHeldCommand());
+    // Driver feed controls: Y = collect with indexers, X = collect without indexers.
+    controller.y().whileTrue(gamePieceManager.collectWhileHeldCommand());
+    controller.x().whileTrue(gamePieceManager.collectWithoutIndexerWhileHeldCommand());
     controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
     controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
 
@@ -410,7 +411,8 @@ public class RobotContainer {
                 () -> {
                   updateHubShotSolutionAndGetAirtimeSeconds();
                   shooter.setShotControlEnabled(true);
-                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock
+                  // FEED mode advances using hopper agitator + indexers when shooter-ready
+                  // interlock
                   // is met.
                   gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                 },
