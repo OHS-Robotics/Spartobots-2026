@@ -56,8 +56,6 @@ public class DriveConstants {
   public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
 
   // Device CAN IDs
-  public static final int pigeonCanId = 1;
-
   public static final int frontLeftDriveCanId = 8;
   public static final int backLeftDriveCanId = 10;
   public static final int frontRightDriveCanId = 6;
@@ -143,6 +141,8 @@ public class DriveConstants {
           maxAccelerationMeterPerSecSquared,
           maxRotationalSpeedRadiansPerSec,
           maxRotationalAccelerationRadiansPerSecSquared);
+  public static final double trenchApproachGoalEndVelocityMetersPerSec = 0.0;
+  public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
 
   public static final PathConstraints middleLoadPathConstraints =
       new PathConstraints(
@@ -163,7 +163,7 @@ public class DriveConstants {
           .withRobotMass(Kilograms.of(robotMassKg))
           .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
           .withCustomModuleTranslations(moduleTranslations)
-          .withGyro(COTS.ofPigeon2())
+          .withGyro(COTS.ofNav2X())
           .withSwerveModule(
               new SwerveModuleSimulationConfig(
                   driveGearbox,

@@ -32,7 +32,6 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -45,6 +44,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
+import frc.robot.util.NetworkTablesUtil;
 import frc.robot.util.LocalADStarAK;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
@@ -53,7 +53,6 @@ import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
   private static final double defaultPathTranslationKp = 5.0;
@@ -75,24 +74,30 @@ public class Drive extends SubsystemBase {
               defaultPathTranslationKp, defaultPathTranslationKi, defaultPathTranslationKd),
           new PIDConstants(defaultPathRotationKp, defaultPathRotationKi, defaultPathRotationKd),
           0.02);
-  private final LoggedNetworkBoolean logHubAimVector =
-      new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
+  private final NetworkTable driveSubsystemTable = NetworkTablesUtil.subsystemTable("Drive");
+  private final NetworkTable driveCommonTuningTable =
+      NetworkTablesUtil.tuningCommonTable(driveSubsystemTable);
   private final NetworkTable driveTuningTable =
-      NetworkTableInstance.getDefault()
-          .getTable("Drive")
-          .getSubTable("Tuning")
-          .getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.tuningModeTable(driveSubsystemTable);
+  private final NetworkTableEntry logHubAimVectorEntry =
+      driveCommonTuningTable.getEntry("LogHubAimVector");
   private final NetworkTableEntry moduleDriveKpEntry =
+     
       driveTuningTable.getEntry("Module/DrivePID/Kp");
   private final NetworkTableEntry moduleDriveKiEntry =
+     
       driveTuningTable.getEntry("Module/DrivePID/Ki");
   private final NetworkTableEntry moduleDriveKdEntry =
+     
       driveTuningTable.getEntry("Module/DrivePID/Kd");
   private final NetworkTableEntry moduleTurnKpEntry =
+     
       driveTuningTable.getEntry("Module/TurnPID/Kp");
   private final NetworkTableEntry moduleTurnKiEntry =
+     
       driveTuningTable.getEntry("Module/TurnPID/Ki");
   private final NetworkTableEntry moduleTurnKdEntry =
+     
       driveTuningTable.getEntry("Module/TurnPID/Kd");
   private final NetworkTableEntry pathTranslationKpEntry =
       driveTuningTable.getEntry("PathPlanner/TranslationPID/Kp");
@@ -107,11 +112,7 @@ public class Drive extends SubsystemBase {
   private final NetworkTableEntry pathRotationKdEntry =
       driveTuningTable.getEntry("PathPlanner/RotationPID/Kd");
   private final NetworkTable hubMotionCompTuningTable =
-      NetworkTableInstance.getDefault()
-          .getTable(ShooterConstants.configTableName)
-          .getSubTable("Tuning")
-          .getSubTable("MotionCompensation")
-          .getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.sharedModeTuningTable("HubMotionCompensation");
   private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
       hubMotionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
@@ -169,6 +170,7 @@ public class Drive extends SubsystemBase {
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
     modules[3] = new Module(brModuleIO, 3);
+    logHubAimVectorEntry.setDefaultBoolean(false);
     configureDrivePidDefaults();
     loadDrivePidTuning();
     configureHubMotionCompDefaults();
@@ -215,7 +217,6 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
-    logHubAimVector.periodic();
     loadDrivePidTuning();
     loadHubMotionCompTuning();
 
@@ -276,7 +277,7 @@ public class Drive extends SubsystemBase {
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
 
-    if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
+    if (!isHubAimVectorLoggingEnabled() && wasHubAimVectorLoggingEnabled) {
       clearHubAimLogs();
     }
 
@@ -455,9 +456,25 @@ public class Drive extends SubsystemBase {
   private Command buildTrenchPathCommand(
       Translation2d firstPose, Translation2d secondPose, double angleRadians) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
-    return AutoBuilder.pathfindToPose(new Pose2d(firstPose, trenchHeading), pathConstraints, 0)
+    return AutoBuilder.pathfindToPose(
+            new Pose2d(firstPose, trenchHeading),
+            pathConstraints,
+            trenchApproachGoalEndVelocityMetersPerSec)
+        .andThen(alignToHeadingCommand(trenchHeading))
         .andThen(
             AutoBuilder.pathfindToPose(new Pose2d(secondPose, trenchHeading), pathConstraints, 0));
+  }
+
+  private Command alignToHeadingCommand(Rotation2d targetHeading) {
+    return DriveCommands.joystickDriveAtAngle(this, () -> 0.0, () -> 0.0, () -> targetHeading)
+        .until(() -> isHeadingAligned(targetHeading))
+        .andThen(Commands.runOnce(this::stop));
+  }
+
+  private boolean isHeadingAligned(Rotation2d targetHeading) {
+    double headingErrorRadians =
+        Math.abs(MathUtil.angleModulus(getRotation().minus(targetHeading).getRadians()));
+    return headingErrorRadians <= trenchLongAxisAlignmentToleranceRadians;
   }
 
   private Translation2d[] determineTrenchPoses() {
@@ -631,7 +648,7 @@ public class Drive extends SubsystemBase {
   }
 
   private void logHubAimTarget(Pose2d baseHub, Pose2d compensatedHub, double airtimeSeconds) {
-    if (!logHubAimVector.get()) {
+    if (!isHubAimVectorLoggingEnabled()) {
       return;
     }
 
@@ -688,6 +705,10 @@ public class Drive extends SubsystemBase {
     pathRotationKpEntry.setDefaultDouble(defaultPathRotationKp);
     pathRotationKiEntry.setDefaultDouble(defaultPathRotationKi);
     pathRotationKdEntry.setDefaultDouble(defaultPathRotationKd);
+  }
+
+  private boolean isHubAimVectorLoggingEnabled() {
+    return logHubAimVectorEntry.getBoolean(false);
   }
 
   private void loadDrivePidTuning() {

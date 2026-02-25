@@ -64,6 +64,19 @@ wpi.java.debugJni = false
 // Set this to true to enable desktop support.
 def includeDesktopSupport = true
 
+def gitExecutable = org.gradle.internal.os.OperatingSystem.current().isWindows() ? "git.exe" : "git"
+def gitAvailable
+try {
+    def gitCheck = new ProcessBuilder(gitExecutable, "--version")
+            .directory(projectDir)
+            .redirectErrorStream(true)
+            .start()
+    gitCheck.waitFor()
+    gitAvailable = gitCheck.exitValue() == 0
+} catch (Exception ignored) {
+    gitAvailable = false
+}
+
 // Configuration for AdvantageKit
 task(replayWatch, type: JavaExec) {
     mainClass = "org.littletonrobotics.junction.ReplayWatch"
@@ -132,7 +145,6 @@ tasks.withType(JavaCompile) {
 }
 
 // Create version file
-project.compileJava.dependsOn(createVersionFile)
 gversion {
     srcDir       = "src/main/java/"
     classPackage = "frc.robot"
@@ -146,19 +158,28 @@ gversion {
 task(eventDeploy) {
     doLast {
         if (project.gradle.startParameter.taskNames.any({ it.toLowerCase().contains("deploy") })) {
+            if (!gitAvailable) {
+                println "Git not found in PATH, skipping event branch commit"
+                return
+            }
+
             def branchPrefix = "event"
-            def branch = 'git branch --show-current'.execute().text.trim()
+            def branch = [
+                gitExecutable,
+                "branch",
+                "--show-current"
+            ].execute(null, projectDir).text.trim()
             def commitMessage = "Update at '${new Date().toString()}'"
 
             if (branch.startsWith(branchPrefix)) {
                 exec {
                     workingDir(projectDir)
-                    executable 'git'
+                    executable gitExecutable
                     args 'add', '-A'
                 }
                 exec {
                     workingDir(projectDir)
-                    executable 'git'
+                    executable gitExecutable
                     args 'commit', '-m', commitMessage
                     ignoreExitValue = true
                 }
@@ -173,7 +194,41 @@ task(eventDeploy) {
         }
     }
 }
-createVersionFile.dependsOn(eventDeploy)
+
+def fallbackBuildConstantsFile = file("src/main/java/frc/robot/BuildConstants.java")
+task(createFallbackVersionFile) {
+    outputs.file(fallbackBuildConstantsFile)
+    doLast {
+        def buildDate = new Date().format("yyyy-MM-dd HH:mm:ss z", TimeZone.getTimeZone("America/New_York"))
+        fallbackBuildConstantsFile.text = """package frc.robot;
+
+/** Auto-generated fallback when Git is unavailable during build. */
+public final class BuildConstants {
+  public static final String MAVEN_NAME = "${project.name}";
+  public static final String BUILD_DATE = "${buildDate}";
+  public static final String GIT_SHA = "UNKNOWN";
+  public static final String GIT_DATE = "UNKNOWN";
+  public static final String GIT_BRANCH = "UNKNOWN";
+  public static final int DIRTY = -1;
+
+  private BuildConstants() {}
+}
+"""
+    }
+}
+
+if (gitAvailable) {
+    project.compileJava.dependsOn(createVersionFile)
+    createVersionFile.dependsOn(eventDeploy)
+} else {
+    project.compileJava.dependsOn(createFallbackVersionFile)
+    tasks.matching {
+        it.name == "spotlessJava" || it.name == "spotlessJavaApply"
+    }.configureEach {
+        dependsOn(createFallbackVersionFile)
+    }
+    println "Git not found in PATH, using fallback BuildConstants generation"
+}
 
 // Spotless formatting
 project.compileJava.dependsOn(spotlessApply)

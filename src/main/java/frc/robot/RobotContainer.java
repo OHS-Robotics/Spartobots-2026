@@ -33,9 +33,9 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
-import frc.robot.subsystems.body.Agitators;
 import frc.robot.subsystems.body.GamePieceManager;
 import frc.robot.subsystems.body.Hopper;
+import frc.robot.subsystems.body.Indexers;
 import frc.robot.subsystems.body.Intake;
 import frc.robot.subsystems.body.shooter.Shooter;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
@@ -84,6 +84,22 @@ public class RobotContainer {
   private static final double WALL_IMPACT_ACCEL_THRESHOLD_MPS2 = 9.0;
   private static final double WALL_RUMBLE_DURATION_SECS = 0.22;
   private static final double WALL_RUMBLE_STRENGTH = 1.0;
+  private static final String ROBOT_COMPONENTS_LOG_KEY = "AdvantageScope/Robot/Components";
+  private static final int COMPONENT_INDEX_INTAKE_PIVOT = 0;
+  private static final int COMPONENT_INDEX_HOPPER_EXTENSION = 1;
+  private static final int COMPONENT_INDEX_SHOOTER_HOOD = 2;
+  private static final int ROBOT_COMPONENT_COUNT = 3;
+  private static final Translation3d INTAKE_PIVOT_ORIGIN_ON_ROBOT =
+      new Translation3d(0.305, 0.0, 0.215);
+  private static final Rotation2d INTAKE_PIVOT_RETRACTED_ANGLE = Rotation2d.fromDegrees(0.0);
+  private static final Rotation2d INTAKE_PIVOT_EXTENDED_ANGLE = Rotation2d.fromDegrees(-82.0);
+  private static final Translation3d HOPPER_EXTENSION_RETRACTED_ORIGIN_ON_ROBOT =
+      new Translation3d(-0.05, 0.0, 0.24);
+  private static final Translation3d HOPPER_EXTENSION_AXIS_ON_ROBOT =
+      new Translation3d(0.20, 0.0, 0.0);
+  private static final Translation3d SHOOTER_HOOD_PIVOT_ON_ROBOT =
+      new Translation3d(-0.23, 0.0, 0.56);
+  private static final Rotation2d SHOOTER_HOOD_MODEL_PITCH_OFFSET = Rotation2d.kZero;
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
@@ -110,16 +126,15 @@ public class RobotContainer {
       new Pose2d(Constants.blueLine - 0.6, Constants.midLineY, Rotation2d.kZero);
   private static final Pose2d RED_DEPOT_ALIGN_POSE =
       new Pose2d(Constants.redLine + 0.6, Constants.midLineY, Rotation2d.fromDegrees(180.0));
-  private static final HumpPoseSample FLAT_GROUND_SAMPLE =
-      new HumpPoseSample(new double[] {0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 0.0);
-
   // Subsystems
   private final Drive drive;
   private final Shooter shooter;
   private final Intake intake;
   private final Hopper hopper;
-  private final Agitators agitators;
+  private final Indexers indexers;
   private final GamePieceManager gamePieceManager;
+
+  @SuppressWarnings("unused")
   private final Vision vision;
 
   // Controller
@@ -141,7 +156,7 @@ public class RobotContainer {
   public RobotContainer() {
     intake = new Intake();
     hopper = new Hopper();
-    agitators = new Agitators();
+    indexers = new Indexers();
 
     switch (Constants.currentMode) {
       case REAL:
@@ -211,8 +226,10 @@ public class RobotContainer {
         break;
     }
 
-    gamePieceManager = new GamePieceManager(intake, hopper, agitators);
+    gamePieceManager = new GamePieceManager(intake, hopper, indexers);
     gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
+    gamePieceManager.setManualFeedInterlockSuppliers(
+        () -> shooterDemandFromAlign, shooter::isHubShotSolutionFeasible);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -289,11 +306,12 @@ public class RobotContainer {
 
     // Right trigger = run shooter while held.
     controller.rightTrigger().whileTrue(runShooterDemandWhileHeldCommand());
-    // Left trigger = run belt + agitators while held.
+    // Left trigger = run agitator + indexers while held.
     controller.leftTrigger().whileTrue(gamePieceManager.manualFeedWhileHeldCommand());
 
-    // Driver feed controls.
-    controller.x().whileTrue(gamePieceManager.collectWithoutAgitatorWhileHeldCommand());
+    // Driver feed controls: Y = collect with indexers, X = collect without indexers.
+    controller.y().whileTrue(gamePieceManager.collectWhileHeldCommand());
+    controller.x().whileTrue(gamePieceManager.collectWithoutIndexerWhileHeldCommand());
     controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
     controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
 
@@ -394,7 +412,9 @@ public class RobotContainer {
                 () -> {
                   updateHubShotSolutionAndGetAirtimeSeconds();
                   shooter.setShotControlEnabled(true);
-                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock
+                  // FEED mode advances using hopper agitator + indexers when shooter-ready
+                  // interlock
+                  //
                   // is met.
                   gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                 },
@@ -501,12 +521,47 @@ public class RobotContainer {
     updateHubShotSolutionAndGetAirtimeSeconds();
   }
 
+  public void logRobotModelComponentPoses() {
+    Logger.recordOutput(ROBOT_COMPONENTS_LOG_KEY, getRobotRelativeComponentPoses());
+  }
+
   private double updateHubShotSolutionAndGetAirtimeSeconds() {
     shooter.updateHubShotSolution(
         drive.getPose(),
         drive.getNearestHubPose(),
         drive.getFieldRelativeVelocityMetersPerSecond());
     return shooter.getHubAirtimeSeconds();
+  }
+
+  private Pose3d[] getRobotRelativeComponentPoses() {
+    Pose3d[] componentPoses = new Pose3d[ROBOT_COMPONENT_COUNT];
+
+    double intakePivotNormalized = intake.getIntakePivotMeasuredPositionNormalized();
+    Rotation2d intakePivotPitch =
+        Rotation2d.fromDegrees(
+            MathUtil.interpolate(
+                INTAKE_PIVOT_RETRACTED_ANGLE.getDegrees(),
+                INTAKE_PIVOT_EXTENDED_ANGLE.getDegrees(),
+                intakePivotNormalized));
+    componentPoses[COMPONENT_INDEX_INTAKE_PIVOT] =
+        new Pose3d(
+            INTAKE_PIVOT_ORIGIN_ON_ROBOT, new Rotation3d(0.0, intakePivotPitch.getRadians(), 0.0));
+
+    double hopperExtensionNormalized = hopper.getHopperExtensionMeasuredPositionNormalized();
+    Translation3d hopperPosition =
+        HOPPER_EXTENSION_RETRACTED_ORIGIN_ON_ROBOT.plus(
+            HOPPER_EXTENSION_AXIS_ON_ROBOT.times(hopperExtensionNormalized));
+    componentPoses[COMPONENT_INDEX_HOPPER_EXTENSION] = new Pose3d(hopperPosition, new Rotation3d());
+
+    Rotation2d hoodPitch =
+        shooter
+            .getMeasuredHoodAngle()
+            .minus(ShooterConstants.minHoodAngleFromFloor)
+            .plus(SHOOTER_HOOD_MODEL_PITCH_OFFSET);
+    componentPoses[COMPONENT_INDEX_SHOOTER_HOOD] =
+        new Pose3d(SHOOTER_HOOD_PIVOT_ON_ROBOT, new Rotation3d(0.0, hoodPitch.getRadians(), 0.0));
+
+    return componentPoses;
   }
 
   public void onDisabledInit() {

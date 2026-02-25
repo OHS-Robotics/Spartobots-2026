@@ -13,10 +13,10 @@ public final class GamePieceManagerConstants {
 
   // Feed profile
   public static final double collectIntakeSpeed = 0.65;
-  public static final double collectHopperSpeed = 0.55;
   public static final double collectAgitatorSpeed = 0.55;
-  public static final double feedHopperSpeed = 0.75;
+  public static final double collectIndexerSpeed = 0.55;
   public static final double feedAgitatorSpeed = 0.75;
+  public static final double feedIndexerSpeed = 0.75;
   public static final double reverseSpeed = -0.45;
 
   // Jam handling
@@ -24,6 +24,6 @@ public final class GamePieceManagerConstants {
   public static final double jamDetectionSeconds = 0.35;
   public static final double unjamReverseSeconds = 0.20;
 
-  // Fallback when no sensors are configured
-  public static final double sensorlessCollectToHoldSeconds = 0.35;
+  // Fallback when no sensors are configured. Set <= 0 to disable.
+  public static final double sensorlessCollectToHoldSeconds = 0.0;
 }
