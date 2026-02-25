@@ -54,7 +54,6 @@ import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
   private static final double defaultPathTranslationKp = 5.0;
@@ -76,12 +75,13 @@ public class Drive extends SubsystemBase {
               defaultPathTranslationKp, defaultPathTranslationKi, defaultPathTranslationKd),
           new PIDConstants(defaultPathRotationKp, defaultPathRotationKi, defaultPathRotationKd),
           0.02);
-  private final LoggedNetworkBoolean logHubAimVector =
-      new LoggedNetworkBoolean(
-          NetworkTablesUtil.absoluteKey("Subsystems/Drive/Tuning/Common/LogHubAimVector"), false);
   private final NetworkTable driveSubsystemTable = NetworkTablesUtil.subsystemTable("Drive");
+  private final NetworkTable driveCommonTuningTable =
+      NetworkTablesUtil.tuningCommonTable(driveSubsystemTable);
   private final NetworkTable driveTuningTable =
       NetworkTablesUtil.tuningModeTable(driveSubsystemTable);
+  private final NetworkTableEntry logHubAimVectorEntry =
+      driveCommonTuningTable.getEntry("LogHubAimVector");
   private final NetworkTableEntry moduleDriveKpEntry =
       driveTuningTable.getEntry("Module/DrivePID/Kp");
   private final NetworkTableEntry moduleDriveKiEntry =
@@ -165,6 +165,7 @@ public class Drive extends SubsystemBase {
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
     modules[3] = new Module(brModuleIO, 3);
+    logHubAimVectorEntry.setDefaultBoolean(false);
     configureDrivePidDefaults();
     loadDrivePidTuning();
     configureHubMotionCompDefaults();
@@ -209,7 +210,6 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
-    logHubAimVector.periodic();
     loadDrivePidTuning();
     loadHubMotionCompTuning();
 
@@ -270,7 +270,7 @@ public class Drive extends SubsystemBase {
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
 
-    if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
+    if (!isHubAimVectorLoggingEnabled() && wasHubAimVectorLoggingEnabled) {
       clearHubAimLogs();
     }
 
@@ -610,7 +610,7 @@ public class Drive extends SubsystemBase {
   }
 
   private void logHubAimTarget(Pose2d baseHub, Pose2d compensatedHub, double airtimeSeconds) {
-    if (!logHubAimVector.get()) {
+    if (!isHubAimVectorLoggingEnabled()) {
       return;
     }
 
@@ -667,6 +667,10 @@ public class Drive extends SubsystemBase {
     pathRotationKpEntry.setDefaultDouble(defaultPathRotationKp);
     pathRotationKiEntry.setDefaultDouble(defaultPathRotationKi);
     pathRotationKdEntry.setDefaultDouble(defaultPathRotationKd);
+  }
+
+  private boolean isHubAimVectorLoggingEnabled() {
+    return logHubAimVectorEntry.getBoolean(false);
   }
 
   private void loadDrivePidTuning() {
