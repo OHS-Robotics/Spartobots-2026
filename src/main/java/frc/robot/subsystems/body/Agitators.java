@@ -204,10 +204,7 @@ public class Agitators extends SubsystemBase {
   }
 
   private double applyDirectionAndScale(
-      double speed,
-      double speedScale,
-      NetworkTableEntry directionEntry,
-      double defaultDirection) {
+      double speed, double speedScale, NetworkTableEntry directionEntry, double defaultDirection) {
     double scaledSpeed = clampSpeed(speed) * clampSpeedScale(speedScale);
     return clampSpeed(scaledSpeed * normalizeDirection(directionEntry.getDouble(defaultDirection)));
   }

@@ -23,9 +23,9 @@ import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 public class DriveConstants {
   public static final double maxSpeedMetersPerSec = 4.60248;
   public static final double maxAccelerationMeterPerSecSquared = 3;
-  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(30);
+  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(270);
   public static final double maxRotationalAccelerationRadiansPerSecSquared =
-      Units.degreesToRadians(15);
+      Units.degreesToRadians(90);
   public static final double odometryFrequency = 100.0; // Hz
   public static final double trackWidth = Units.inchesToMeters(20.5);
   public static final double wheelBase = Units.inchesToMeters(20.5);
@@ -140,6 +140,13 @@ public class DriveConstants {
   public static final PathConstraints pathConstraints =
       new PathConstraints(
           maxSpeedMetersPerSec,
+          maxAccelerationMeterPerSecSquared,
+          maxRotationalSpeedRadiansPerSec,
+          maxRotationalAccelerationRadiansPerSecSquared);
+
+  public static final PathConstraints middleLoadPathConstraints =
+      new PathConstraints(
+          maxSpeedMetersPerSec / 3,
           maxAccelerationMeterPerSecSquared,
           maxRotationalSpeedRadiansPerSec,
           maxRotationalAccelerationRadiansPerSecSquared);

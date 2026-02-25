@@ -101,9 +101,7 @@ public class RobotContainer {
       new Pose2d(2.85, 2.1, Rotation2d.fromDegrees(-130.0));
   private static final Pose2d RED_OUTPOST_OPENING_SHOT_POSE =
       new Pose2d(
-          Constants.fieldLength - 2.85,
-          Constants.fieldWidth - 2.1,
-          Rotation2d.fromDegrees(50.0));
+          Constants.fieldLength - 2.85, Constants.fieldWidth - 2.1, Rotation2d.fromDegrees(50.0));
   private static final Pose2d BLUE_LADDER_ALIGN_POSE =
       new Pose2d(1.25, Constants.fieldWidth - 0.75, Rotation2d.kZero);
   private static final Pose2d RED_LADDER_ALIGN_POSE =
@@ -223,6 +221,7 @@ public class RobotContainer {
     autoChooser.addOption("Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
     autoChooser.addOption("Hub Opening Shot (Interlocked Feed)", openingHubShotAutoRoutine());
     autoChooser.addOption("Trench Collect (Timed)", trenchCollectAutoRoutine());
+    autoChooser.addOption("Trench Collect (Timed) new thing", trenchCollectAutoRoutineNew());
     autoChooser.addOption("Outpost Collect (Timed)", outpostCollectAutoRoutine());
 
     // Set up SysId routines
@@ -242,8 +241,6 @@ public class RobotContainer {
         "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
     // Register commands to be used in PathPlanner autos.
-    NamedCommands.registerCommand("trench", autoDriveUnderTrenchCommand());
-    NamedCommands.registerCommand("outpost", driveToOutpostCommand());
     NamedCommands.registerCommand(
         "collectStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.COLLECT));
     NamedCommands.registerCommand(
@@ -397,7 +394,8 @@ public class RobotContainer {
                 () -> {
                   updateHubShotSolutionAndGetAirtimeSeconds();
                   shooter.setShotControlEnabled(true);
-                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock is met.
+                  // FEED mode advances using hopper belt + agitators when shooter-ready interlock
+                  // is met.
                   gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
                 },
                 shooter,
@@ -410,6 +408,15 @@ public class RobotContainer {
                 }));
   }
 
+  private Command trenchCollectAutoRoutineNew() {
+    return drive
+        .autoDriveUnderTrenchCommand()
+        .andThen(Commands.runOnce(() -> intake.setTargetIntakeSpeed(0 /* placeholder value */)))
+        .andThen(drive.autoLoadMiddleCommand())
+        .andThen(Commands.runOnce(() -> intake.setTargetIntakeSpeed(0)))
+        .andThen(drive.autoDriveUnderTrenchCommand());
+  }
+
   private Command trenchCollectAutoRoutine() {
     return Commands.deadline(
         drive.autoDriveUnderTrenchCommand().withTimeout(START_AUTO_TRENCH_TIMEOUT_SECONDS),
@@ -418,7 +425,7 @@ public class RobotContainer {
 
   private Command outpostCollectAutoRoutine() {
     return Commands.deadline(
-        drive.outpostLoadAuto().withTimeout(START_AUTO_OUTPOST_TIMEOUT_SECONDS),
+        drive.driveToOutpostCommand().withTimeout(START_AUTO_OUTPOST_TIMEOUT_SECONDS),
         gamePieceManager.collectWhileHeldCommand());
   }
 

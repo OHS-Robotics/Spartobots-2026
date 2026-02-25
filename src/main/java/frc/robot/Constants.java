@@ -89,4 +89,14 @@ public final class Constants {
       new Pose2d(16, 7.38, new Rotation2d(Units.degreesToRadians(180)));
   public static final Pose2d redOutpostBefore =
       new Pose2d(15.5, 7.38, new Rotation2d(Units.degreesToRadians(180)));
+
+  // define fuel loading areas
+  public static final Pose2d beginRedRight =
+      new Pose2d(7.725, 7.2, new Rotation2d(Units.degreesToRadians(-100)));
+  public static final Pose2d beginRedLeft =
+      new Pose2d(7.725, 0.9, new Rotation2d(Units.degreesToRadians(100)));
+  public static final Pose2d beginBlueRight =
+      new Pose2d(8.75, 0.9, new Rotation2d(Units.degreesToRadians(100)));
+  public static final Pose2d beginBlueLeft =
+      new Pose2d(8.75, 7.2, new Rotation2d(Units.degreesToRadians(-100)));
 }

@@ -38,7 +38,6 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -59,10 +58,10 @@ import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 public class Drive extends SubsystemBase {
   private static final double defaultPathTranslationKp = 5.0;
   private static final double defaultPathTranslationKi = 0.0;
-  private static final double defaultPathTranslationKd = 1.0;
+  private static final double defaultPathTranslationKd = 0.0;
   private static final double defaultPathRotationKp = 5.0;
   private static final double defaultPathRotationKi = 0.0;
-  private static final double defaultPathRotationKd = 1.0;
+  private static final double defaultPathRotationKd = 0.0;
 
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
@@ -83,12 +82,18 @@ public class Drive extends SubsystemBase {
           .getTable("Drive")
           .getSubTable("Tuning")
           .getSubTable(Constants.currentMode.name());
-  private final NetworkTableEntry moduleDriveKpEntry = driveTuningTable.getEntry("Module/DrivePID/Kp");
-  private final NetworkTableEntry moduleDriveKiEntry = driveTuningTable.getEntry("Module/DrivePID/Ki");
-  private final NetworkTableEntry moduleDriveKdEntry = driveTuningTable.getEntry("Module/DrivePID/Kd");
-  private final NetworkTableEntry moduleTurnKpEntry = driveTuningTable.getEntry("Module/TurnPID/Kp");
-  private final NetworkTableEntry moduleTurnKiEntry = driveTuningTable.getEntry("Module/TurnPID/Ki");
-  private final NetworkTableEntry moduleTurnKdEntry = driveTuningTable.getEntry("Module/TurnPID/Kd");
+  private final NetworkTableEntry moduleDriveKpEntry =
+      driveTuningTable.getEntry("Module/DrivePID/Kp");
+  private final NetworkTableEntry moduleDriveKiEntry =
+      driveTuningTable.getEntry("Module/DrivePID/Ki");
+  private final NetworkTableEntry moduleDriveKdEntry =
+      driveTuningTable.getEntry("Module/DrivePID/Kd");
+  private final NetworkTableEntry moduleTurnKpEntry =
+      driveTuningTable.getEntry("Module/TurnPID/Kp");
+  private final NetworkTableEntry moduleTurnKiEntry =
+      driveTuningTable.getEntry("Module/TurnPID/Ki");
+  private final NetworkTableEntry moduleTurnKdEntry =
+      driveTuningTable.getEntry("Module/TurnPID/Kd");
   private final NetworkTableEntry pathTranslationKpEntry =
       driveTuningTable.getEntry("PathPlanner/TranslationPID/Kp");
   private final NetworkTableEntry pathTranslationKiEntry =
@@ -128,7 +133,7 @@ public class Drive extends SubsystemBase {
   private double pathRotationKd = defaultPathRotationKd;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
-  private int octant;
+  public int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -193,6 +198,8 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
+
+    // Register PathPlanner auto commands
 
     // Configure SysId
     sysId =
@@ -430,7 +437,7 @@ public class Drive extends SubsystemBase {
   }
 
   public Command getAutonomousCommand() {
-    return outpostLoadAuto();
+    return autoLoadMiddleCommand();
   }
 
   public Command autoDriveUnderTrenchCommand() {
@@ -477,20 +484,51 @@ public class Drive extends SubsystemBase {
     };
   }
 
-  public void driveToOutpost() {
-    Pose2d[] poses;
-    if (DriverStation.getAlliance().isPresent()
-        && DriverStation.getAlliance().get() == Alliance.Red) {
-      poses = new Pose2d[] {Constants.redOutpostBefore, Constants.redOutpost};
-    } else {
-      poses = new Pose2d[] {Constants.blueOutpostBefore, Constants.blueOutpost};
-    }
-    CommandScheduler.getInstance().schedule(driveToOutpostCommand(poses));
+  public Command driveToOutpostCommand() {
+    return Commands.runOnce(
+        () -> {
+          Pose2d[] poses;
+          if (DriverStation.getAlliance().isPresent()
+              && DriverStation.getAlliance().get() == Alliance.Red) {
+            poses = new Pose2d[] {Constants.redOutpostBefore, Constants.redOutpost};
+          } else {
+            poses = new Pose2d[] {Constants.blueOutpostBefore, Constants.blueOutpost};
+          }
+
+          AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
+              .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
+        },
+        this);
   }
 
-  public Command driveToOutpostCommand(Pose2d[] poses) {
-    return AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
-        .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
+  public Command autoLoadMiddleCommand() {
+    return Commands.defer(
+        () -> {
+          Pose2d pose;
+          Translation2d newPose;
+          if (octant == 1) {
+            pose = Constants.beginBlueLeft;
+            newPose = Constants.beginRedLeft.getTranslation();
+          } else if (octant == 2) {
+            pose = Constants.beginRedRight;
+            newPose = Constants.beginBlueRight.getTranslation();
+          } else if (octant == 5) {
+            pose = Constants.beginBlueRight;
+            newPose = Constants.beginRedRight.getTranslation();
+          } else if (octant == 6) {
+            pose = Constants.beginRedLeft;
+            newPose = Constants.beginBlueLeft.getTranslation();
+          } else {
+            pose = Constants.beginBlueLeft;
+            newPose = Constants.beginBlueRight.getTranslation();
+          }
+
+          return AutoBuilder.pathfindToPose(pose, middleLoadPathConstraints, 0)
+              .andThen(
+                  AutoBuilder.pathfindToPose(
+                      new Pose2d(newPose, pose.getRotation()), middleLoadPathConstraints, 0));
+        },
+        Set.of(this));
   }
 
   private void determineOctant() {

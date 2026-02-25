@@ -330,10 +330,14 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScale = clampWheelSpeedScale(wheelSpeedScaleEntry.getDouble(wheelSpeedScale));
     pair1Direction = normalizeDirection(pair1DirectionEntry.getDouble(pair1Direction));
     pair2Direction = normalizeDirection(pair2DirectionEntry.getDouble(pair2Direction));
-    wheelVelocityKp = sanitizeGain(wheelVelocityKpEntry.getDouble(wheelVelocityKp), wheelVelocityKp);
-    wheelVelocityKi = sanitizeGain(wheelVelocityKiEntry.getDouble(wheelVelocityKi), wheelVelocityKi);
-    wheelVelocityKd = sanitizeGain(wheelVelocityKdEntry.getDouble(wheelVelocityKd), wheelVelocityKd);
-    wheelVelocityKv = sanitizeGain(wheelVelocityKvEntry.getDouble(wheelVelocityKv), wheelVelocityKv);
+    wheelVelocityKp =
+        sanitizeGain(wheelVelocityKpEntry.getDouble(wheelVelocityKp), wheelVelocityKp);
+    wheelVelocityKi =
+        sanitizeGain(wheelVelocityKiEntry.getDouble(wheelVelocityKi), wheelVelocityKi);
+    wheelVelocityKd =
+        sanitizeGain(wheelVelocityKdEntry.getDouble(wheelVelocityKd), wheelVelocityKd);
+    wheelVelocityKv =
+        sanitizeGain(wheelVelocityKvEntry.getDouble(wheelVelocityKv), wheelVelocityKv);
     hoodPositionKp = sanitizeGain(hoodPositionKpEntry.getDouble(hoodPositionKp), hoodPositionKp);
     hoodPositionKi = sanitizeGain(hoodPositionKiEntry.getDouble(hoodPositionKi), hoodPositionKi);
     hoodPositionKd = sanitizeGain(hoodPositionKdEntry.getDouble(hoodPositionKd), hoodPositionKd);
@@ -811,8 +815,7 @@ public class Shooter extends SubsystemBase {
     double ballSpinRadPerSec =
         (ShooterConstants.targetBallSpinRatio * launchSpeedMagnitude)
             / ShooterConstants.fuelBallRadiusMeters;
-    double spinSurfaceDeltaMetersPerSec =
-        ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
+    double spinSurfaceDeltaMetersPerSec = ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
 
     double pair1WheelSpeedRadPerSec =
         (baseWheelSurfaceSpeedMetersPerSec + spinSurfaceDeltaMetersPerSec)
@@ -953,8 +956,7 @@ public class Shooter extends SubsystemBase {
         Math.abs(pair2WheelVelocityRadPerSec) * ShooterConstants.shooterWheelRadiusMeters;
     double averageWheelSurfaceSpeedMetersPerSec =
         0.5 * (pair1SurfaceSpeedMetersPerSec + pair2SurfaceSpeedMetersPerSec);
-    return averageWheelSurfaceSpeedToLaunchSpeedMetersPerSec(
-        averageWheelSurfaceSpeedMetersPerSec);
+    return averageWheelSurfaceSpeedToLaunchSpeedMetersPerSec(averageWheelSurfaceSpeedMetersPerSec);
   }
 
   private double getPair1VelocityCommandSetpointRadPerSec() {
