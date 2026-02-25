@@ -455,9 +455,10 @@ public class Drive extends SubsystemBase {
       Translation2d firstPose, Translation2d secondPose, double angleRadians) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
     return AutoBuilder.pathfindToPose(
-            new Pose2d(firstPose, trenchHeading), pathConstraints, trenchApproachGoalEndVelocityMetersPerSec)
-        .andThen(
-            alignToHeadingCommand(trenchHeading))
+            new Pose2d(firstPose, trenchHeading),
+            pathConstraints,
+            trenchApproachGoalEndVelocityMetersPerSec)
+        .andThen(alignToHeadingCommand(trenchHeading))
         .andThen(
             AutoBuilder.pathfindToPose(new Pose2d(secondPose, trenchHeading), pathConstraints, 0));
   }

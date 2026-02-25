@@ -33,9 +33,9 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
-import frc.robot.subsystems.body.Indexers;
 import frc.robot.subsystems.body.GamePieceManager;
 import frc.robot.subsystems.body.Hopper;
+import frc.robot.subsystems.body.Indexers;
 import frc.robot.subsystems.body.Intake;
 import frc.robot.subsystems.body.shooter.Shooter;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
@@ -536,8 +536,7 @@ public class RobotContainer {
                 intakePivotNormalized));
     componentPoses[COMPONENT_INDEX_INTAKE_PIVOT] =
         new Pose3d(
-            INTAKE_PIVOT_ORIGIN_ON_ROBOT,
-            new Rotation3d(0.0, intakePivotPitch.getRadians(), 0.0));
+            INTAKE_PIVOT_ORIGIN_ON_ROBOT, new Rotation3d(0.0, intakePivotPitch.getRadians(), 0.0));
 
     double hopperExtensionNormalized = hopper.getHopperExtensionMeasuredPositionNormalized();
     Translation3d hopperPosition =
@@ -551,8 +550,7 @@ public class RobotContainer {
             .minus(ShooterConstants.minHoodAngleFromFloor)
             .plus(SHOOTER_HOOD_MODEL_PITCH_OFFSET);
     componentPoses[COMPONENT_INDEX_SHOOTER_HOOD] =
-        new Pose3d(
-            SHOOTER_HOOD_PIVOT_ON_ROBOT, new Rotation3d(0.0, hoodPitch.getRadians(), 0.0));
+        new Pose3d(SHOOTER_HOOD_PIVOT_ON_ROBOT, new Rotation3d(0.0, hoodPitch.getRadians(), 0.0));
 
     return componentPoses;
   }

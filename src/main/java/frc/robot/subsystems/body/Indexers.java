@@ -48,8 +48,7 @@ public class Indexers extends SubsystemBase {
       tuningTable.getEntry("Top/SpeedScale");
   private final NetworkTableEntry bottomIndexerSpeedScaleEntry =
       tuningTable.getEntry("Bottom/SpeedScale");
-  private final NetworkTableEntry topIndexerDirectionEntry =
-      tuningTable.getEntry("Top/Direction");
+  private final NetworkTableEntry topIndexerDirectionEntry = tuningTable.getEntry("Top/Direction");
   private final NetworkTableEntry bottomIndexerDirectionEntry =
       tuningTable.getEntry("Bottom/Direction");
   private final NetworkTableEntry topIndexerAppliedOutputEntry =
@@ -171,11 +170,9 @@ public class Indexers extends SubsystemBase {
     topIndexerSpeedEntry.setDefaultDouble(IndexersConstants.defaultTopIndexerSpeed);
     bottomIndexerSpeedEntry.setDefaultDouble(IndexersConstants.defaultBottomIndexerSpeed);
     topIndexerSpeedScaleEntry.setDefaultDouble(IndexersConstants.defaultTopIndexerSpeedScale);
-    bottomIndexerSpeedScaleEntry.setDefaultDouble(
-        IndexersConstants.defaultBottomIndexerSpeedScale);
+    bottomIndexerSpeedScaleEntry.setDefaultDouble(IndexersConstants.defaultBottomIndexerSpeedScale);
     topIndexerDirectionEntry.setDefaultDouble(IndexersConstants.defaultTopIndexerDirection);
-    bottomIndexerDirectionEntry.setDefaultDouble(
-        IndexersConstants.defaultBottomIndexerDirection);
+    bottomIndexerDirectionEntry.setDefaultDouble(IndexersConstants.defaultBottomIndexerDirection);
   }
 
   private void loadNetworkTableConfig() {
@@ -198,8 +195,7 @@ public class Indexers extends SubsystemBase {
             topIndexerDirectionEntry.getDouble(IndexersConstants.defaultTopIndexerDirection));
     double bottomDirection =
         normalizeDirection(
-            bottomIndexerDirectionEntry.getDouble(
-                IndexersConstants.defaultBottomIndexerDirection));
+            bottomIndexerDirectionEntry.getDouble(IndexersConstants.defaultBottomIndexerDirection));
     topIndexerDirectionEntry.setDouble(topDirection);
     bottomIndexerDirectionEntry.setDouble(bottomDirection);
   }
@@ -207,8 +203,7 @@ public class Indexers extends SubsystemBase {
   private double applyDirectionAndScale(
       double speed, double speedScale, NetworkTableEntry directionEntry, double defaultDirection) {
     double scaledSpeed = clampSpeed(speed) * clampSpeedScale(speedScale);
-    return clampSpeed(
-        scaledSpeed * normalizeDirection(directionEntry.getDouble(defaultDirection)));
+    return clampSpeed(scaledSpeed * normalizeDirection(directionEntry.getDouble(defaultDirection)));
   }
 
   private double clampSpeed(double speed) {
@@ -253,8 +248,7 @@ public class Indexers extends SubsystemBase {
     double bottomEstimatedVelocityRotationsPerSec =
         bottomAppliedOutput * indexerEstimatedMaxVelocityRotationsPerSec;
 
-    topIndexerEstimatedPositionRotations +=
-        topEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
+    topIndexerEstimatedPositionRotations += topEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
     bottomIndexerEstimatedPositionRotations +=
         bottomEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
 

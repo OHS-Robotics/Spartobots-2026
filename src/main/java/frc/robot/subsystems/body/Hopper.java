@@ -44,8 +44,7 @@ public class Hopper extends SubsystemBase {
   private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
   private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
 
-  private final NetworkTableEntry hopperAgitatorSpeedEntry =
-      tuningTable.getEntry("Agitator/Speed");
+  private final NetworkTableEntry hopperAgitatorSpeedEntry = tuningTable.getEntry("Agitator/Speed");
   private final NetworkTableEntry hopperExtensionSpeedScaleEntry =
       tuningTable.getEntry("Extension/SpeedScale");
   private final NetworkTableEntry hopperExtensionInvertedEntry =
@@ -127,8 +126,7 @@ public class Hopper extends SubsystemBase {
 
   public void setHopperExtensionSpeed(double speed) {
     lastAppliedExtensionSpeed =
-        applyScaleAndInversion(
-            speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
+        applyScaleAndInversion(speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
     hopperExtension.set(lastAppliedExtensionSpeed);
   }
 
@@ -178,11 +176,9 @@ public class Hopper extends SubsystemBase {
         HopperConstants.defaultHopperExtensionRetractedPositionRotations);
     hopperExtensionExtendedPositionEntry.setDefaultDouble(
         HopperConstants.defaultHopperExtensionExtendedPositionRotations);
-    hopperAgitatorDirectionEntry.setDefaultDouble(
-        HopperConstants.defaultHopperAgitatorDirection);
+    hopperAgitatorDirectionEntry.setDefaultDouble(HopperConstants.defaultHopperAgitatorDirection);
 
-    hopperExtensionInvertedEntry.setDefaultBoolean(
-        HopperConstants.defaultHopperExtensionInverted);
+    hopperExtensionInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperExtensionInverted);
   }
 
   private void loadNetworkTableConfig() {
@@ -193,17 +189,14 @@ public class Hopper extends SubsystemBase {
             hopperExtensionSpeedScaleEntry.getDouble(
                 HopperConstants.defaultHopperExtensionSpeedScale)));
     hopperExtensionRetractedPositionRotations =
-        hopperExtensionRetractedPositionEntry.getDouble(
-            hopperExtensionRetractedPositionRotations);
+        hopperExtensionRetractedPositionEntry.getDouble(hopperExtensionRetractedPositionRotations);
     hopperExtensionExtendedPositionRotations =
-        hopperExtensionExtendedPositionEntry.getDouble(
-            hopperExtensionExtendedPositionRotations);
+        hopperExtensionExtendedPositionEntry.getDouble(hopperExtensionExtendedPositionRotations);
     hopperExtensionRetractedPositionEntry.setDouble(hopperExtensionRetractedPositionRotations);
     hopperExtensionExtendedPositionEntry.setDouble(hopperExtensionExtendedPositionRotations);
     double hopperAgitatorDirection =
         normalizeDirection(
-            hopperAgitatorDirectionEntry.getDouble(
-                HopperConstants.defaultHopperAgitatorDirection));
+            hopperAgitatorDirectionEntry.getDouble(HopperConstants.defaultHopperAgitatorDirection));
     hopperAgitatorDirectionEntry.setDouble(hopperAgitatorDirection);
   }
 
@@ -319,10 +312,8 @@ public class Hopper extends SubsystemBase {
     Logger.recordOutput("Hopper/State/LastAppliedExtensionOutput", lastAppliedExtensionSpeed);
     Logger.recordOutput("Hopper/State/ActualAgitatorOutput", hopperAgitator.get());
     Logger.recordOutput("Hopper/State/ActualExtensionOutput", hopperExtension.get());
-    Logger.recordOutput(
-        "Hopper/Measured/AgitatorCurrentAmps", hopperAgitator.getOutputCurrent());
-    Logger.recordOutput(
-        "Hopper/Measured/ExtensionCurrentAmps", hopperExtension.getOutputCurrent());
+    Logger.recordOutput("Hopper/Measured/AgitatorCurrentAmps", hopperAgitator.getOutputCurrent());
+    Logger.recordOutput("Hopper/Measured/ExtensionCurrentAmps", hopperExtension.getOutputCurrent());
     Logger.recordOutput(
         "Hopper/Measured/ExtensionEncoderPositionRotations",
         getHopperExtensionMeasuredPositionRotations());

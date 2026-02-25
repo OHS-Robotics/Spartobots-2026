@@ -383,8 +383,7 @@ public class GamePieceManager extends SubsystemBase {
     Logger.recordOutput(
         "GamePieceManager/Interlock/PieceAvailableForFeed", hasPieceAvailableForFeed());
     Logger.recordOutput("GamePieceManager/Interlock/AutoAimActive", autoAimActive);
-    Logger.recordOutput(
-        "GamePieceManager/Interlock/ShotSolutionFeasible", shotSolutionFeasible);
+    Logger.recordOutput("GamePieceManager/Interlock/ShotSolutionFeasible", shotSolutionFeasible);
     Logger.recordOutput(
         "GamePieceManager/Interlock/ManualFeedIndexerAllowed", manualFeedIndexerAllowed);
     Logger.recordOutput("GamePieceManager/Current/FeedCurrentAmps", getFeedCurrentAmps());
