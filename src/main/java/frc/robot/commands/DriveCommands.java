@@ -19,15 +19,14 @@ import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.Constants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
+import frc.robot.util.NetworkTablesUtil;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.LinkedList;
@@ -52,10 +51,7 @@ public class DriveCommands {
   private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
   private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
   private static final NetworkTable tuningTable =
-      NetworkTableInstance.getDefault()
-          .getTable("Drive/Commands")
-          .getSubTable("Tuning")
-          .getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.tuningModeTable(NetworkTablesUtil.commandTable("Drive"));
   private static final NetworkTableEntry angleKpEntry = tuningTable.getEntry("AlignToAngle/Kp");
   private static final NetworkTableEntry angleKiEntry = tuningTable.getEntry("AlignToAngle/Ki");
   private static final NetworkTableEntry angleKdEntry = tuningTable.getEntry("AlignToAngle/Kd");

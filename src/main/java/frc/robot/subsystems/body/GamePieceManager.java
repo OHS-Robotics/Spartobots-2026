@@ -3,12 +3,12 @@ package frc.robot.subsystems.body;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.NetworkTablesUtil;
 import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -33,8 +33,8 @@ public class GamePieceManager extends SubsystemBase {
   private final DigitalInput shooterBeamBreak;
 
   private final NetworkTable subsystemTable =
-      NetworkTableInstance.getDefault().getTable(GamePieceManagerConstants.configTableName);
-  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+      NetworkTablesUtil.subsystemTable(GamePieceManagerConstants.configTableName);
+  private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommonTable(subsystemTable);
   private final NetworkTableEntry useDashboardSensorOverridesEntry =
       tuningTable.getEntry("SensorOverrides/UseDashboardOverrides");
   private final NetworkTableEntry intakeDetectedOverrideEntry =

@@ -11,11 +11,11 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Hopper extends SubsystemBase {
@@ -40,9 +40,9 @@ public class Hopper extends SubsystemBase {
   private final RelativeEncoder hopperExtensionEncoder = hopperExtension.getEncoder();
 
   private final NetworkTable subsystemTable =
-      NetworkTableInstance.getDefault().getTable(HopperConstants.configTableName);
-  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
-  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
+      NetworkTablesUtil.subsystemTable(HopperConstants.configTableName);
+  private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommonTable(subsystemTable);
+  private final NetworkTable telemetryTable = NetworkTablesUtil.telemetryTable(subsystemTable);
 
   private final NetworkTableEntry hopperAgitatorSpeedEntry = tuningTable.getEntry("Agitator/Speed");
   private final NetworkTableEntry hopperExtensionSpeedScaleEntry =

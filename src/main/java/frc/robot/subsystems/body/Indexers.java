@@ -10,11 +10,11 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Indexers extends SubsystemBase {
@@ -38,9 +38,9 @@ public class Indexers extends SubsystemBase {
       new SparkMax(IndexersConstants.bottomIndexerCanId, MotorType.kBrushed);
 
   private final NetworkTable subsystemTable =
-      NetworkTableInstance.getDefault().getTable(IndexersConstants.configTableName);
-  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
-  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
+      NetworkTablesUtil.subsystemTable(IndexersConstants.configTableName);
+  private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommonTable(subsystemTable);
+  private final NetworkTable telemetryTable = NetworkTablesUtil.telemetryTable(subsystemTable);
 
   private final NetworkTableEntry topIndexerSpeedEntry = tuningTable.getEntry("Top/Speed");
   private final NetworkTableEntry bottomIndexerSpeedEntry = tuningTable.getEntry("Bottom/Speed");

@@ -32,7 +32,6 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -46,6 +45,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
+import frc.robot.util.NetworkTablesUtil;
 import frc.robot.util.LocalADStarAK;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
@@ -77,12 +77,11 @@ public class Drive extends SubsystemBase {
           new PIDConstants(defaultPathRotationKp, defaultPathRotationKi, defaultPathRotationKd),
           0.02);
   private final LoggedNetworkBoolean logHubAimVector =
-      new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
+      new LoggedNetworkBoolean(
+          NetworkTablesUtil.absoluteKey("Subsystems/Drive/Tuning/Common/LogHubAimVector"), false);
+  private final NetworkTable driveSubsystemTable = NetworkTablesUtil.subsystemTable("Drive");
   private final NetworkTable driveTuningTable =
-      NetworkTableInstance.getDefault()
-          .getTable("Drive")
-          .getSubTable("Tuning")
-          .getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.tuningModeTable(driveSubsystemTable);
   private final NetworkTableEntry moduleDriveKpEntry =
       driveTuningTable.getEntry("Module/DrivePID/Kp");
   private final NetworkTableEntry moduleDriveKiEntry =
@@ -108,11 +107,7 @@ public class Drive extends SubsystemBase {
   private final NetworkTableEntry pathRotationKdEntry =
       driveTuningTable.getEntry("PathPlanner/RotationPID/Kd");
   private final NetworkTable hubMotionCompTuningTable =
-      NetworkTableInstance.getDefault()
-          .getTable(ShooterConstants.configTableName)
-          .getSubTable("Tuning")
-          .getSubTable("MotionCompensation")
-          .getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.sharedModeTuningTable("HubMotionCompensation");
   private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
       hubMotionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
