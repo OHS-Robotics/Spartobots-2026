@@ -455,9 +455,23 @@ public class Drive extends SubsystemBase {
       Translation2d firstPose, Translation2d secondPose, double angleRadians) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
     return AutoBuilder.pathfindToPose(
-            new Pose2d(firstPose, trenchHeading), pathConstraints, trenchEntryGoalEndVelocityMetersPerSec)
+            new Pose2d(firstPose, trenchHeading), pathConstraints, trenchApproachGoalEndVelocityMetersPerSec)
+        .andThen(
+            alignToHeadingCommand(trenchHeading))
         .andThen(
             AutoBuilder.pathfindToPose(new Pose2d(secondPose, trenchHeading), pathConstraints, 0));
+  }
+
+  private Command alignToHeadingCommand(Rotation2d targetHeading) {
+    return DriveCommands.joystickDriveAtAngle(this, () -> 0.0, () -> 0.0, () -> targetHeading)
+        .until(() -> isHeadingAligned(targetHeading))
+        .andThen(Commands.runOnce(this::stop));
+  }
+
+  private boolean isHeadingAligned(Rotation2d targetHeading) {
+    double headingErrorRadians =
+        Math.abs(MathUtil.angleModulus(getRotation().minus(targetHeading).getRadians()));
+    return headingErrorRadians <= trenchLongAxisAlignmentToleranceRadians;
   }
 
   private Translation2d[] determineTrenchPoses() {
