@@ -446,23 +446,9 @@ public class Drive extends SubsystemBase {
           double snappedAngleRadians =
               DriveConstants.trenchSnapTo
                   * Math.round(getRotation().getRadians() / DriveConstants.trenchSnapTo);
-          Rotation2d trenchHeading = new Rotation2d(snappedAngleRadians);
-          return alignToHeadingCommand(trenchHeading)
-              .andThen(buildTrenchPathCommand(trenchPoses[0], trenchPoses[1], snappedAngleRadians));
+          return buildTrenchPathCommand(trenchPoses[0], trenchPoses[1], snappedAngleRadians);
         },
         Set.of(this));
-  }
-
-  private Command alignToHeadingCommand(Rotation2d targetHeading) {
-    return DriveCommands.joystickDriveAtAngle(this, () -> 0.0, () -> 0.0, () -> targetHeading)
-        .until(() -> isHeadingAligned(targetHeading))
-        .andThen(Commands.runOnce(this::stop));
-  }
-
-  private boolean isHeadingAligned(Rotation2d targetHeading) {
-    double headingErrorRadians =
-        Math.abs(MathUtil.angleModulus(getRotation().minus(targetHeading).getRadians()));
-    return headingErrorRadians <= trenchPreAlignToleranceRadians;
   }
 
   private Command buildTrenchPathCommand(
