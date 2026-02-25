@@ -141,6 +141,8 @@ public class DriveConstants {
           maxAccelerationMeterPerSecSquared,
           maxRotationalSpeedRadiansPerSec,
           maxRotationalAccelerationRadiansPerSecSquared);
+  public static final double trenchEntryGoalEndVelocityMetersPerSec = 2.0;
+  public static final double trenchPreAlignToleranceRadians = Units.degreesToRadians(5.0);
 
   // MapleSim configuration
   public static final double bumperLengthXMeters = Units.inchesToMeters(30.0);
