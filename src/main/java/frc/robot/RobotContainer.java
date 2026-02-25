@@ -228,6 +228,8 @@ public class RobotContainer {
 
     gamePieceManager = new GamePieceManager(intake, hopper, indexers);
     gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
+    gamePieceManager.setManualFeedInterlockSuppliers(
+        () -> shooterDemandFromAlign, shooter::isHubShotSolutionFeasible);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());

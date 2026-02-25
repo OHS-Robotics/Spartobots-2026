@@ -51,6 +51,8 @@ public class GamePieceManager extends SubsystemBase {
   private Mode mode = Mode.IDLE;
   private Mode modeBeforeUnjam = Mode.IDLE;
   private BooleanSupplier shooterReadySupplier = () -> false;
+  private BooleanSupplier autoAimActiveSupplier = () -> false;
+  private BooleanSupplier shotSolutionFeasibleSupplier = () -> true;
   private boolean intakeDetected = false;
   private boolean hopperDetected = false;
   private boolean shooterDetected = false;
@@ -83,6 +85,14 @@ public class GamePieceManager extends SubsystemBase {
 
   public void setShooterReadySupplier(BooleanSupplier shooterReadySupplier) {
     this.shooterReadySupplier = shooterReadySupplier != null ? shooterReadySupplier : () -> false;
+  }
+
+  public void setManualFeedInterlockSuppliers(
+      BooleanSupplier autoAimActiveSupplier, BooleanSupplier shotSolutionFeasibleSupplier) {
+    this.autoAimActiveSupplier =
+        autoAimActiveSupplier != null ? autoAimActiveSupplier : () -> false;
+    this.shotSolutionFeasibleSupplier =
+        shotSolutionFeasibleSupplier != null ? shotSolutionFeasibleSupplier : () -> true;
   }
 
   public Mode getMode() {
@@ -198,7 +208,12 @@ public class GamePieceManager extends SubsystemBase {
         }
         break;
       case MANUAL_FEED:
-        applyFeed();
+        boolean manualFeedIndexerAllowed =
+            ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
+                true,
+                autoAimActiveSupplier.getAsBoolean(),
+                shotSolutionFeasibleSupplier.getAsBoolean());
+        applyManualFeed(manualFeedIndexerAllowed);
         break;
       case REVERSE:
         applyReverse();
@@ -285,6 +300,18 @@ public class GamePieceManager extends SubsystemBase {
     indexers.updateIndexers();
   }
 
+  private void applyManualFeed(boolean allowIndexer) {
+    intake.stopIntake();
+    hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.feedAgitatorSpeed);
+    hopper.updateAgitator();
+    if (allowIndexer) {
+      indexers.setTargetIndexerSpeed(GamePieceManagerConstants.feedIndexerSpeed);
+      indexers.updateIndexers();
+    } else {
+      indexers.stopIndexers();
+    }
+  }
+
   private void applyReverse() {
     intake.setTargetIntakeSpeed(GamePieceManagerConstants.reverseSpeed);
     hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.reverseSpeed);
@@ -342,6 +369,11 @@ public class GamePieceManager extends SubsystemBase {
   }
 
   private void logState() {
+    boolean autoAimActive = autoAimActiveSupplier.getAsBoolean();
+    boolean shotSolutionFeasible = shotSolutionFeasibleSupplier.getAsBoolean();
+    boolean manualFeedIndexerAllowed =
+        ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
+            mode == Mode.MANUAL_FEED, autoAimActive, shotSolutionFeasible);
     Logger.recordOutput("GamePieceManager/Mode", mode.name());
     Logger.recordOutput("GamePieceManager/Sensor/IntakeDetected", intakeDetected);
     Logger.recordOutput("GamePieceManager/Sensor/HopperDetected", hopperDetected);
@@ -350,6 +382,11 @@ public class GamePieceManager extends SubsystemBase {
         "GamePieceManager/Interlock/ShooterReady", shooterReadySupplier.getAsBoolean());
     Logger.recordOutput(
         "GamePieceManager/Interlock/PieceAvailableForFeed", hasPieceAvailableForFeed());
+    Logger.recordOutput("GamePieceManager/Interlock/AutoAimActive", autoAimActive);
+    Logger.recordOutput(
+        "GamePieceManager/Interlock/ShotSolutionFeasible", shotSolutionFeasible);
+    Logger.recordOutput(
+        "GamePieceManager/Interlock/ManualFeedIndexerAllowed", manualFeedIndexerAllowed);
     Logger.recordOutput("GamePieceManager/Current/FeedCurrentAmps", getFeedCurrentAmps());
   }
 }
