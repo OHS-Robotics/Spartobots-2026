@@ -36,7 +36,8 @@ public final class ShooterConstants {
   public static final double shooterVelocityKp = 0.00035;
   public static final double shooterVelocityKi = 0.0;
   public static final double shooterVelocityKd = 0.0;
-  public static final double shooterVelocityKv = 1.0 / neoFreeSpeedRadPerSec;
+  public static final double shooterVelocityKv =
+      1.0 / Units.rotationsPerMinuteToRadiansPerSecond(5676.0);
   public static final double hoodPositionKp = 2.0;
   public static final double hoodPositionKi = 0.0;
   public static final double hoodPositionKd = 0.0;
@@ -45,6 +46,8 @@ public final class ShooterConstants {
   public static final double defaultWheelSpeedScale = 1.0;
   public static final double defaultPair1Direction = -1.0;
   public static final double defaultPair2Direction = -1.0;
+  public static final double wheelCommandRampUpRadPerSecSquared = 100000.0;
+  public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
 
   // Hardware geometry
   public static final double shooterWheelDiameterInches = 3.965;
@@ -90,10 +93,24 @@ public final class ShooterConstants {
   public static final Rotation2d maxLaunchAngle = maxHoodAngleFromFloor;
   public static final double launchAngleSearchStepDegrees = 0.5;
 
+  // Hood hard-stop calibration (83 deg hard stop exists, 45 deg side does not)
+  public static final double hoodMaxHardStopPositionRotations = 3.8461538462;
+  // Positive motor output should drive toward the 83 deg hard stop.
+  public static final double hoodHomingOutputTowardMaxHardStop = 0.18;
+  // 83 deg -> 45 deg measured travel: ~16 motor rotations CCW.
+  // Sign encodes encoder direction from max angle toward min angle.
+  public static final double hoodMotorRotationsFromMaxToMinAngle = -16.0;
+  public static final double hoodHomingMinCurrentAmps = 18.0;
+  public static final double hoodHomingMaxVelocityRotationsPerSec = 0.08;
+  public static final double hoodHomingStallConfirmSeconds = 0.20;
+  public static final double hoodHomingTimeoutSeconds = 3.0;
+
   // Hood two-point calibration in motor rotations
   // minHoodAngleFromFloor <-> retracted, maxHoodAngleFromFloor <-> extended
-  public static final double defaultHoodRetractedPositionRotations = -2.3076923077;
-  public static final double defaultHoodExtendedPositionRotations = 3.8461538462;
+  public static final double defaultHoodExtendedPositionRotations =
+      hoodMaxHardStopPositionRotations;
+  public static final double defaultHoodRetractedPositionRotations =
+      defaultHoodExtendedPositionRotations + hoodMotorRotationsFromMaxToMinAngle;
 
   // Measured/estimated launch capability of the mechanism
   public static final double minLaunchSpeedMetersPerSec =

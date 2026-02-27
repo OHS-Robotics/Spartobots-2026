@@ -351,6 +351,7 @@ public class RobotContainer {
     NamedCommands.registerCommand(
         "alignHub",
         drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds));
+    NamedCommands.registerCommand("homeHood", shooter.homeHoodToHardStopCommand());
 
     // Configure the button bindings
     configureButtonBindings();
@@ -370,6 +371,7 @@ public class RobotContainer {
     SmartDashboard.putData(
         "AutoAssist/ParkAtLadderL1",
         scheduleAutoAssist(this::parkAtLadderL1Command).ignoringDisable(true));
+    SmartDashboard.putData("Shooter/HomeHoodToHardStop", shooter.homeHoodToHardStopCommand());
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       SmartDashboard.putData(

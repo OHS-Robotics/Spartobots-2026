@@ -14,6 +14,7 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer;
 import java.util.function.DoubleSupplier;
 
@@ -197,6 +198,16 @@ public class ShooterIOSparkMax implements ShooterIO {
   @Override
   public void setHoodPositionSetpointRotations(double hoodPositionRotations) {
     hoodController.setSetpoint(hoodPositionRotations, ControlType.kPosition, ClosedLoopSlot.kSlot0);
+  }
+
+  @Override
+  public void setHoodOpenLoopOutput(double output) {
+    hoodMotor.set(MathUtil.clamp(output, -1.0, 1.0));
+  }
+
+  @Override
+  public void setHoodEncoderPositionRotations(double hoodPositionRotations) {
+    hoodEncoder.setPosition(hoodPositionRotations);
   }
 
   @Override

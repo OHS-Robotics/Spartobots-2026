@@ -49,6 +49,8 @@ public class ShooterIOSim implements ShooterIO {
   private double pair2VelocitySetpointRadPerSec = 0.0;
   private double hoodPositionSetpointRotations =
       ShooterConstants.defaultHoodRetractedPositionRotations;
+  private boolean hoodOpenLoopControlEnabled = false;
+  private double hoodOpenLoopOutput = 0.0;
   private double pair1AppliedVolts = 0.0;
   private double pair2AppliedVolts = 0.0;
   private double hoodAppliedVolts = 0.0;
@@ -65,14 +67,14 @@ public class ShooterIOSim implements ShooterIO {
                 pair2Sim.getAngularVelocityRadPerSec(), pair2VelocitySetpointRadPerSec)
             + (wheelVelocityKv * pair2VelocitySetpointRadPerSec);
 
-    pair1AppliedVolts =
-        clampVoltage(pair1DutyCycleOutput * simClosedLoopDutyToVoltsScale);
-    pair2AppliedVolts =
-        clampVoltage(pair2DutyCycleOutput * simClosedLoopDutyToVoltsScale);
+    pair1AppliedVolts = clampVoltage(pair1DutyCycleOutput * simClosedLoopDutyToVoltsScale);
+    pair2AppliedVolts = clampVoltage(pair2DutyCycleOutput * simClosedLoopDutyToVoltsScale);
     hoodAppliedVolts =
-        clampVoltage(
-            hoodController.calculate(
-                hoodSim.getAngleRads(), hoodRotationsToAngle(hoodPositionSetpointRotations)));
+        hoodOpenLoopControlEnabled
+            ? clampVoltage(hoodOpenLoopOutput * simClosedLoopDutyToVoltsScale)
+            : clampVoltage(
+                hoodController.calculate(
+                    hoodSim.getAngleRads(), hoodRotationsToAngle(hoodPositionSetpointRotations)));
 
     pair1Sim.setInputVoltage(pair1AppliedVolts);
     pair2Sim.setInputVoltage(pair2AppliedVolts);
@@ -109,6 +111,22 @@ public class ShooterIOSim implements ShooterIO {
   @Override
   public void setHoodPositionSetpointRotations(double hoodPositionRotations) {
     this.hoodPositionSetpointRotations = hoodPositionRotations;
+    hoodOpenLoopControlEnabled = false;
+    hoodOpenLoopOutput = 0.0;
+  }
+
+  @Override
+  public void setHoodOpenLoopOutput(double output) {
+    hoodOpenLoopControlEnabled = true;
+    hoodOpenLoopOutput = MathUtil.clamp(output, -1.0, 1.0);
+  }
+
+  @Override
+  public void setHoodEncoderPositionRotations(double hoodPositionRotations) {
+    hoodPositionSetpointRotations = hoodPositionRotations;
+    hoodOpenLoopControlEnabled = false;
+    hoodOpenLoopOutput = 0.0;
+    hoodSim.setState(hoodRotationsToAngle(hoodPositionRotations), 0.0);
   }
 
   @Override
@@ -129,6 +147,8 @@ public class ShooterIOSim implements ShooterIO {
     pair2VelocitySetpointRadPerSec = 0.0;
     pair1AppliedVolts = 0.0;
     pair2AppliedVolts = 0.0;
+    hoodOpenLoopControlEnabled = false;
+    hoodOpenLoopOutput = 0.0;
     hoodAppliedVolts = 0.0;
   }
 
