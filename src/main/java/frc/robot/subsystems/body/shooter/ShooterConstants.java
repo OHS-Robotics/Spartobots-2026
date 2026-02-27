@@ -120,7 +120,7 @@ public final class ShooterConstants {
       Units.rotationsPerMinuteToRadiansPerSecond(300.0);
 
   // Simulated shot behavior
-  public static final double simShotCadenceSeconds = 0.35;
+  public static final double simShotCadenceSeconds = 0.10;
   public static final double simWheelReadyRatio = 0.88;
 
   // Shooter muzzle relative to robot center (robot frame)

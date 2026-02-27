@@ -73,8 +73,8 @@ public class ShooterIOSparkMax implements ShooterIO {
         .pid(
             ShooterConstants.shooterVelocityKp,
             ShooterConstants.shooterVelocityKi,
-            ShooterConstants.shooterVelocityKd)
-        .velocityFF(ShooterConstants.shooterVelocityKv);
+            ShooterConstants.shooterVelocityKd);
+    pair1LeaderConfig.closedLoop.feedForward.kV(ShooterConstants.shooterVelocityKv);
     pair1LeaderConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
@@ -119,8 +119,8 @@ public class ShooterIOSparkMax implements ShooterIO {
         .pid(
             ShooterConstants.shooterVelocityKp,
             ShooterConstants.shooterVelocityKi,
-            ShooterConstants.shooterVelocityKd)
-        .velocityFF(ShooterConstants.shooterVelocityKv);
+            ShooterConstants.shooterVelocityKd);
+    pair2LeaderConfig.closedLoop.feedForward.kV(ShooterConstants.shooterVelocityKv);
     pair2LeaderConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
@@ -282,7 +282,8 @@ public class ShooterIOSparkMax implements ShooterIO {
     wheelVelocityKv = kv;
 
     var wheelConfig = new SparkMaxConfig();
-    wheelConfig.closedLoop.pid(kp, ki, kd).velocityFF(kv);
+    wheelConfig.closedLoop.pid(kp, ki, kd);
+    wheelConfig.closedLoop.feedForward.kV(kv);
 
     tryUntilOk(
         pair1Leader,

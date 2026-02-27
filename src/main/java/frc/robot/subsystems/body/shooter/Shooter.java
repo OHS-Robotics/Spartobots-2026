@@ -6,9 +6,8 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Constants;
+import frc.robot.util.NetworkTablesUtil;
 import java.util.OptionalDouble;
 import org.littletonrobotics.junction.Logger;
 
@@ -61,13 +60,13 @@ public class Shooter extends SubsystemBase {
           ShooterConstants.fallbackAirtimeSeconds,
           false);
   private final NetworkTable subsystemTable =
-      NetworkTableInstance.getDefault().getTable(ShooterConstants.configTableName);
-  private final NetworkTable tuningTable = subsystemTable.getSubTable("Tuning");
+      NetworkTablesUtil.subsystemTable(ShooterConstants.configTableName);
+  private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommonTable(subsystemTable);
   private final NetworkTable pidTuningTable =
-      tuningTable.getSubTable("PID").getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.tuningModeTable(subsystemTable).getSubTable("PID");
   private final NetworkTable motionCompTuningTable =
-      tuningTable.getSubTable("MotionCompensation").getSubTable(Constants.currentMode.name());
-  private final NetworkTable telemetryTable = subsystemTable.getSubTable("Telemetry");
+      NetworkTablesUtil.sharedModeTuningTable("HubMotionCompensation");
+  private final NetworkTable telemetryTable = NetworkTablesUtil.telemetryTable(subsystemTable);
   private final NetworkTableEntry hoodRetractedPositionEntry =
       tuningTable.getEntry("Hood/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry hoodExtendedPositionEntry =
@@ -769,9 +768,6 @@ public class Shooter extends SubsystemBase {
 
   private static double launchSpeedToAverageWheelSurfaceSpeedMetersPerSec(
       double launchSpeedMetersPerSec) {
-    if (ShooterConstants.launchSpeedFromWheelSurfaceSpeedScale < 1e-6) {
-      return 0.0;
-    }
     return launchSpeedMetersPerSec / ShooterConstants.launchSpeedFromWheelSurfaceSpeedScale;
   }
 

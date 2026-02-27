@@ -19,15 +19,14 @@ import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.Constants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
+import frc.robot.util.NetworkTablesUtil;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.LinkedList;
@@ -41,20 +40,22 @@ public class DriveCommands {
   private static final double ANGLE_KP = 5.5;
   private static final double ANGLE_KI = 0.0;
   private static final double ANGLE_KD = 2.1;
+  private static final double ANGLE_KFF = 0.0;
   private static final double ANGLE_MAX_VELOCITY = 45.0;
   private static final double ANGLE_MAX_ACCELERATION = 90.0;
   private static final double FF_START_DELAY = 2.0; // Secs
   private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
+  private static final double FF_MAX_VOLTAGE = 12.0; // Volts
+  private static final double FF_MIN_SAMPLE_VELOCITY_RAD_PER_SEC = 1e-4;
+  private static final int FF_MIN_SAMPLE_COUNT = 10;
   private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
   private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
   private static final NetworkTable tuningTable =
-      NetworkTableInstance.getDefault()
-          .getTable("Drive/Commands")
-          .getSubTable("Tuning")
-          .getSubTable(Constants.currentMode.name());
+      NetworkTablesUtil.tuningModeTable(NetworkTablesUtil.commandTable("Drive"));
   private static final NetworkTableEntry angleKpEntry = tuningTable.getEntry("AlignToAngle/Kp");
   private static final NetworkTableEntry angleKiEntry = tuningTable.getEntry("AlignToAngle/Ki");
   private static final NetworkTableEntry angleKdEntry = tuningTable.getEntry("AlignToAngle/Kd");
+  private static final NetworkTableEntry angleKffEntry = tuningTable.getEntry("AlignToAngle/Kff");
   private static final NetworkTableEntry angleMaxVelocityEntry =
       tuningTable.getEntry("AlignToAngle/MaxVelocityRadPerSec");
   private static final NetworkTableEntry angleMaxAccelerationEntry =
@@ -64,6 +65,7 @@ public class DriveCommands {
     angleKpEntry.setDefaultDouble(ANGLE_KP);
     angleKiEntry.setDefaultDouble(ANGLE_KI);
     angleKdEntry.setDefaultDouble(ANGLE_KD);
+    angleKffEntry.setDefaultDouble(ANGLE_KFF);
     angleMaxVelocityEntry.setDefaultDouble(ANGLE_MAX_VELOCITY);
     angleMaxAccelerationEntry.setDefaultDouble(ANGLE_MAX_ACCELERATION);
   }
@@ -162,6 +164,7 @@ public class DriveCommands {
               double tunedAngleKp = getTunedValue(angleKpEntry, ANGLE_KP, 0.0, 30.0);
               double tunedAngleKi = getTunedValue(angleKiEntry, ANGLE_KI, 0.0, 10.0);
               double tunedAngleKd = getTunedValue(angleKdEntry, ANGLE_KD, 0.0, 10.0);
+              double tunedAngleKff = getTunedValue(angleKffEntry, ANGLE_KFF, 0.0, 5.0);
               double tunedAngleMaxVelocity =
                   getTunedValue(angleMaxVelocityEntry, ANGLE_MAX_VELOCITY, 0.1, 100.0);
               double tunedAngleMaxAcceleration =
@@ -179,6 +182,8 @@ public class DriveCommands {
               double omega =
                   angleController.calculate(
                       drive.getRotation().getRadians(), rotationSupplier.get().getRadians());
+              double omegaFeedforward = angleController.getSetpoint().velocity * tunedAngleKff;
+              omega += omegaFeedforward;
 
               // Convert to field relative speeds & send command
               ChassisSpeeds speeds =
@@ -243,17 +248,35 @@ public class DriveCommands {
         // Accelerate and gather data
         Commands.run(
                 () -> {
-                  double voltage = timer.get() * FF_RAMP_RATE;
+                  double voltage = Math.min(timer.get() * FF_RAMP_RATE, FF_MAX_VOLTAGE);
                   drive.runCharacterization(voltage);
-                  velocitySamples.add(drive.getFFCharacterizationVelocity());
-                  voltageSamples.add(voltage);
+                  double velocity = Math.abs(drive.getFFCharacterizationVelocity());
+                  if (Double.isFinite(velocity)
+                      && velocity > FF_MIN_SAMPLE_VELOCITY_RAD_PER_SEC
+                      && Double.isFinite(voltage)) {
+                    velocitySamples.add(velocity);
+                    voltageSamples.add(voltage);
+                  }
                 },
                 drive)
+            .until(() -> timer.hasElapsed(FF_MAX_VOLTAGE / FF_RAMP_RATE))
 
-            // When cancelled, calculate and print results
+            // After sweep, calculate and print results
             .finallyDo(
                 () -> {
+                  drive.runCharacterization(0.0);
+
+                  NumberFormat formatter = new DecimalFormat("#0.00000");
+                  System.out.println("********** Drive FF Characterization Results **********");
                   int n = velocitySamples.size();
+                  if (n < FF_MIN_SAMPLE_COUNT) {
+                    System.out.println(
+                        "\tInsufficient valid samples ("
+                            + n
+                            + "). Increase run time or verify module/encoder wiring.");
+                    return;
+                  }
+
                   double sumX = 0.0;
                   double sumY = 0.0;
                   double sumXY = 0.0;
@@ -264,13 +287,24 @@ public class DriveCommands {
                     sumXY += velocitySamples.get(i) * voltageSamples.get(i);
                     sumX2 += velocitySamples.get(i) * velocitySamples.get(i);
                   }
-                  double kS = (sumY * sumX2 - sumX * sumXY) / (n * sumX2 - sumX * sumX);
-                  double kV = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
 
-                  NumberFormat formatter = new DecimalFormat("#0.00000");
-                  System.out.println("********** Drive FF Characterization Results **********");
+                  double denominator = n * sumX2 - sumX * sumX;
+                  if (Math.abs(denominator) < 1e-9) {
+                    System.out.println(
+                        "\tFit failed (degenerate data). Verify robot motion and rerun.");
+                    return;
+                  }
+
+                  double kS = (sumY * sumX2 - sumX * sumXY) / denominator;
+                  double kV = (n * sumXY - sumX * sumY) / denominator;
+                  if (!Double.isFinite(kS) || !Double.isFinite(kV)) {
+                    System.out.println("\tFit failed (non-finite result). Verify data and rerun.");
+                    return;
+                  }
+
                   System.out.println("\tkS: " + formatter.format(kS));
                   System.out.println("\tkV: " + formatter.format(kV));
+                  System.out.println("\tSamples: " + n);
                 }));
   }
 
