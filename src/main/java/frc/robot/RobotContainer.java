@@ -409,12 +409,12 @@ public class RobotContainer {
   }
 
   private Command trenchCollectAutoRoutineNew() {
-    return drive
-        .autoDriveUnderTrenchCommand()
-        .andThen(Commands.runOnce(() -> intake.setTargetIntakeSpeed(0 /* placeholder value */)))
-        .andThen(drive.autoLoadMiddleCommand())
-        .andThen(Commands.runOnce(() -> intake.setTargetIntakeSpeed(0)))
-        .andThen(drive.autoDriveUnderTrenchCommand());
+    return Commands.sequence(
+        drive.autoDriveUnderTrenchCommand(),
+        Commands.runOnce(() -> intake.setTargetIntakeSpeed(0 /* placeholder value */)),
+        drive.autoLoadMiddleCommand(),
+        Commands.runOnce(() -> intake.setTargetIntakeSpeed(0)),
+        drive.autoDriveUnderTrenchCommand());
   }
 
   private Command trenchCollectAutoRoutine() {

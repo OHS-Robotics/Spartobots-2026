@@ -11,7 +11,9 @@ import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
@@ -56,10 +58,11 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
+  // PathPlanner PID values
   private static final double defaultPathTranslationKp = 5.0;
   private static final double defaultPathTranslationKi = 0.0;
   private static final double defaultPathTranslationKd = 0.0;
-  private static final double defaultPathRotationKp = 5.0;
+  private static final double defaultPathRotationKp = 13.0;
   private static final double defaultPathRotationKi = 0.0;
   private static final double defaultPathRotationKd = 0.0;
 
@@ -134,6 +137,8 @@ public class Drive extends SubsystemBase {
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   public int octant;
+  private PathPlannerPath rightMiddleLoad;
+  private PathPlannerPath leftMiddleLoad;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -198,6 +203,15 @@ public class Drive extends SubsystemBase {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
+
+    // Instantiate PathPlanner paths/autos
+    try {
+      rightMiddleLoad = PathPlannerPath.fromPathFile("BlueRightMiddleLoad");
+      leftMiddleLoad = PathPlannerPath.fromPathFile("BlueRightMiddleLoad");
+    } catch (Exception e) {
+      rightMiddleLoad = null;
+      leftMiddleLoad = null;
+    }
 
     // Register PathPlanner auto commands
 
@@ -437,7 +451,7 @@ public class Drive extends SubsystemBase {
   }
 
   public Command getAutonomousCommand() {
-    return autoLoadMiddleCommand();
+    return new PathPlannerAuto("Default");
   }
 
   public Command autoDriveUnderTrenchCommand() {
@@ -506,27 +520,30 @@ public class Drive extends SubsystemBase {
         () -> {
           Pose2d pose;
           Translation2d newPose;
+          PathPlannerAuto auto;
           if (octant == 1) {
             pose = Constants.beginBlueLeft;
             newPose = Constants.beginRedLeft.getTranslation();
+            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
           } else if (octant == 2) {
             pose = Constants.beginRedRight;
             newPose = Constants.beginBlueRight.getTranslation();
+            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
           } else if (octant == 5) {
             pose = Constants.beginBlueRight;
             newPose = Constants.beginRedRight.getTranslation();
+            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
           } else if (octant == 6) {
             pose = Constants.beginRedLeft;
             newPose = Constants.beginBlueLeft.getTranslation();
+            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
           } else {
             pose = Constants.beginBlueLeft;
             newPose = Constants.beginBlueRight.getTranslation();
+            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
           }
 
-          return AutoBuilder.pathfindToPose(pose, middleLoadPathConstraints, 0)
-              .andThen(
-                  AutoBuilder.pathfindToPose(
-                      new Pose2d(newPose, pose.getRotation()), middleLoadPathConstraints, 0));
+          return auto;
         },
         Set.of(this));
   }

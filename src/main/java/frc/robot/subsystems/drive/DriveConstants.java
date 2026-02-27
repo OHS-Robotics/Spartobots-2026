@@ -22,7 +22,7 @@ import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 
 public class DriveConstants {
   public static final double maxSpeedMetersPerSec = 4.60248;
-  public static final double maxAccelerationMeterPerSecSquared = 3;
+  public static final double maxAccelerationMeterPerSecSquared = 4.1;
   public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(270);
   public static final double maxRotationalAccelerationRadiansPerSecSquared =
       Units.degreesToRadians(90);
@@ -144,13 +144,6 @@ public class DriveConstants {
           maxRotationalSpeedRadiansPerSec,
           maxRotationalAccelerationRadiansPerSecSquared);
 
-  public static final PathConstraints middleLoadPathConstraints =
-      new PathConstraints(
-          maxSpeedMetersPerSec / 3,
-          maxAccelerationMeterPerSecSquared,
-          maxRotationalSpeedRadiansPerSec,
-          maxRotationalAccelerationRadiansPerSecSquared);
-
   // MapleSim configuration
   public static final double bumperLengthXMeters = Units.inchesToMeters(30.0);
   public static final double bumperWidthYMeters = Units.inchesToMeters(30.0);
@@ -163,7 +156,7 @@ public class DriveConstants {
           .withRobotMass(Kilograms.of(robotMassKg))
           .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
           .withCustomModuleTranslations(moduleTranslations)
-          .withGyro(COTS.ofPigeon2())
+          .withGyro(COTS.ofNav2X())
           .withSwerveModule(
               new SwerveModuleSimulationConfig(
                   driveGearbox,
