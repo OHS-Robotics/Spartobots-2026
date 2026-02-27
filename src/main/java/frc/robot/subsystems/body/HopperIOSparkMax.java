@@ -20,11 +20,11 @@ public class HopperIOSparkMax implements HopperIO {
   private double agitatorPositionRotations = 0.0;
 
   public HopperIOSparkMax() {
-    SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+    SparkBaseConfig coastConfig = new SparkMaxConfig().idleMode(IdleMode.kCoast);
     hopperAgitator.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     hopperExtension.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override

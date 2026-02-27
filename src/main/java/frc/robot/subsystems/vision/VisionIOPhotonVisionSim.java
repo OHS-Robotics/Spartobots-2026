@@ -53,7 +53,9 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
             .setExposureTimeMs(simConfig.exposureMs())
             .setAvgLatencyMs(simConfig.averageLatencyMs())
             .setLatencyStdDevMs(simConfig.latencyStdDevMs());
-    cameraSim = new PhotonCameraSim(camera, cameraProperties, 0.0, simConfig.maxSightRangeMeters(), aprilTagLayout);
+    cameraSim =
+        new PhotonCameraSim(
+            camera, cameraProperties, 0.0, simConfig.maxSightRangeMeters(), aprilTagLayout);
     visionSim.addCamera(cameraSim, robotToCamera);
   }
 

@@ -3,8 +3,10 @@ package frc.robot.subsystems.body;
 import edu.wpi.first.wpilibj.DigitalInput;
 
 public class GamePieceSensorIODio implements GamePieceSensorIO {
-  private final DigitalInput intakeBeamBreak = createBeamBreak(GamePieceManagerConstants.intakeBeamBreakChannel);
-  private final DigitalInput hopperBeamBreak = createBeamBreak(GamePieceManagerConstants.hopperBeamBreakChannel);
+  private final DigitalInput intakeBeamBreak =
+      createBeamBreak(GamePieceManagerConstants.intakeBeamBreakChannel);
+  private final DigitalInput hopperBeamBreak =
+      createBeamBreak(GamePieceManagerConstants.hopperBeamBreakChannel);
   private final DigitalInput shooterBeamBreak =
       createBeamBreak(GamePieceManagerConstants.shooterBeamBreakChannel);
 

@@ -69,26 +69,8 @@ public class VisionConstants {
 
   public static final CameraSimConfig camera0SimConfig =
       new CameraSimConfig(
-          1280,
-          800,
-          Rotation2d.fromDegrees(79.0),
-          35.0,
-          12.0,
-          30.0,
-          5.0,
-          0.25,
-          0.08,
-          7.0);
+          1280, 800, Rotation2d.fromDegrees(79.0), 35.0, 12.0, 30.0, 5.0, 0.25, 0.08, 7.0);
   public static final CameraSimConfig camera1SimConfig =
       new CameraSimConfig(
-          960,
-          720,
-          Rotation2d.fromDegrees(90.0),
-          25.0,
-          16.0,
-          40.0,
-          7.0,
-          0.35,
-          0.12,
-          6.0);
+          960, 720, Rotation2d.fromDegrees(90.0), 25.0, 16.0, 40.0, 7.0, 0.35, 0.12, 6.0);
 }

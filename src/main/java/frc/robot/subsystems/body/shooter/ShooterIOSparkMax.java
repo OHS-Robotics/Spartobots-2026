@@ -107,7 +107,7 @@ public class ShooterIOSparkMax implements ShooterIO {
     var hoodConfig = new SparkMaxConfig();
     hoodConfig
         .inverted(ShooterConstants.hoodInverted)
-        .idleMode(IdleMode.kBrake)
+        .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(ShooterConstants.hoodMotorCurrentLimitAmps)
         .voltageCompensation(12.0);
     hoodConfig.encoder.uvwMeasurementPeriod(10).uvwAverageDepth(2);

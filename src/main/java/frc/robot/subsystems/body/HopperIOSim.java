@@ -1,6 +1,7 @@
 package frc.robot.subsystems.body;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
@@ -54,7 +55,8 @@ public class HopperIOSim implements HopperIO {
     inputs.agitatorCurrentAmps = Math.abs(agitatorSim.getCurrentDrawAmps());
     inputs.extensionPositionRotations =
         HopperConstants.defaultHopperExtensionRetractedPositionRotations
-            + ((extensionSim.getPositionMeters() - HopperConstants.simExtensionRetractedHeightMeters)
+            + ((extensionSim.getPositionMeters()
+                    - HopperConstants.simExtensionRetractedHeightMeters)
                 * extensionRotationsPerMeter);
     inputs.extensionVelocityRpm =
         extensionSim.getVelocityMetersPerSecond() * extensionRotationsPerMeter * 60.0;
@@ -77,7 +79,7 @@ public class HopperIOSim implements HopperIO {
     agitatorAppliedOutput = 0.0;
     extensionAppliedOutput = 0.0;
     agitatorPositionRotations = 0.0;
-    agitatorSim.setState(0.0);
+    agitatorSim.setState(VecBuilder.fill(0.0));
     extensionSim.setState(HopperConstants.simExtensionRetractedHeightMeters, 0.0);
   }
 }

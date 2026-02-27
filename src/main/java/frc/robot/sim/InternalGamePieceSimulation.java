@@ -119,8 +119,7 @@ public class InternalGamePieceSimulation {
     }
   }
 
-  private void reverseOneStage(
-      Pose2d robotPose, Translation2d robotFieldVelocityMetersPerSecond) {
+  private void reverseOneStage(Pose2d robotPose, Translation2d robotFieldVelocityMetersPerSecond) {
     boolean ejectIntake = intakeOccupied;
     boolean newIntakeOccupied = hopperOccupied;
     boolean newHopperOccupied = shooterOccupied;

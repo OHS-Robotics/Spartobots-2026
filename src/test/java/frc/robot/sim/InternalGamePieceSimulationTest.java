@@ -20,7 +20,8 @@ class InternalGamePieceSimulationTest {
     InternalGamePieceSimulation simulation = new InternalGamePieceSimulation();
 
     simulation.queueCapturedPiece();
-    simulation.update(0.0, GamePieceManager.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
+    simulation.update(
+        0.0, GamePieceManager.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
     assertTrue(simulation.hasIntakePiece());
 
     simulation.update(
@@ -54,7 +55,8 @@ class InternalGamePieceSimulationTest {
   void reverseEjectsIntakePieceBackToField() {
     InternalGamePieceSimulation simulation = new InternalGamePieceSimulation();
     simulation.queueCapturedPiece();
-    simulation.update(0.0, GamePieceManager.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
+    simulation.update(
+        0.0, GamePieceManager.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
     assertTrue(simulation.hasIntakePiece());
 
     simulation.update(

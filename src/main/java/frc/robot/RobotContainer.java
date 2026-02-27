@@ -37,24 +37,24 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.game.GameStateSubsystem;
 import frc.robot.sim.InternalGamePieceSimulation;
+import frc.robot.subsystems.body.GamePieceManager;
+import frc.robot.subsystems.body.GamePieceManagerConstants;
 import frc.robot.subsystems.body.GamePieceSensorIO;
 import frc.robot.subsystems.body.GamePieceSensorIODio;
 import frc.robot.subsystems.body.GamePieceSensorIOSim;
-import frc.robot.subsystems.body.GamePieceManager;
-import frc.robot.subsystems.body.GamePieceManagerConstants;
+import frc.robot.subsystems.body.Hopper;
 import frc.robot.subsystems.body.HopperIO;
 import frc.robot.subsystems.body.HopperIOSim;
 import frc.robot.subsystems.body.HopperIOSparkMax;
-import frc.robot.subsystems.body.Hopper;
+import frc.robot.subsystems.body.Indexers;
 import frc.robot.subsystems.body.IndexersIO;
 import frc.robot.subsystems.body.IndexersIOSim;
 import frc.robot.subsystems.body.IndexersIOSparkMax;
-import frc.robot.subsystems.body.Indexers;
+import frc.robot.subsystems.body.Intake;
 import frc.robot.subsystems.body.IntakeConstants;
 import frc.robot.subsystems.body.IntakeIO;
 import frc.robot.subsystems.body.IntakeIOSim;
 import frc.robot.subsystems.body.IntakeIOSparkMax;
-import frc.robot.subsystems.body.Intake;
 import frc.robot.subsystems.body.shooter.Shooter;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
 import frc.robot.subsystems.body.shooter.ShooterIO;
@@ -77,8 +77,8 @@ import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnField;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -358,9 +358,7 @@ public class RobotContainer {
     SmartDashboard.putData(
         "Strategy/SetScoringPolicyAllowActiveAndInactive",
         Commands.runOnce(
-                () ->
-                    setScoringPolicy(
-                        GamePieceManager.ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE))
+                () -> setScoringPolicy(GamePieceManager.ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE))
             .ignoringDisable(true));
     SmartDashboard.putData(
         "Strategy/SetScoringPolicyActiveOnly",
@@ -429,12 +427,8 @@ public class RobotContainer {
 
     if (ENABLE_MECHANISM_BRINGUP_BINDINGS) {
       // D-pad left/right = manual intake pivot jog.
-      controller
-          .povLeft()
-          .whileTrue(runIntakePivotWhileHeldCommand(-INTAKE_PIVOT_BRINGUP_SPEED));
-      controller
-          .povRight()
-          .whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
+      controller.povLeft().whileTrue(runIntakePivotWhileHeldCommand(-INTAKE_PIVOT_BRINGUP_SPEED));
+      controller.povRight().whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
 
       // Back/start = manual hopper extension jog.
       // These override paddle remap bindings while bring-up mode is enabled.
@@ -669,8 +663,7 @@ public class RobotContainer {
             && matchTimeSeconds <= ENDGAME_WINDOW_START_SECONDS;
 
     if (endgameWindowActive && !endgameWindowLatched) {
-      endgameRumbleUntilTimestampSeconds =
-          Timer.getFPGATimestamp() + ENDGAME_RUMBLE_DURATION_SECS;
+      endgameRumbleUntilTimestampSeconds = Timer.getFPGATimestamp() + ENDGAME_RUMBLE_DURATION_SECS;
     }
 
     if (!DriverStation.isTeleopEnabled()) {
@@ -817,8 +810,7 @@ public class RobotContainer {
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
     Logger.recordOutput("Shooter/Simulation/ShotsAtActiveHub", simulatedShooterShotsActiveHub);
-    Logger.recordOutput(
-        "Shooter/Simulation/ShotsAtInactiveHub", simulatedShooterShotsInactiveHub);
+    Logger.recordOutput("Shooter/Simulation/ShotsAtInactiveHub", simulatedShooterShotsInactiveHub);
     Logger.recordOutput("Shooter/Simulation/LastShotHubState", "UNKNOWN");
     Logger.recordOutput("Shooter/Simulation/ShotTrajectory", new Pose3d[] {});
     Logger.recordOutput("Shooter/Simulation/ActiveFuelProjectiles", new Pose3d[] {});
@@ -950,8 +942,7 @@ public class RobotContainer {
     Logger.recordOutput("Shooter/Simulation/LastLaunchAngleDegrees", launchPitch.getDegrees());
     Logger.recordOutput("Shooter/Simulation/LastLaunchYawDegrees", shooterFacing.getDegrees());
     Logger.recordOutput("Shooter/Simulation/ShotsAtActiveHub", simulatedShooterShotsActiveHub);
-    Logger.recordOutput(
-        "Shooter/Simulation/ShotsAtInactiveHub", simulatedShooterShotsInactiveHub);
+    Logger.recordOutput("Shooter/Simulation/ShotsAtInactiveHub", simulatedShooterShotsInactiveHub);
     Logger.recordOutput("Shooter/Simulation/LastShotHubState", shotHubState.name());
     Logger.recordOutput(
         "Shooter/Simulation/LastLaunchPose3d",

@@ -36,15 +36,15 @@ public final class ShooterConstants {
   public static final double shooterVelocityKp = 0.00035;
   public static final double shooterVelocityKi = 0.0;
   public static final double shooterVelocityKd = 0.0;
-  public static final double shooterVelocityKv = 0.0;
+  public static final double shooterVelocityKv = 1.0 / neoFreeSpeedRadPerSec;
   public static final double hoodPositionKp = 2.0;
   public static final double hoodPositionKi = 0.0;
   public static final double hoodPositionKd = 0.0;
 
   // Runtime shooter wheel tuning
   public static final double defaultWheelSpeedScale = 1.0;
-  public static final double defaultPair1Direction = 1.0;
-  public static final double defaultPair2Direction = 1.0;
+  public static final double defaultPair1Direction = -1.0;
+  public static final double defaultPair2Direction = -1.0;
 
   // Hardware geometry
   public static final double shooterWheelDiameterInches = 3.965;

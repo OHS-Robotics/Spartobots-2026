@@ -18,8 +18,7 @@ class GamePieceManagerScoringPolicyTest {
 
   @Test
   void activeOnlyPolicyBlocksInactiveHub() {
-    assertTrue(
-        GamePieceManager.isScoringAllowed(GamePieceManager.ScoringPolicy.ACTIVE_ONLY, true));
+    assertTrue(GamePieceManager.isScoringAllowed(GamePieceManager.ScoringPolicy.ACTIVE_ONLY, true));
     assertFalse(
         GamePieceManager.isScoringAllowed(GamePieceManager.ScoringPolicy.ACTIVE_ONLY, false));
   }

@@ -19,18 +19,19 @@ public class IndexersIOSparkMax implements IndexersIO {
   private double bottomPositionRotations = 0.0;
 
   public IndexersIOSparkMax() {
-    SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+    SparkBaseConfig coastConfig = new SparkMaxConfig().idleMode(IdleMode.kCoast);
     topIndexer.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     bottomIndexer.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override
   public void updateInputs(IndexersIOInputs inputs) {
     double topAppliedOutput = topIndexer.get();
     double bottomAppliedOutput = bottomIndexer.get();
-    double topVelocityRotationsPerSec = topAppliedOutput * estimatedIndexerMaxVelocityRotationsPerSec;
+    double topVelocityRotationsPerSec =
+        topAppliedOutput * estimatedIndexerMaxVelocityRotationsPerSec;
     double bottomVelocityRotationsPerSec =
         bottomAppliedOutput * estimatedIndexerMaxVelocityRotationsPerSec;
 

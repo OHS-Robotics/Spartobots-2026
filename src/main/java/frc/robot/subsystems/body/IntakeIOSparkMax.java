@@ -19,11 +19,11 @@ public class IntakeIOSparkMax implements IntakeIO {
   private final RelativeEncoder intakePivotEncoder = intakePivot.getEncoder();
 
   public IntakeIOSparkMax() {
-    SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+    SparkBaseConfig coastConfig = new SparkMaxConfig().idleMode(IdleMode.kCoast);
     intakeDrive.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     intakePivot.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override

@@ -35,7 +35,12 @@ class DriveRoutingTest {
   @Test
   void driveToOutpostCommandReturnsDeferredCommand() {
     Drive drive =
-        new Drive(new GyroIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {}, new ModuleIO() {});
+        new Drive(
+            new GyroIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {});
     var command = drive.driveToOutpostCommand();
     assertNotNull(command);
     assertEquals("DeferredCommand", command.getClass().getSimpleName());

@@ -1,6 +1,7 @@
 package frc.robot.subsystems.body.shooter;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
@@ -8,6 +9,8 @@ import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 
 public class ShooterIOSim implements ShooterIO {
   private static final double loopPeriodSeconds = 0.02;
+  private static final double simClosedLoopDutyToVoltsScale = ShooterConstants.simNominalVoltage;
+  private static final double simFallbackWheelVelocityKv = ShooterConstants.shooterVelocityKv;
   private static final double hoodRotationsPerRadian =
       (ShooterConstants.defaultHoodExtendedPositionRotations
               - ShooterConstants.defaultHoodRetractedPositionRotations)
@@ -49,23 +52,27 @@ public class ShooterIOSim implements ShooterIO {
   private double pair1AppliedVolts = 0.0;
   private double pair2AppliedVolts = 0.0;
   private double hoodAppliedVolts = 0.0;
-  private double wheelVelocityKv = 0.0;
+  private double wheelVelocityKv = ShooterConstants.shooterVelocityKv;
 
   @Override
   public void updateInputs(ShooterIOInputs inputs) {
+    double pair1DutyCycleOutput =
+        pair1Controller.calculate(
+                pair1Sim.getAngularVelocityRadPerSec(), pair1VelocitySetpointRadPerSec)
+            + (wheelVelocityKv * pair1VelocitySetpointRadPerSec);
+    double pair2DutyCycleOutput =
+        pair2Controller.calculate(
+                pair2Sim.getAngularVelocityRadPerSec(), pair2VelocitySetpointRadPerSec)
+            + (wheelVelocityKv * pair2VelocitySetpointRadPerSec);
+
     pair1AppliedVolts =
-        clampVoltage(
-            pair1Controller.calculate(
-                    pair1Sim.getAngularVelocityRadPerSec(), pair1VelocitySetpointRadPerSec)
-                + (wheelVelocityKv * pair1VelocitySetpointRadPerSec));
+        clampVoltage(pair1DutyCycleOutput * simClosedLoopDutyToVoltsScale);
     pair2AppliedVolts =
-        clampVoltage(
-            pair2Controller.calculate(
-                    pair2Sim.getAngularVelocityRadPerSec(), pair2VelocitySetpointRadPerSec)
-                + (wheelVelocityKv * pair2VelocitySetpointRadPerSec));
+        clampVoltage(pair2DutyCycleOutput * simClosedLoopDutyToVoltsScale);
     hoodAppliedVolts =
         clampVoltage(
-            hoodController.calculate(hoodSim.getAngleRads(), hoodRotationsToAngle(hoodPositionSetpointRotations)));
+            hoodController.calculate(
+                hoodSim.getAngleRads(), hoodRotationsToAngle(hoodPositionSetpointRotations)));
 
     pair1Sim.setInputVoltage(pair1AppliedVolts);
     pair2Sim.setInputVoltage(pair2AppliedVolts);
@@ -108,7 +115,7 @@ public class ShooterIOSim implements ShooterIO {
   public void setWheelVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {
     pair1Controller.setPID(kp, ki, kd);
     pair2Controller.setPID(kp, ki, kd);
-    wheelVelocityKv = kv;
+    wheelVelocityKv = Math.abs(kv) > 1e-6 ? kv : simFallbackWheelVelocityKv;
   }
 
   @Override
@@ -128,13 +135,14 @@ public class ShooterIOSim implements ShooterIO {
   @Override
   public void resetSimulationState() {
     stop();
-    pair1Sim.setState(0.0);
-    pair2Sim.setState(0.0);
+    pair1Sim.setState(VecBuilder.fill(0.0));
+    pair2Sim.setState(VecBuilder.fill(0.0));
     hoodSim.setState(hoodRotationsToAngle(hoodPositionSetpointRotations), 0.0);
   }
 
   private static double clampVoltage(double volts) {
-    return MathUtil.clamp(volts, -ShooterConstants.simNominalVoltage, ShooterConstants.simNominalVoltage);
+    return MathUtil.clamp(
+        volts, -ShooterConstants.simNominalVoltage, ShooterConstants.simNominalVoltage);
   }
 
   private static double hoodRotationsToAngle(double hoodPositionRotations) {

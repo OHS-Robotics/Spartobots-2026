@@ -46,8 +46,8 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
-import frc.robot.util.NetworkTablesUtil;
 import frc.robot.util.LocalADStarAK;
+import frc.robot.util.NetworkTablesUtil;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
@@ -86,22 +86,16 @@ public class Drive extends SubsystemBase {
   private final NetworkTableEntry logHubAimVectorEntry =
       driveCommonTuningTable.getEntry("LogHubAimVector");
   private final NetworkTableEntry moduleDriveKpEntry =
-     
       driveTuningTable.getEntry("Module/DrivePID/Kp");
   private final NetworkTableEntry moduleDriveKiEntry =
-     
       driveTuningTable.getEntry("Module/DrivePID/Ki");
   private final NetworkTableEntry moduleDriveKdEntry =
-     
       driveTuningTable.getEntry("Module/DrivePID/Kd");
   private final NetworkTableEntry moduleTurnKpEntry =
-     
       driveTuningTable.getEntry("Module/TurnPID/Kp");
   private final NetworkTableEntry moduleTurnKiEntry =
-     
       driveTuningTable.getEntry("Module/TurnPID/Ki");
   private final NetworkTableEntry moduleTurnKdEntry =
-     
       driveTuningTable.getEntry("Module/TurnPID/Kd");
   private final NetworkTableEntry pathTranslationKpEntry =
       driveTuningTable.getEntry("PathPlanner/TranslationPID/Kp");

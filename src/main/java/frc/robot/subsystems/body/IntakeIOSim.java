@@ -1,6 +1,7 @@
 package frc.robot.subsystems.body;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
@@ -75,7 +76,7 @@ public class IntakeIOSim implements IntakeIO {
     driveAppliedOutput = 0.0;
     pivotAppliedOutput = 0.0;
     drivePositionRotations = 0.0;
-    driveSim.setState(0.0);
+    driveSim.setState(VecBuilder.fill(0.0));
     pivotSim.setState(IntakeConstants.simPivotRetractedAngleRadians, 0.0);
   }
 }

@@ -14,7 +14,8 @@ class GamePieceSensorIOSimTest {
   void mirrorsInternalSimulationStageOccupancy() {
     InternalGamePieceSimulation simulation = new InternalGamePieceSimulation();
     GamePieceSensorIOSim io = new GamePieceSensorIOSim(simulation);
-    GamePieceSensorIO.GamePieceSensorIOInputs inputs = new GamePieceSensorIO.GamePieceSensorIOInputs();
+    GamePieceSensorIO.GamePieceSensorIOInputs inputs =
+        new GamePieceSensorIO.GamePieceSensorIOInputs();
 
     io.updateInputs(inputs);
     assertFalse(inputs.intakeDetected);

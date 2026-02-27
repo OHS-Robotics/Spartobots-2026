@@ -1,6 +1,7 @@
 package frc.robot.subsystems.body;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 
@@ -34,7 +35,8 @@ public class IndexersIOSim implements IndexersIO {
     topSim.update(loopPeriodSeconds);
     bottomSim.update(loopPeriodSeconds);
 
-    topPositionRotations += topSim.getAngularVelocityRadPerSec() * loopPeriodSeconds / (2.0 * Math.PI);
+    topPositionRotations +=
+        topSim.getAngularVelocityRadPerSec() * loopPeriodSeconds / (2.0 * Math.PI);
     bottomPositionRotations +=
         bottomSim.getAngularVelocityRadPerSec() * loopPeriodSeconds / (2.0 * Math.PI);
 
@@ -67,7 +69,7 @@ public class IndexersIOSim implements IndexersIO {
     bottomAppliedOutput = 0.0;
     topPositionRotations = 0.0;
     bottomPositionRotations = 0.0;
-    topSim.setState(0.0);
-    bottomSim.setState(0.0);
+    topSim.setState(VecBuilder.fill(0.0));
+    bottomSim.setState(VecBuilder.fill(0.0));
   }
 }

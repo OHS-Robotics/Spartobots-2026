@@ -69,7 +69,8 @@ public class GamePieceManager extends SubsystemBase {
   private boolean shooterDetected = false;
   private boolean jamTimerActive = false;
 
-  public GamePieceManager(Intake intake, Hopper hopper, Indexers indexers, GamePieceSensorIO sensorIO) {
+  public GamePieceManager(
+      Intake intake, Hopper hopper, Indexers indexers, GamePieceSensorIO sensorIO) {
     this.intake = intake;
     this.hopper = hopper;
     this.indexers = indexers;
@@ -268,8 +269,10 @@ public class GamePieceManager extends SubsystemBase {
 
   private void updateSensors() {
     boolean useOverrides = useDashboardSensorOverridesEntry.getBoolean(false);
-    intakeDetected = readSensor(sensorInputs.intakeDetected, intakeDetectedOverrideEntry, useOverrides);
-    hopperDetected = readSensor(sensorInputs.hopperDetected, hopperDetectedOverrideEntry, useOverrides);
+    intakeDetected =
+        readSensor(sensorInputs.intakeDetected, intakeDetectedOverrideEntry, useOverrides);
+    hopperDetected =
+        readSensor(sensorInputs.hopperDetected, hopperDetectedOverrideEntry, useOverrides);
     shooterDetected =
         readSensor(sensorInputs.shooterDetected, shooterDetectedOverrideEntry, useOverrides);
   }
