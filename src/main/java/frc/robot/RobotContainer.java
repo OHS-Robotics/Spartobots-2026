@@ -132,6 +132,7 @@ public class RobotContainer {
   public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = true;
   private static final double INTAKE_PIVOT_BRINGUP_SPEED = 0.25;
   private static final double HOPPER_EXTENSION_BRINGUP_SPEED = 0.25;
+  private static final double TOP_INDEXER_BRINGUP_SPEED = 1.0;
   private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
   private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
@@ -405,11 +406,12 @@ public class RobotContainer {
     // Left trigger = run agitator + indexers while held.
     controller.leftTrigger().whileTrue(gamePieceManager.manualFeedWhileHeldCommand());
 
-    // Driver feed controls: Y = collect with indexers, X = collect without indexers.
+    // Driver feed controls: Y = collect with indexers, X = collect without indexers,
+    // A = reverse, B = run top indexer only while held.
     controller.y().whileTrue(gamePieceManager.collectWhileHeldCommand());
     controller.x().whileTrue(gamePieceManager.collectWithoutIndexerWhileHeldCommand());
     controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
-    controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
+    controller.b().whileTrue(runTopIndexerWhileHeldCommand());
 
     // Left bumper = cancel any auto-assist command.
     controller.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
@@ -610,6 +612,17 @@ public class RobotContainer {
   private Command runHopperExtensionWhileHeldCommand(double speed) {
     return Commands.runEnd(
         () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
+  }
+
+  private Command runTopIndexerWhileHeldCommand() {
+    return Commands.runEnd(
+        () -> {
+          indexers.setTargetTopIndexerSpeed(TOP_INDEXER_BRINGUP_SPEED);
+          indexers.setTargetBottomIndexerSpeed(0.0);
+          indexers.updateIndexers();
+        },
+        indexers::stopIndexers,
+        indexers);
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {

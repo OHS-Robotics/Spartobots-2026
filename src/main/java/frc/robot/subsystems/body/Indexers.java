@@ -103,6 +103,16 @@ public class Indexers extends SubsystemBase {
     bottomIndexerSpeedEntry.setDouble(targetBottomIndexerSpeed);
   }
 
+  public void setTargetTopIndexerSpeed(double speed) {
+    targetTopIndexerSpeed = clampSpeed(speed);
+    topIndexerSpeedEntry.setDouble(targetTopIndexerSpeed);
+  }
+
+  public void setTargetBottomIndexerSpeed(double speed) {
+    targetBottomIndexerSpeed = clampSpeed(speed);
+    bottomIndexerSpeedEntry.setDouble(targetBottomIndexerSpeed);
+  }
+
   public double getTargetIndexerSpeed() {
     return (targetTopIndexerSpeed + targetBottomIndexerSpeed) / 2.0;
   }
