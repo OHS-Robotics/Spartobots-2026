@@ -36,4 +36,6 @@ public interface ShooterIO {
   public default void setHoodPositionClosedLoopGains(double kp, double ki, double kd) {}
 
   public default void stop() {}
+
+  public default void resetSimulationState() {}
 }

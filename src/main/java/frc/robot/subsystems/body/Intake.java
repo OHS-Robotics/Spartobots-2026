@@ -1,13 +1,5 @@
 package frc.robot.subsystems.body;
 
-import com.revrobotics.PersistMode;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.ResetMode;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.config.SparkBaseConfig;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
@@ -19,25 +11,18 @@ import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Intake extends SubsystemBase {
-  private static final double loopPeriodSeconds = 0.02;
-  private static final double intakeDriveEstimatedMaxVelocityRotationsPerSec = 12.0;
-
   private double targetIntakeSpeed = IntakeConstants.defaultIntakeSpeed;
   private Command currentIntakeRunCommand;
   public boolean intakeRunning = false;
   private double lastAppliedIntakeDriveSpeed = 0.0;
   private double lastAppliedIntakePivotSpeed = 0.0;
-  private double intakeDriveEstimatedPositionRotations = 0.0;
   private double intakePivotRetractedPositionRotations =
       IntakeConstants.defaultIntakePivotRetractedPositionRotations;
   private double intakePivotExtendedPositionRotations =
       IntakeConstants.defaultIntakePivotExtendedPositionRotations;
 
-  private final SparkMax intakeDrive =
-      new SparkMax(IntakeConstants.intakeDriveCanId, MotorType.kBrushless);
-  private final SparkMax intakePivot =
-      new SparkMax(IntakeConstants.intakePivotCanId, MotorType.kBrushless);
-  private final RelativeEncoder intakePivotEncoder = intakePivot.getEncoder();
+  private final IntakeIO io;
+  private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
 
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.subsystemTable(IntakeConstants.configTableName);
@@ -70,19 +55,19 @@ public class Intake extends SubsystemBase {
       telemetryTable.getEntry("Drive/EstimatedPositionRotations");
 
   public Intake() {
-    SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+    this(new IntakeIO() {});
+  }
 
+  public Intake(IntakeIO io) {
+    this.io = io;
     configureNetworkTableDefaults();
     loadNetworkTableConfig();
-
-    intakeDrive.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-    intakePivot.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override
   public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("Intake", inputs);
     loadNetworkTableConfig();
     publishPivotEncoderToNetworkTables();
     publishActuatorStateToNetworkTables();
@@ -95,7 +80,7 @@ public class Intake extends SubsystemBase {
             targetIntakeSpeed,
             intakeDriveDirectionEntry,
             IntakeConstants.defaultIntakeDriveDirection);
-    intakeDrive.set(lastAppliedIntakeDriveSpeed);
+    io.setDriveOutput(lastAppliedIntakeDriveSpeed);
     intakeRunning = Math.abs(lastAppliedIntakeDriveSpeed) > 1e-3;
   }
 
@@ -114,24 +99,24 @@ public class Intake extends SubsystemBase {
   }
 
   public double getActualIntakeSpeed() {
-    return intakeDrive.get();
+    return inputs.driveAppliedOutput;
   }
 
   public void stopIntake() {
     lastAppliedIntakeDriveSpeed = 0.0;
-    intakeDrive.set(0.0);
+    io.setDriveOutput(0.0);
     intakeRunning = false;
   }
 
   public void setIntakePivotSpeed(double speed) {
     lastAppliedIntakePivotSpeed =
         applyScaleAndInversion(speed, intakePivotSpeedScaleEntry, intakePivotInvertedEntry);
-    intakePivot.set(lastAppliedIntakePivotSpeed);
+    io.setPivotOutput(lastAppliedIntakePivotSpeed);
   }
 
   public void stopIntakePivot() {
     lastAppliedIntakePivotSpeed = 0.0;
-    intakePivot.set(0.0);
+    io.setPivotOutput(0.0);
   }
 
   public Command toggleIntakeCommand() {
@@ -175,7 +160,6 @@ public class Intake extends SubsystemBase {
     intakePivotExtendedPositionEntry.setDefaultDouble(
         IntakeConstants.defaultIntakePivotExtendedPositionRotations);
     intakeDriveDirectionEntry.setDefaultDouble(IntakeConstants.defaultIntakeDriveDirection);
-
     intakePivotInvertedEntry.setDefaultBoolean(IntakeConstants.defaultIntakePivotInverted);
   }
 
@@ -222,33 +206,27 @@ public class Intake extends SubsystemBase {
 
   private void publishPivotEncoderToNetworkTables() {
     intakePivotEncoderPositionEntry.setDouble(getIntakePivotMeasuredPositionRotations());
-    intakePivotEncoderVelocityEntry.setDouble(intakePivotEncoder.getVelocity());
+    intakePivotEncoderVelocityEntry.setDouble(inputs.pivotVelocityRpm);
     intakePivotEncoderNormalizedPositionEntry.setDouble(getIntakePivotMeasuredPositionNormalized());
   }
 
   private void publishActuatorStateToNetworkTables() {
-    double driveAppliedOutput = intakeDrive.get();
-    double estimatedDriveVelocityRotationsPerSec =
-        driveAppliedOutput * intakeDriveEstimatedMaxVelocityRotationsPerSec;
-    intakeDriveEstimatedPositionRotations +=
-        estimatedDriveVelocityRotationsPerSec * loopPeriodSeconds;
-
-    intakeDriveAppliedOutputEntry.setDouble(driveAppliedOutput);
-    intakeDriveEstimatedVelocityEntry.setDouble(estimatedDriveVelocityRotationsPerSec);
-    intakeDriveEstimatedPositionEntry.setDouble(intakeDriveEstimatedPositionRotations);
-    intakePivotAppliedOutputEntry.setDouble(intakePivot.get());
+    intakeDriveAppliedOutputEntry.setDouble(inputs.driveAppliedOutput);
+    intakeDriveEstimatedVelocityEntry.setDouble(inputs.driveVelocityRotationsPerSec);
+    intakeDriveEstimatedPositionEntry.setDouble(inputs.drivePositionRotations);
+    intakePivotAppliedOutputEntry.setDouble(inputs.pivotAppliedOutput);
   }
 
   public double getIntakePivotMeasuredPositionRotations() {
-    return intakePivotEncoder.getPosition();
+    return inputs.pivotPositionRotations;
   }
 
   public double getIntakeDriveCurrentAmps() {
-    return intakeDrive.getOutputCurrent();
+    return inputs.driveCurrentAmps;
   }
 
   public double getIntakePivotCurrentAmps() {
-    return intakePivot.getOutputCurrent();
+    return inputs.pivotCurrentAmps;
   }
 
   public double getIntakePivotMeasuredPositionNormalized() {
@@ -257,6 +235,10 @@ public class Intake extends SubsystemBase {
             getIntakePivotMeasuredPositionRotations(),
             intakePivotRetractedPositionRotations,
             intakePivotExtendedPositionRotations));
+  }
+
+  public void resetSimulationState() {
+    io.resetSimulationState();
   }
 
   private static double inverseInterpolate(double value, double start, double end) {
@@ -302,14 +284,13 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput("Intake/State/Running", intakeRunning);
     Logger.recordOutput("Intake/State/LastAppliedDriveOutput", lastAppliedIntakeDriveSpeed);
     Logger.recordOutput("Intake/State/LastAppliedPivotOutput", lastAppliedIntakePivotSpeed);
-    Logger.recordOutput("Intake/State/ActualDriveOutput", intakeDrive.get());
-    Logger.recordOutput("Intake/State/ActualPivotOutput", intakePivot.get());
-    Logger.recordOutput("Intake/Measured/DriveCurrentAmps", intakeDrive.getOutputCurrent());
-    Logger.recordOutput("Intake/Measured/PivotCurrentAmps", intakePivot.getOutputCurrent());
+    Logger.recordOutput("Intake/State/ActualDriveOutput", inputs.driveAppliedOutput);
+    Logger.recordOutput("Intake/State/ActualPivotOutput", inputs.pivotAppliedOutput);
+    Logger.recordOutput("Intake/Measured/DriveCurrentAmps", inputs.driveCurrentAmps);
+    Logger.recordOutput("Intake/Measured/PivotCurrentAmps", inputs.pivotCurrentAmps);
     Logger.recordOutput(
         "Intake/Measured/PivotEncoderPositionRotations", getIntakePivotMeasuredPositionRotations());
-    Logger.recordOutput(
-        "Intake/Measured/PivotEncoderVelocityRpm", intakePivotEncoder.getVelocity());
+    Logger.recordOutput("Intake/Measured/PivotEncoderVelocityRpm", inputs.pivotVelocityRpm);
     Logger.recordOutput(
         "Intake/Measured/PivotEncoderPositionNormalized",
         getIntakePivotMeasuredPositionNormalized());

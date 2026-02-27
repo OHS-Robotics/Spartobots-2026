@@ -913,6 +913,11 @@ public class Shooter extends SubsystemBase {
     return true;
   }
 
+  public void resetSimulationState() {
+    lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
+    io.resetSimulationState();
+  }
+
   private boolean areWheelsReadyForSimulatedShot() {
     return shotControlEnabled && areWheelsAtSpeed(1.0 - ShooterConstants.simWheelReadyRatio);
   }

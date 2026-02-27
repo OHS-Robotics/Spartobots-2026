@@ -2,6 +2,7 @@ package frc.robot.subsystems.body.shooter;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import frc.robot.subsystems.body.ControlSensitivity;
 
@@ -130,4 +131,17 @@ public final class ShooterConstants {
   // MapleSim target matching tolerance for projectile hit checks
   public static final double projectileTargetToleranceXYMeters = Units.inchesToMeters(10.0);
   public static final double projectileTargetToleranceZMeters = Units.inchesToMeters(8.0);
+
+  // Estimated simulation configuration
+  public static final double simNominalVoltage = 12.0;
+  public static final DCMotor simWheelGearbox = DCMotor.getNEO(1);
+  public static final double simWheelReduction = 1.0;
+  public static final double simWheelMoiKgMetersSq = 0.003;
+  public static final DCMotor simHoodGearbox = DCMotor.getNEO(1);
+  public static final double simHoodReduction = 100.0;
+  public static final double simEstimatedHoodLengthMeters = Units.inchesToMeters(11.0);
+  public static final double simEstimatedHoodMoiKgMetersSq = 0.08;
+  public static final double simHoodMinAngleRadians = minHoodAngleFromFloor.getRadians();
+  public static final double simHoodMaxAngleRadians = maxHoodAngleFromFloor.getRadians();
+  public static final double simHoodStartingAngleRadians = defaultLaunchAngle.getRadians();
 }

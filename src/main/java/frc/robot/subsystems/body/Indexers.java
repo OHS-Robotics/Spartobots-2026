@@ -1,12 +1,5 @@
 package frc.robot.subsystems.body;
 
-import com.revrobotics.PersistMode;
-import com.revrobotics.ResetMode;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.config.SparkBaseConfig;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
@@ -18,9 +11,6 @@ import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Indexers extends SubsystemBase {
-  private static final double loopPeriodSeconds = 0.02;
-  private static final double indexerEstimatedMaxVelocityRotationsPerSec = 12.0;
-
   private double targetTopIndexerSpeed = IndexersConstants.defaultTopIndexerSpeed;
   private double targetBottomIndexerSpeed = IndexersConstants.defaultBottomIndexerSpeed;
   private double topIndexerSpeedScale = IndexersConstants.defaultTopIndexerSpeedScale;
@@ -29,13 +19,9 @@ public class Indexers extends SubsystemBase {
   private boolean indexerRunning = false;
   private double lastAppliedTopIndexerSpeed = 0.0;
   private double lastAppliedBottomIndexerSpeed = 0.0;
-  private double topIndexerEstimatedPositionRotations = 0.0;
-  private double bottomIndexerEstimatedPositionRotations = 0.0;
 
-  private final SparkMax topIndexer =
-      new SparkMax(IndexersConstants.topIndexerCanId, MotorType.kBrushed);
-  private final SparkMax bottomIndexer =
-      new SparkMax(IndexersConstants.bottomIndexerCanId, MotorType.kBrushed);
+  private final IndexersIO io;
+  private final IndexersIOInputsAutoLogged inputs = new IndexersIOInputsAutoLogged();
 
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.subsystemTable(IndexersConstants.configTableName);
@@ -65,19 +51,19 @@ public class Indexers extends SubsystemBase {
       telemetryTable.getEntry("Bottom/EstimatedPositionRotations");
 
   public Indexers() {
-    SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+    this(new IndexersIO() {});
+  }
 
+  public Indexers(IndexersIO io) {
+    this.io = io;
     configureNetworkTableDefaults();
     loadNetworkTableConfig();
-
-    topIndexer.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-    bottomIndexer.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override
   public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("Indexers", inputs);
     loadNetworkTableConfig();
     publishActuatorStateToNetworkTables();
     logTelemetry();
@@ -96,8 +82,8 @@ public class Indexers extends SubsystemBase {
             bottomIndexerSpeedScale,
             bottomIndexerDirectionEntry,
             IndexersConstants.defaultBottomIndexerDirection);
-    topIndexer.set(lastAppliedTopIndexerSpeed);
-    bottomIndexer.set(lastAppliedBottomIndexerSpeed);
+    io.setTopOutput(lastAppliedTopIndexerSpeed);
+    io.setBottomOutput(lastAppliedBottomIndexerSpeed);
     indexerRunning =
         Math.abs(lastAppliedTopIndexerSpeed) > 1e-3
             || Math.abs(lastAppliedBottomIndexerSpeed) > 1e-3;
@@ -124,8 +110,8 @@ public class Indexers extends SubsystemBase {
   public void stopIndexers() {
     lastAppliedTopIndexerSpeed = 0.0;
     lastAppliedBottomIndexerSpeed = 0.0;
-    topIndexer.set(0.0);
-    bottomIndexer.set(0.0);
+    io.setTopOutput(0.0);
+    io.setBottomOutput(0.0);
     indexerRunning = false;
   }
 
@@ -219,11 +205,11 @@ public class Indexers extends SubsystemBase {
   }
 
   public double getTopIndexerCurrentAmps() {
-    return topIndexer.getOutputCurrent();
+    return inputs.topCurrentAmps;
   }
 
   public double getBottomIndexerCurrentAmps() {
-    return bottomIndexer.getOutputCurrent();
+    return inputs.bottomCurrentAmps;
   }
 
   public double getAverageIndexerCurrentAmps() {
@@ -231,7 +217,11 @@ public class Indexers extends SubsystemBase {
   }
 
   public double getAverageAppliedOutput() {
-    return 0.5 * (topIndexer.get() + bottomIndexer.get());
+    return 0.5 * (inputs.topAppliedOutput + inputs.bottomAppliedOutput);
+  }
+
+  public void resetSimulationState() {
+    io.resetSimulationState();
   }
 
   private void stopCommand(Command command) {
@@ -241,23 +231,12 @@ public class Indexers extends SubsystemBase {
   }
 
   private void publishActuatorStateToNetworkTables() {
-    double topAppliedOutput = topIndexer.get();
-    double bottomAppliedOutput = bottomIndexer.get();
-    double topEstimatedVelocityRotationsPerSec =
-        topAppliedOutput * indexerEstimatedMaxVelocityRotationsPerSec;
-    double bottomEstimatedVelocityRotationsPerSec =
-        bottomAppliedOutput * indexerEstimatedMaxVelocityRotationsPerSec;
-
-    topIndexerEstimatedPositionRotations += topEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
-    bottomIndexerEstimatedPositionRotations +=
-        bottomEstimatedVelocityRotationsPerSec * loopPeriodSeconds;
-
-    topIndexerAppliedOutputEntry.setDouble(topAppliedOutput);
-    bottomIndexerAppliedOutputEntry.setDouble(bottomAppliedOutput);
-    topIndexerEstimatedVelocityEntry.setDouble(topEstimatedVelocityRotationsPerSec);
-    bottomIndexerEstimatedVelocityEntry.setDouble(bottomEstimatedVelocityRotationsPerSec);
-    topIndexerEstimatedPositionEntry.setDouble(topIndexerEstimatedPositionRotations);
-    bottomIndexerEstimatedPositionEntry.setDouble(bottomIndexerEstimatedPositionRotations);
+    topIndexerAppliedOutputEntry.setDouble(inputs.topAppliedOutput);
+    bottomIndexerAppliedOutputEntry.setDouble(inputs.bottomAppliedOutput);
+    topIndexerEstimatedVelocityEntry.setDouble(inputs.topVelocityRotationsPerSec);
+    bottomIndexerEstimatedVelocityEntry.setDouble(inputs.bottomVelocityRotationsPerSec);
+    topIndexerEstimatedPositionEntry.setDouble(inputs.topPositionRotations);
+    bottomIndexerEstimatedPositionEntry.setDouble(inputs.bottomPositionRotations);
   }
 
   private void logTelemetry() {
@@ -278,9 +257,9 @@ public class Indexers extends SubsystemBase {
     Logger.recordOutput("Indexers/State/Running", indexerRunning);
     Logger.recordOutput("Indexers/State/LastAppliedTopOutput", lastAppliedTopIndexerSpeed);
     Logger.recordOutput("Indexers/State/LastAppliedBottomOutput", lastAppliedBottomIndexerSpeed);
-    Logger.recordOutput("Indexers/State/ActualTopOutput", topIndexer.get());
-    Logger.recordOutput("Indexers/State/ActualBottomOutput", bottomIndexer.get());
-    Logger.recordOutput("Indexers/Measured/TopCurrentAmps", topIndexer.getOutputCurrent());
-    Logger.recordOutput("Indexers/Measured/BottomCurrentAmps", bottomIndexer.getOutputCurrent());
+    Logger.recordOutput("Indexers/State/ActualTopOutput", inputs.topAppliedOutput);
+    Logger.recordOutput("Indexers/State/ActualBottomOutput", inputs.bottomAppliedOutput);
+    Logger.recordOutput("Indexers/Measured/TopCurrentAmps", inputs.topCurrentAmps);
+    Logger.recordOutput("Indexers/Measured/BottomCurrentAmps", inputs.bottomCurrentAmps);
   }
 }

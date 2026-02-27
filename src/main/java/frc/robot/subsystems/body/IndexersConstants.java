@@ -1,5 +1,8 @@
 package frc.robot.subsystems.body;
 
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.util.Units;
+
 public final class IndexersConstants {
   private IndexersConstants() {}
 
@@ -24,4 +27,11 @@ public final class IndexersConstants {
   // Default direction/inversion
   public static final double defaultTopIndexerDirection = 1.0;
   public static final double defaultBottomIndexerDirection = 1.0;
+
+  // Estimated simulation configuration
+  public static final double simNominalVoltage = 12.0;
+  public static final DCMotor simIndexerGearbox = DCMotor.getBag(1);
+  public static final double simIndexerReduction = 3.0;
+  public static final double simIndexerMoiKgMetersSq = 0.0015;
+  public static final double simIndexerRadiusMeters = Units.inchesToMeters(1.0);
 }

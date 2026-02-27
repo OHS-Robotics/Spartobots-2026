@@ -27,6 +27,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -34,9 +35,24 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.sim.InternalGamePieceSimulation;
+import frc.robot.subsystems.body.GamePieceSensorIO;
+import frc.robot.subsystems.body.GamePieceSensorIODio;
+import frc.robot.subsystems.body.GamePieceSensorIOSim;
 import frc.robot.subsystems.body.GamePieceManager;
+import frc.robot.subsystems.body.GamePieceManagerConstants;
+import frc.robot.subsystems.body.HopperIO;
+import frc.robot.subsystems.body.HopperIOSim;
+import frc.robot.subsystems.body.HopperIOSparkMax;
 import frc.robot.subsystems.body.Hopper;
+import frc.robot.subsystems.body.IndexersIO;
+import frc.robot.subsystems.body.IndexersIOSim;
+import frc.robot.subsystems.body.IndexersIOSparkMax;
 import frc.robot.subsystems.body.Indexers;
+import frc.robot.subsystems.body.IntakeConstants;
+import frc.robot.subsystems.body.IntakeIO;
+import frc.robot.subsystems.body.IntakeIOSim;
+import frc.robot.subsystems.body.IntakeIOSparkMax;
 import frc.robot.subsystems.body.Intake;
 import frc.robot.subsystems.body.shooter.Shooter;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
@@ -55,11 +71,13 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import org.ironmaple.simulation.IntakeSimulation;
 import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnField;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -148,6 +166,8 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   private SwerveDriveSimulation driveSimulation = null;
+  private IntakeSimulation mapleIntakeSimulation = null;
+  private InternalGamePieceSimulation internalGamePieceSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
   private int simulatedShooterShotsLaunched = 0;
@@ -155,24 +175,32 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    intake = new Intake();
-    hopper = new Hopper();
-    indexers = new Indexers();
+    Drive driveLocal;
+    Shooter shooterLocal;
+    Intake intakeLocal;
+    Hopper hopperLocal;
+    Indexers indexersLocal;
+    Vision visionLocal;
+    GamePieceSensorIO sensorIOLocal;
 
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
-        drive =
+        intakeLocal = new Intake(new IntakeIOSparkMax());
+        hopperLocal = new Hopper(new HopperIOSparkMax());
+        indexersLocal = new Indexers(new IndexersIOSparkMax());
+        sensorIOLocal = new GamePieceSensorIODio();
+        driveLocal =
             new Drive(
                 new GyroIONavX(),
                 new ModuleIOSpark(0),
                 new ModuleIOSpark(1),
                 new ModuleIOSpark(2),
                 new ModuleIOSpark(3));
-        shooter = new Shooter(new ShooterIOSparkMax());
-        vision =
+        shooterLocal = new Shooter(new ShooterIOSparkMax());
+        visionLocal =
             new Vision(
-                drive::addVisionMeasurement,
+                driveLocal::addVisionMeasurement,
                 new VisionIOPhotonVision(
                     VisionConstants.camera0Name, VisionConstants.robotToCamera0),
                 new VisionIOPhotonVision(
@@ -184,7 +212,12 @@ public class RobotContainer {
         SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
         driveSimulation = new SwerveDriveSimulation(DriveConstants.mapleSimConfig, SIM_START_POSE);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
-        drive =
+        intakeLocal = new Intake(new IntakeIOSim());
+        hopperLocal = new Hopper(new HopperIOSim());
+        indexersLocal = new Indexers(new IndexersIOSim());
+        internalGamePieceSimulation = new InternalGamePieceSimulation();
+        sensorIOLocal = new GamePieceSensorIOSim(internalGamePieceSimulation);
+        driveLocal =
             new Drive(
                 new GyroIOSim(driveSimulation.getGyroSimulation()),
                 new ModuleIOSim(driveSimulation.getModules()[0]),
@@ -192,34 +225,47 @@ public class RobotContainer {
                 new ModuleIOSim(driveSimulation.getModules()[2]),
                 new ModuleIOSim(driveSimulation.getModules()[3]),
                 driveSimulation::setSimulationWorldPose);
-        shooter = new Shooter(new ShooterIOSim());
-        vision =
+        shooterLocal = new Shooter(new ShooterIOSim());
+        mapleIntakeSimulation =
+            IntakeSimulation.OverTheBumperIntake(
+                "Fuel",
+                driveSimulation,
+                Meters.of(IntakeConstants.simMapleIntakeWidthMeters),
+                Meters.of(IntakeConstants.simMapleIntakeExtensionMeters),
+                IntakeSimulation.IntakeSide.FRONT,
+                GamePieceManagerConstants.simIntakeCapacity);
+        visionLocal =
             new Vision(
-                drive::addVisionMeasurement,
+                driveLocal::addVisionMeasurement,
                 new VisionIOPhotonVisionSim(
                     VisionConstants.camera0Name,
                     VisionConstants.robotToCamera0,
-                    driveSimulation::getSimulatedDriveTrainPose),
+                    driveSimulation::getSimulatedDriveTrainPose,
+                    VisionConstants.camera0SimConfig),
                 new VisionIOPhotonVisionSim(
                     VisionConstants.camera1Name,
                     VisionConstants.robotToCamera1,
-                    driveSimulation::getSimulatedDriveTrainPose));
-        resetSimulationField();
+                    driveSimulation::getSimulatedDriveTrainPose,
+                    VisionConstants.camera1SimConfig));
         break;
 
       default:
         // Replayed robot, disable IO implementations
-        drive =
+        intakeLocal = new Intake(new IntakeIO() {});
+        hopperLocal = new Hopper(new HopperIO() {});
+        indexersLocal = new Indexers(new IndexersIO() {});
+        sensorIOLocal = new GamePieceSensorIO() {};
+        driveLocal =
             new Drive(
                 new GyroIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {});
-        shooter = new Shooter(new ShooterIO() {});
-        vision =
+        shooterLocal = new Shooter(new ShooterIO() {});
+        visionLocal =
             new Vision(
-                drive::addVisionMeasurement,
+                driveLocal::addVisionMeasurement,
                 new VisionIOPhotonVision(
                     VisionConstants.camera0Name, VisionConstants.robotToCamera0),
                 new VisionIOPhotonVision(
@@ -227,7 +273,13 @@ public class RobotContainer {
         break;
     }
 
-    gamePieceManager = new GamePieceManager(intake, hopper, indexers);
+    drive = driveLocal;
+    shooter = shooterLocal;
+    intake = intakeLocal;
+    hopper = hopperLocal;
+    indexers = indexersLocal;
+    vision = visionLocal;
+    gamePieceManager = new GamePieceManager(intake, hopper, indexers, sensorIOLocal);
     gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
     gamePieceManager.setManualFeedInterlockSuppliers(
         () -> shooterDemandFromAlign, shooter::isHubShotSolutionFeasible);
@@ -284,6 +336,13 @@ public class RobotContainer {
 
     // Configure the button bindings
     configureButtonBindings();
+
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      SmartDashboard.putData(
+          "Simulation/ResetField",
+          Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
+      resetSimulationField();
+    }
   }
 
   /**
@@ -580,6 +639,16 @@ public class RobotContainer {
     }
 
     SimulatedArena arena = SimulatedArena.getInstance();
+    shooter.resetSimulationState();
+    intake.resetSimulationState();
+    hopper.resetSimulationState();
+    indexers.resetSimulationState();
+    if (internalGamePieceSimulation != null) {
+      internalGamePieceSimulation.reset();
+    }
+    if (mapleIntakeSimulation != null) {
+      mapleIntakeSimulation.stopIntake();
+    }
     drive.setPose(SIM_START_POSE);
     arena.resetFieldForAuto();
     previousSimFieldSpeeds = null;
@@ -595,6 +664,13 @@ public class RobotContainer {
     Logger.recordOutput("Shooter/Simulation/LastLaunchAngleDegrees", 0.0);
     Logger.recordOutput("Shooter/Simulation/LastLaunchYawDegrees", 0.0);
     Logger.recordOutput("Shooter/Simulation/LastLaunchPose3d", new Pose3d());
+    Logger.recordOutput("GamePieceSimulation/Transfers/LastEvent", "Reset");
+    Logger.recordOutput("GamePieceSimulation/Transfers/QueuedCount", 0);
+    Logger.recordOutput("GamePieceSimulation/Stage/IntakeOccupied", false);
+    Logger.recordOutput("GamePieceSimulation/Stage/HopperOccupied", false);
+    Logger.recordOutput("GamePieceSimulation/Stage/ShooterOccupied", false);
+    Logger.recordOutput("GamePieceSimulation/EjectPose", new Pose3d());
+    Logger.recordOutput("GamePieceSimulation/MapleIntakeRunning", false);
   }
 
   public void updateSimulation() {
@@ -602,16 +678,28 @@ public class RobotContainer {
       return;
     }
 
-    Pose2d launchRobotPose = driveSimulation.getSimulatedDriveTrainPose();
-    ChassisSpeeds launchFieldSpeeds =
-        driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
-    maybeLaunchSimulatedFuel(launchRobotPose, launchFieldSpeeds);
-
     SimulatedArena arena = SimulatedArena.getInstance();
+    updateMapleIntakeState();
     arena.simulationPeriodic();
+    queueCapturedGamePiecesFromMapleIntake();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
     ChassisSpeeds simFieldSpeeds =
         driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
+    if (internalGamePieceSimulation != null) {
+      internalGamePieceSimulation.update(
+          Timer.getFPGATimestamp(),
+          gamePieceManager.getMode(),
+          intake.getTargetIntakeSpeed(),
+          intake.getIntakePivotMeasuredPositionNormalized(),
+          gamePieceManager.isManualFeedIndexerAllowedForSimulation(),
+          robotPose,
+          new Translation2d(simFieldSpeeds.vxMetersPerSecond, simFieldSpeeds.vyMetersPerSecond));
+      addPendingEjectionsToArena(arena);
+    }
+    maybeLaunchSimulatedFuel(robotPose, simFieldSpeeds);
+    if (internalGamePieceSimulation != null) {
+      internalGamePieceSimulation.logOutputs();
+    }
     updateCollisionRumble(robotPose, simFieldSpeeds);
     HumpPoseSample humpPoseSample = sampleHumpPose(robotPose);
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
@@ -635,7 +723,13 @@ public class RobotContainer {
   private void maybeLaunchSimulatedFuel(Pose2d robotPose, ChassisSpeeds fieldRelativeSpeeds) {
     double shooterFeedRateRatio = gamePieceManager.getFeedRateRatioForShooterSim();
     Logger.recordOutput("Shooter/Simulation/FeedRateRatio", shooterFeedRateRatio);
+    if (internalGamePieceSimulation != null && !internalGamePieceSimulation.hasShooterPiece()) {
+      return;
+    }
     if (!shooter.shouldTriggerSimulatedShot(Timer.getFPGATimestamp(), shooterFeedRateRatio)) {
+      return;
+    }
+    if (internalGamePieceSimulation != null && !internalGamePieceSimulation.consumeShooterPiece()) {
       return;
     }
 
@@ -694,6 +788,50 @@ public class RobotContainer {
             robotPose.getY(),
             shooter.getLaunchHeightMeters(),
             new Rotation3d(0.0, -launchPitch.getRadians(), shooterFacing.getRadians())));
+  }
+
+  private void updateMapleIntakeState() {
+    if (mapleIntakeSimulation == null) {
+      return;
+    }
+
+    boolean shouldRunIntake =
+        intake.getTargetIntakeSpeed() > IntakeConstants.simForwardOutputThreshold
+            && intake.getIntakePivotMeasuredPositionNormalized()
+                >= GamePieceManagerConstants.simIntakeCaptureMinPivotNormalized;
+    if (shouldRunIntake) {
+      mapleIntakeSimulation.startIntake();
+    } else {
+      mapleIntakeSimulation.stopIntake();
+    }
+    Logger.recordOutput("GamePieceSimulation/MapleIntakeRunning", shouldRunIntake);
+  }
+
+  private void queueCapturedGamePiecesFromMapleIntake() {
+    if (mapleIntakeSimulation == null || internalGamePieceSimulation == null) {
+      return;
+    }
+
+    while (mapleIntakeSimulation.obtainGamePieceFromIntake()) {
+      internalGamePieceSimulation.queueCapturedPiece();
+    }
+  }
+
+  private void addPendingEjectionsToArena(SimulatedArena arena) {
+    if (internalGamePieceSimulation == null) {
+      return;
+    }
+
+    InternalGamePieceSimulation.PendingEjection ejection;
+    while ((ejection = internalGamePieceSimulation.pollPendingEjection()) != null) {
+      RebuiltFuelOnField ejectedFuel = new RebuiltFuelOnField(ejection.position());
+      ejectedFuel.setVelocity(
+          new ChassisSpeeds(
+              ejection.velocityMetersPerSecond().getX(),
+              ejection.velocityMetersPerSecond().getY(),
+              0.0));
+      arena.addGamePiece(ejectedFuel);
+    }
   }
 
   private void updateCollisionRumble(Pose2d robotPose, ChassisSpeeds currentFieldSpeeds) {

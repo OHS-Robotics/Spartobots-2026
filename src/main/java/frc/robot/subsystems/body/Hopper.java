@@ -1,13 +1,5 @@
 package frc.robot.subsystems.body;
 
-import com.revrobotics.PersistMode;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.ResetMode;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.config.SparkBaseConfig;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
@@ -19,25 +11,18 @@ import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Hopper extends SubsystemBase {
-  private static final double loopPeriodSeconds = 0.02;
-  private static final double hopperAgitatorEstimatedMaxVelocityRotationsPerSec = 12.0;
-
   private double targetAgitatorSpeed = HopperConstants.defaultHopperAgitatorSpeed;
   private Command currentAgitatorRunCommand;
   private boolean agitatorRunning = false;
   private double lastAppliedAgitatorSpeed = 0.0;
   private double lastAppliedExtensionSpeed = 0.0;
-  private double hopperAgitatorEstimatedPositionRotations = 0.0;
   private double hopperExtensionRetractedPositionRotations =
       HopperConstants.defaultHopperExtensionRetractedPositionRotations;
   private double hopperExtensionExtendedPositionRotations =
       HopperConstants.defaultHopperExtensionExtendedPositionRotations;
 
-  private final SparkMax hopperAgitator =
-      new SparkMax(HopperConstants.hopperAgitatorDriveCanId, MotorType.kBrushed);
-  private final SparkMax hopperExtension =
-      new SparkMax(HopperConstants.hopperExtensionCanId, MotorType.kBrushed);
-  private final RelativeEncoder hopperExtensionEncoder = hopperExtension.getEncoder();
+  private final HopperIO io;
+  private final HopperIOInputsAutoLogged inputs = new HopperIOInputsAutoLogged();
 
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.subsystemTable(HopperConstants.configTableName);
@@ -71,19 +56,19 @@ public class Hopper extends SubsystemBase {
       telemetryTable.getEntry("Agitator/EstimatedPositionRotations");
 
   public Hopper() {
-    SparkBaseConfig brakeConfig = new SparkMaxConfig().idleMode(IdleMode.kBrake);
+    this(new HopperIO() {});
+  }
 
+  public Hopper(HopperIO io) {
+    this.io = io;
     configureNetworkTableDefaults();
     loadNetworkTableConfig();
-
-    hopperAgitator.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-    hopperExtension.configure(
-        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override
   public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("Hopper", inputs);
     loadNetworkTableConfig();
     publishExtensionEncoderToNetworkTables();
     publishActuatorStateToNetworkTables();
@@ -96,7 +81,7 @@ public class Hopper extends SubsystemBase {
             targetAgitatorSpeed,
             hopperAgitatorDirectionEntry,
             HopperConstants.defaultHopperAgitatorDirection);
-    hopperAgitator.set(lastAppliedAgitatorSpeed);
+    io.setAgitatorOutput(lastAppliedAgitatorSpeed);
     agitatorRunning = Math.abs(lastAppliedAgitatorSpeed) > 1e-3;
   }
 
@@ -115,24 +100,24 @@ public class Hopper extends SubsystemBase {
   }
 
   public double getActualAgitatorSpeed() {
-    return hopperAgitator.get();
+    return inputs.agitatorAppliedOutput;
   }
 
   public void stopAgitator() {
     lastAppliedAgitatorSpeed = 0.0;
-    hopperAgitator.set(0.0);
+    io.setAgitatorOutput(0.0);
     agitatorRunning = false;
   }
 
   public void setHopperExtensionSpeed(double speed) {
     lastAppliedExtensionSpeed =
         applyScaleAndInversion(speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
-    hopperExtension.set(lastAppliedExtensionSpeed);
+    io.setExtensionOutput(lastAppliedExtensionSpeed);
   }
 
   public void stopHopperExtension() {
     lastAppliedExtensionSpeed = 0.0;
-    hopperExtension.set(0.0);
+    io.setExtensionOutput(0.0);
   }
 
   public Command toggleAgitatorCommand() {
@@ -177,7 +162,6 @@ public class Hopper extends SubsystemBase {
     hopperExtensionExtendedPositionEntry.setDefaultDouble(
         HopperConstants.defaultHopperExtensionExtendedPositionRotations);
     hopperAgitatorDirectionEntry.setDefaultDouble(HopperConstants.defaultHopperAgitatorDirection);
-
     hopperExtensionInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperExtensionInverted);
   }
 
@@ -225,34 +209,28 @@ public class Hopper extends SubsystemBase {
 
   private void publishExtensionEncoderToNetworkTables() {
     hopperExtensionEncoderPositionEntry.setDouble(getHopperExtensionMeasuredPositionRotations());
-    hopperExtensionEncoderVelocityEntry.setDouble(hopperExtensionEncoder.getVelocity());
+    hopperExtensionEncoderVelocityEntry.setDouble(inputs.extensionVelocityRpm);
     hopperExtensionEncoderNormalizedPositionEntry.setDouble(
         getHopperExtensionMeasuredPositionNormalized());
   }
 
   private void publishActuatorStateToNetworkTables() {
-    double agitatorAppliedOutput = hopperAgitator.get();
-    double estimatedAgitatorVelocityRotationsPerSec =
-        agitatorAppliedOutput * hopperAgitatorEstimatedMaxVelocityRotationsPerSec;
-    hopperAgitatorEstimatedPositionRotations +=
-        estimatedAgitatorVelocityRotationsPerSec * loopPeriodSeconds;
-
-    hopperAgitatorAppliedOutputEntry.setDouble(agitatorAppliedOutput);
-    hopperAgitatorEstimatedVelocityEntry.setDouble(estimatedAgitatorVelocityRotationsPerSec);
-    hopperAgitatorEstimatedPositionEntry.setDouble(hopperAgitatorEstimatedPositionRotations);
-    hopperExtensionAppliedOutputEntry.setDouble(hopperExtension.get());
+    hopperAgitatorAppliedOutputEntry.setDouble(inputs.agitatorAppliedOutput);
+    hopperAgitatorEstimatedVelocityEntry.setDouble(inputs.agitatorVelocityRotationsPerSec);
+    hopperAgitatorEstimatedPositionEntry.setDouble(inputs.agitatorPositionRotations);
+    hopperExtensionAppliedOutputEntry.setDouble(inputs.extensionAppliedOutput);
   }
 
   public double getHopperExtensionMeasuredPositionRotations() {
-    return hopperExtensionEncoder.getPosition();
+    return inputs.extensionPositionRotations;
   }
 
   public double getHopperAgitatorCurrentAmps() {
-    return hopperAgitator.getOutputCurrent();
+    return inputs.agitatorCurrentAmps;
   }
 
   public double getHopperExtensionCurrentAmps() {
-    return hopperExtension.getOutputCurrent();
+    return inputs.extensionCurrentAmps;
   }
 
   public double getHopperExtensionMeasuredPositionNormalized() {
@@ -261,6 +239,10 @@ public class Hopper extends SubsystemBase {
             getHopperExtensionMeasuredPositionRotations(),
             hopperExtensionRetractedPositionRotations,
             hopperExtensionExtendedPositionRotations));
+  }
+
+  public void resetSimulationState() {
+    io.resetSimulationState();
   }
 
   private static double inverseInterpolate(double value, double start, double end) {
@@ -310,15 +292,14 @@ public class Hopper extends SubsystemBase {
     Logger.recordOutput("Hopper/State/AgitatorRunning", agitatorRunning);
     Logger.recordOutput("Hopper/State/LastAppliedAgitatorOutput", lastAppliedAgitatorSpeed);
     Logger.recordOutput("Hopper/State/LastAppliedExtensionOutput", lastAppliedExtensionSpeed);
-    Logger.recordOutput("Hopper/State/ActualAgitatorOutput", hopperAgitator.get());
-    Logger.recordOutput("Hopper/State/ActualExtensionOutput", hopperExtension.get());
-    Logger.recordOutput("Hopper/Measured/AgitatorCurrentAmps", hopperAgitator.getOutputCurrent());
-    Logger.recordOutput("Hopper/Measured/ExtensionCurrentAmps", hopperExtension.getOutputCurrent());
+    Logger.recordOutput("Hopper/State/ActualAgitatorOutput", inputs.agitatorAppliedOutput);
+    Logger.recordOutput("Hopper/State/ActualExtensionOutput", inputs.extensionAppliedOutput);
+    Logger.recordOutput("Hopper/Measured/AgitatorCurrentAmps", inputs.agitatorCurrentAmps);
+    Logger.recordOutput("Hopper/Measured/ExtensionCurrentAmps", inputs.extensionCurrentAmps);
     Logger.recordOutput(
         "Hopper/Measured/ExtensionEncoderPositionRotations",
         getHopperExtensionMeasuredPositionRotations());
-    Logger.recordOutput(
-        "Hopper/Measured/ExtensionEncoderVelocityRpm", hopperExtensionEncoder.getVelocity());
+    Logger.recordOutput("Hopper/Measured/ExtensionEncoderVelocityRpm", inputs.extensionVelocityRpm);
     Logger.recordOutput(
         "Hopper/Measured/ExtensionEncoderPositionNormalized",
         getHopperExtensionMeasuredPositionNormalized());

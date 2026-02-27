@@ -3,7 +3,6 @@ package frc.robot.subsystems.body;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -27,10 +26,9 @@ public class GamePieceManager extends SubsystemBase {
   private final Intake intake;
   private final Hopper hopper;
   private final Indexers indexers;
-
-  private final DigitalInput intakeBeamBreak;
-  private final DigitalInput hopperBeamBreak;
-  private final DigitalInput shooterBeamBreak;
+  private final GamePieceSensorIO sensorIO;
+  private final GamePieceSensorIOInputsAutoLogged sensorInputs =
+      new GamePieceSensorIOInputsAutoLogged();
 
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.subsystemTable(GamePieceManagerConstants.configTableName);
@@ -58,14 +56,11 @@ public class GamePieceManager extends SubsystemBase {
   private boolean shooterDetected = false;
   private boolean jamTimerActive = false;
 
-  public GamePieceManager(Intake intake, Hopper hopper, Indexers indexers) {
+  public GamePieceManager(Intake intake, Hopper hopper, Indexers indexers, GamePieceSensorIO sensorIO) {
     this.intake = intake;
     this.hopper = hopper;
     this.indexers = indexers;
-
-    intakeBeamBreak = createBeamBreak(GamePieceManagerConstants.intakeBeamBreakChannel);
-    hopperBeamBreak = createBeamBreak(GamePieceManagerConstants.hopperBeamBreakChannel);
-    shooterBeamBreak = createBeamBreak(GamePieceManagerConstants.shooterBeamBreakChannel);
+    this.sensorIO = sensorIO;
 
     useDashboardSensorOverridesEntry.setDefaultBoolean(false);
     intakeDetectedOverrideEntry.setDefaultBoolean(false);
@@ -77,6 +72,8 @@ public class GamePieceManager extends SubsystemBase {
 
   @Override
   public void periodic() {
+    sensorIO.updateInputs(sensorInputs);
+    Logger.processInputs("GamePieceManager/Sensors", sensorInputs);
     updateSensors();
     updateJamDetection();
     runMode();
@@ -163,6 +160,13 @@ public class GamePieceManager extends SubsystemBase {
         Math.abs(indexers.getAverageAppliedOutput()) / nominalFeedIndexerOutput, 0.0, 1.0);
   }
 
+  public boolean isManualFeedIndexerAllowedForSimulation() {
+    return ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
+        mode == Mode.MANUAL_FEED,
+        autoAimActiveSupplier.getAsBoolean(),
+        shotSolutionFeasibleSupplier.getAsBoolean());
+  }
+
   private void runMode() {
     switch (mode) {
       case IDLE:
@@ -208,12 +212,7 @@ public class GamePieceManager extends SubsystemBase {
         }
         break;
       case MANUAL_FEED:
-        boolean manualFeedIndexerAllowed =
-            ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
-                true,
-                autoAimActiveSupplier.getAsBoolean(),
-                shotSolutionFeasibleSupplier.getAsBoolean());
-        applyManualFeed(manualFeedIndexerAllowed);
+        applyManualFeed(isManualFeedIndexerAllowedForSimulation());
         break;
       case REVERSE:
         applyReverse();
@@ -229,9 +228,10 @@ public class GamePieceManager extends SubsystemBase {
 
   private void updateSensors() {
     boolean useOverrides = useDashboardSensorOverridesEntry.getBoolean(false);
-    intakeDetected = readBeamBreak(intakeBeamBreak, intakeDetectedOverrideEntry, useOverrides);
-    hopperDetected = readBeamBreak(hopperBeamBreak, hopperDetectedOverrideEntry, useOverrides);
-    shooterDetected = readBeamBreak(shooterBeamBreak, shooterDetectedOverrideEntry, useOverrides);
+    intakeDetected = readSensor(sensorInputs.intakeDetected, intakeDetectedOverrideEntry, useOverrides);
+    hopperDetected = readSensor(sensorInputs.hopperDetected, hopperDetectedOverrideEntry, useOverrides);
+    shooterDetected =
+        readSensor(sensorInputs.shooterDetected, shooterDetectedOverrideEntry, useOverrides);
   }
 
   private void updateJamDetection() {
@@ -336,7 +336,9 @@ public class GamePieceManager extends SubsystemBase {
   }
 
   private boolean hasAnyBeamBreakConfigured() {
-    return intakeBeamBreak != null || hopperBeamBreak != null || shooterBeamBreak != null;
+    return sensorInputs.intakeConfigured
+        || sensorInputs.hopperConfigured
+        || sensorInputs.shooterConfigured;
   }
 
   private boolean shouldAutoHoldDuringSensorlessCollect() {
@@ -351,29 +353,15 @@ public class GamePieceManager extends SubsystemBase {
         + indexers.getAverageIndexerCurrentAmps();
   }
 
-  private static DigitalInput createBeamBreak(int channel) {
-    return channel >= 0 ? new DigitalInput(channel) : null;
-  }
-
-  private static boolean decodeBeamBreak(DigitalInput sensor) {
-    boolean sensorActive = sensor.get();
-    return GamePieceManagerConstants.beamBreakActiveLow ? !sensorActive : sensorActive;
-  }
-
-  private static boolean readBeamBreak(
-      DigitalInput sensor, NetworkTableEntry overrideEntry, boolean useOverrides) {
-    if (sensor != null) {
-      return decodeBeamBreak(sensor);
-    }
-    return useOverrides && overrideEntry.getBoolean(false);
+  private static boolean readSensor(
+      boolean sensorDetected, NetworkTableEntry overrideEntry, boolean useOverrides) {
+    return sensorDetected || (useOverrides && overrideEntry.getBoolean(false));
   }
 
   private void logState() {
     boolean autoAimActive = autoAimActiveSupplier.getAsBoolean();
     boolean shotSolutionFeasible = shotSolutionFeasibleSupplier.getAsBoolean();
-    boolean manualFeedIndexerAllowed =
-        ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
-            mode == Mode.MANUAL_FEED, autoAimActive, shotSolutionFeasible);
+    boolean manualFeedIndexerAllowed = isManualFeedIndexerAllowedForSimulation();
     Logger.recordOutput("GamePieceManager/Mode", mode.name());
     Logger.recordOutput("GamePieceManager/Sensor/IntakeDetected", intakeDetected);
     Logger.recordOutput("GamePieceManager/Sensor/HopperDetected", hopperDetected);
