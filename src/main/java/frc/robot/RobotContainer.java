@@ -35,6 +35,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.game.GameStateSubsystem;
 import frc.robot.sim.InternalGamePieceSimulation;
 import frc.robot.subsystems.body.GamePieceSensorIO;
 import frc.robot.subsystems.body.GamePieceSensorIODio;
@@ -71,8 +72,8 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
-import org.ironmaple.simulation.IntakeSimulation;
 import java.util.function.Supplier;
+import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
@@ -103,7 +104,11 @@ public class RobotContainer {
   private static final double WALL_IMPACT_ACCEL_THRESHOLD_MPS2 = 9.0;
   private static final double WALL_RUMBLE_DURATION_SECS = 0.22;
   private static final double WALL_RUMBLE_STRENGTH = 1.0;
+  private static final double ENDGAME_WINDOW_START_SECONDS = 30.0;
+  private static final double ENDGAME_RUMBLE_DURATION_SECS = 0.65;
+  private static final double ENDGAME_RUMBLE_STRENGTH = 0.65;
   private static final String ROBOT_COMPONENTS_LOG_KEY = "AdvantageScope/Robot/Components";
+  private static final String DASHBOARD_SCORING_POLICY_KEY = "Strategy/ScoringPolicy";
   private static final int COMPONENT_INDEX_INTAKE_PIVOT = 0;
   private static final int COMPONENT_INDEX_HOPPER_EXTENSION = 1;
   private static final int COMPONENT_INDEX_SHOOTER_HOOD = 2;
@@ -122,6 +127,11 @@ public class RobotContainer {
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
+  // Temporary bring-up bindings for mechanism calibration.
+  // Set false after intake/hopper calibration is complete.
+  public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = true;
+  private static final double INTAKE_PIVOT_BRINGUP_SPEED = 0.25;
+  private static final double HOPPER_EXTENSION_BRINGUP_SPEED = 0.25;
   private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
   private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
@@ -152,6 +162,7 @@ public class RobotContainer {
   private final Hopper hopper;
   private final Indexers indexers;
   private final GamePieceManager gamePieceManager;
+  private final GameStateSubsystem gameState;
 
   @SuppressWarnings("unused")
   private final Vision vision;
@@ -170,8 +181,12 @@ public class RobotContainer {
   private InternalGamePieceSimulation internalGamePieceSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
+  private double endgameRumbleUntilTimestampSeconds = 0.0;
+  private boolean endgameWindowLatched = false;
   private int simulatedShooterShotsLaunched = 0;
   private int simulatedShooterHubHits = 0;
+  private int simulatedShooterShotsActiveHub = 0;
+  private int simulatedShooterShotsInactiveHub = 0;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -278,9 +293,12 @@ public class RobotContainer {
     intake = intakeLocal;
     hopper = hopperLocal;
     indexers = indexersLocal;
+    gameState = new GameStateSubsystem();
     vision = visionLocal;
     gamePieceManager = new GamePieceManager(intake, hopper, indexers, sensorIOLocal);
     gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
+    gamePieceManager.setHubActiveSupplier(gameState::isHubActive);
+    gamePieceManager.setScoringPolicy(GamePieceManager.ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE);
     gamePieceManager.setManualFeedInterlockSuppliers(
         () -> shooterDemandFromAlign, shooter::isHubShotSolutionFeasible);
 
@@ -336,6 +354,24 @@ public class RobotContainer {
 
     // Configure the button bindings
     configureButtonBindings();
+    publishScoringPolicyState();
+    SmartDashboard.putData(
+        "Strategy/SetScoringPolicyAllowActiveAndInactive",
+        Commands.runOnce(
+                () ->
+                    setScoringPolicy(
+                        GamePieceManager.ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE))
+            .ignoringDisable(true));
+    SmartDashboard.putData(
+        "Strategy/SetScoringPolicyActiveOnly",
+        Commands.runOnce(() -> setScoringPolicy(GamePieceManager.ScoringPolicy.ACTIVE_ONLY))
+            .ignoringDisable(true));
+    SmartDashboard.putData(
+        "Strategy/ToggleScoringPolicy",
+        Commands.runOnce(this::toggleScoringPolicy).ignoringDisable(true));
+    SmartDashboard.putData(
+        "AutoAssist/ParkAtLadderL1",
+        scheduleAutoAssist(this::parkAtLadderL1Command).ignoringDisable(true));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       SmartDashboard.putData(
@@ -379,6 +415,8 @@ public class RobotContainer {
     controller.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
     // Right bumper = drive under nearest trench.
     controller.rightBumper().onTrue(scheduleAutoAssist(this::autoDriveUnderTrenchCommand));
+    // Left stick press = park assist to ladder (L1 endgame alignment).
+    controller.leftStick().onTrue(scheduleAutoAssist(this::parkAtLadderL1Command));
 
     // D-pad up/down = manual hood extension with hard stops.
     controller
@@ -388,13 +426,34 @@ public class RobotContainer {
         .povDown()
         .whileTrue(
             Commands.run(() -> shooter.adjustHoodSetpointDegrees(-MANUAL_HOOD_STEP_DEGREES)));
-    // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
-    new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
-        .onTrue(scheduleAutoAssist(this::alignToLadderCommand));
-    new Trigger(() -> controller.getHID().getRawButton(TOP_RIGHT_PADDLE_BUTTON))
-        .onTrue(scheduleAutoAssist(this::driveToOutpostCommand));
-    new Trigger(() -> controller.getHID().getRawButton(BOTTOM_LEFT_PADDLE_BUTTON))
-        .onTrue(scheduleAutoAssist(this::alignToDepotCommand));
+
+    if (ENABLE_MECHANISM_BRINGUP_BINDINGS) {
+      // D-pad left/right = manual intake pivot jog.
+      controller
+          .povLeft()
+          .whileTrue(runIntakePivotWhileHeldCommand(-INTAKE_PIVOT_BRINGUP_SPEED));
+      controller
+          .povRight()
+          .whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
+
+      // Back/start = manual hopper extension jog.
+      // These override paddle remap bindings while bring-up mode is enabled.
+      controller
+          .back()
+          .whileTrue(runHopperExtensionWhileHeldCommand(-HOPPER_EXTENSION_BRINGUP_SPEED));
+      controller
+          .start()
+          .whileTrue(runHopperExtensionWhileHeldCommand(HOPPER_EXTENSION_BRINGUP_SPEED));
+    } else {
+      // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
+      new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
+          .onTrue(scheduleAutoAssist(this::parkAtLadderL1Command));
+      new Trigger(() -> controller.getHID().getRawButton(TOP_RIGHT_PADDLE_BUTTON))
+          .onTrue(scheduleAutoAssist(this::driveToOutpostCommand));
+      new Trigger(() -> controller.getHID().getRawButton(BOTTOM_LEFT_PADDLE_BUTTON))
+          .onTrue(scheduleAutoAssist(this::alignToDepotCommand));
+      controller.back().onTrue(Commands.runOnce(this::toggleScoringPolicy));
+    }
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
@@ -416,7 +475,7 @@ public class RobotContainer {
   }
 
   public Command driveToOutpostCommand() {
-    return drive.outpostLoadAuto();
+    return drive.driveToOutpostCommand();
   }
 
   public Command alignToHub() {
@@ -491,9 +550,14 @@ public class RobotContainer {
   private Command trenchCollectAutoRoutineNew() {
     return Commands.sequence(
         drive.autoDriveUnderTrenchCommand(),
-        Commands.runOnce(() -> intake.setTargetIntakeSpeed(0 /* placeholder value */)),
+        Commands.runOnce(
+            () -> {
+              intake.setTargetIntakeSpeed(GamePieceManagerConstants.collectIntakeSpeed);
+              intake.updateIntake();
+            },
+            intake),
         drive.autoLoadMiddleCommand(),
-        Commands.runOnce(() -> intake.setTargetIntakeSpeed(0)),
+        Commands.runOnce(intake::stopIntake, intake),
         drive.autoDriveUnderTrenchCommand());
   }
 
@@ -517,6 +581,18 @@ public class RobotContainer {
     return drive.alignToPose(getAlliancePose(BLUE_LADDER_ALIGN_POSE, RED_LADDER_ALIGN_POSE));
   }
 
+  public Command parkAtLadderL1Command() {
+    return alignToLadderCommand();
+  }
+
+  public Command setScoringPolicyCommand(GamePieceManager.ScoringPolicy scoringPolicy) {
+    return Commands.runOnce(() -> setScoringPolicy(scoringPolicy));
+  }
+
+  public Command toggleScoringPolicyCommand() {
+    return Commands.runOnce(this::toggleScoringPolicy);
+  }
+
   public Command alignToDepotCommand() {
     return drive.alignToPose(getAlliancePose(BLUE_DEPOT_ALIGN_POSE, RED_DEPOT_ALIGN_POSE));
   }
@@ -528,6 +604,16 @@ public class RobotContainer {
   private Command runShooterDemandWhileHeldCommand() {
     return Commands.startEnd(
         () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
+  }
+
+  private Command runIntakePivotWhileHeldCommand(double speed) {
+    return Commands.runEnd(
+        () -> intake.setIntakePivotSpeed(speed), intake::stopIntakePivot, intake);
+  }
+
+  private Command runHopperExtensionWhileHeldCommand(double speed) {
+    return Commands.runEnd(
+        () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {
@@ -546,6 +632,73 @@ public class RobotContainer {
 
   private void refreshShooterControlDemand() {
     shooter.setShotControlEnabled(shooterDemandFromAlign || shooterDemandFromTrigger);
+  }
+
+  public void periodic() {
+    updateHubShotSolutionAndGetAirtimeSeconds();
+    logRobotModelComponentPoses();
+    updateEndgameWindowState();
+    publishScoringPolicyState();
+    updateDriverRumbleOutput(Timer.getFPGATimestamp());
+  }
+
+  private void setScoringPolicy(GamePieceManager.ScoringPolicy scoringPolicy) {
+    gamePieceManager.setScoringPolicy(scoringPolicy);
+    publishScoringPolicyState();
+  }
+
+  private void toggleScoringPolicy() {
+    gamePieceManager.toggleScoringPolicy();
+    publishScoringPolicyState();
+  }
+
+  private void publishScoringPolicyState() {
+    String policy = gamePieceManager.getScoringPolicy().name();
+    SmartDashboard.putString(DASHBOARD_SCORING_POLICY_KEY, policy);
+    Logger.recordOutput("Strategy/ScoringPolicy", policy);
+    Logger.recordOutput(
+        "Strategy/ScoringAllowedForCurrentHubState",
+        gamePieceManager.isScoringAllowedForCurrentHubState());
+  }
+
+  private void updateEndgameWindowState() {
+    double matchTimeSeconds = DriverStation.getMatchTime();
+    boolean endgameWindowActive =
+        DriverStation.isTeleopEnabled()
+            && matchTimeSeconds >= 0.0
+            && matchTimeSeconds <= ENDGAME_WINDOW_START_SECONDS;
+
+    if (endgameWindowActive && !endgameWindowLatched) {
+      endgameRumbleUntilTimestampSeconds =
+          Timer.getFPGATimestamp() + ENDGAME_RUMBLE_DURATION_SECS;
+    }
+
+    if (!DriverStation.isTeleopEnabled()) {
+      endgameWindowLatched = false;
+      endgameRumbleUntilTimestampSeconds = 0.0;
+    } else {
+      endgameWindowLatched = endgameWindowActive;
+    }
+
+    SmartDashboard.putBoolean("Match/EndgameWindowActive", endgameWindowActive);
+    SmartDashboard.putNumber("Match/TimeRemainingSeconds", matchTimeSeconds);
+    Logger.recordOutput("Match/EndgameWindowActive", endgameWindowActive);
+    Logger.recordOutput("Match/TimeRemainingSeconds", matchTimeSeconds);
+  }
+
+  private void updateDriverRumbleOutput(double nowSeconds) {
+    double rumbleStrength = 0.0;
+    if (nowSeconds < endgameRumbleUntilTimestampSeconds) {
+      rumbleStrength = Math.max(rumbleStrength, ENDGAME_RUMBLE_STRENGTH);
+    }
+    if (Constants.currentMode == Constants.Mode.SIM && nowSeconds < rumbleUntilTimestampSeconds) {
+      rumbleStrength = Math.max(rumbleStrength, WALL_RUMBLE_STRENGTH);
+    }
+
+    controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
+    Logger.recordOutput("DriverFeedback/RumbleStrength", rumbleStrength);
+    Logger.recordOutput(
+        "DriverFeedback/EndgameRumbleActive", nowSeconds < endgameRumbleUntilTimestampSeconds);
   }
 
   private Command scheduleAutoAssist(Supplier<Command> commandSupplier) {
@@ -588,7 +741,7 @@ public class RobotContainer {
   private double updateHubShotSolutionAndGetAirtimeSeconds() {
     shooter.updateHubShotSolution(
         drive.getPose(),
-        drive.getNearestHubPose(),
+        drive.getAllianceHubPose(),
         drive.getFieldRelativeVelocityMetersPerSecond());
     return shooter.getHubAirtimeSeconds();
   }
@@ -630,6 +783,8 @@ public class RobotContainer {
     refreshShooterControlDemand();
     gamePieceManager.requestMode(GamePieceManager.Mode.IDLE);
     cancelAutoAssist();
+    endgameWindowLatched = false;
+    endgameRumbleUntilTimestampSeconds = 0.0;
     resetSimulationField();
   }
 
@@ -653,11 +808,18 @@ public class RobotContainer {
     arena.resetFieldForAuto();
     previousSimFieldSpeeds = null;
     rumbleUntilTimestampSeconds = 0.0;
+    endgameRumbleUntilTimestampSeconds = 0.0;
     simulatedShooterShotsLaunched = 0;
     simulatedShooterHubHits = 0;
+    simulatedShooterShotsActiveHub = 0;
+    simulatedShooterShotsInactiveHub = 0;
     controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
+    Logger.recordOutput("Shooter/Simulation/ShotsAtActiveHub", simulatedShooterShotsActiveHub);
+    Logger.recordOutput(
+        "Shooter/Simulation/ShotsAtInactiveHub", simulatedShooterShotsInactiveHub);
+    Logger.recordOutput("Shooter/Simulation/LastShotHubState", "UNKNOWN");
     Logger.recordOutput("Shooter/Simulation/ShotTrajectory", new Pose3d[] {});
     Logger.recordOutput("Shooter/Simulation/ActiveFuelProjectiles", new Pose3d[] {});
     Logger.recordOutput("Shooter/Simulation/LastLaunchSpeedMetersPerSec", 0.0);
@@ -740,7 +902,8 @@ public class RobotContainer {
             shooter.getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec(),
             ShooterConstants.minLaunchSpeedMetersPerSec,
             ShooterConstants.maxLaunchSpeedMetersPerSec);
-    Pose2d targetHubPose = drive.getNearestHubPose();
+    Pose2d targetHubPose = drive.getAllianceHubPose();
+    GameStateSubsystem.HubState shotHubState = gameState.getHubState();
 
     RebuiltFuelOnFly projectile =
         new RebuiltFuelOnFly(
@@ -776,11 +939,20 @@ public class RobotContainer {
 
     SimulatedArena.getInstance().addGamePieceProjectile(projectile);
     simulatedShooterShotsLaunched++;
+    if (shotHubState == GameStateSubsystem.HubState.ACTIVE) {
+      simulatedShooterShotsActiveHub++;
+    } else {
+      simulatedShooterShotsInactiveHub++;
+    }
 
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/LastLaunchSpeedMetersPerSec", launchSpeedMetersPerSec);
     Logger.recordOutput("Shooter/Simulation/LastLaunchAngleDegrees", launchPitch.getDegrees());
     Logger.recordOutput("Shooter/Simulation/LastLaunchYawDegrees", shooterFacing.getDegrees());
+    Logger.recordOutput("Shooter/Simulation/ShotsAtActiveHub", simulatedShooterShotsActiveHub);
+    Logger.recordOutput(
+        "Shooter/Simulation/ShotsAtInactiveHub", simulatedShooterShotsInactiveHub);
+    Logger.recordOutput("Shooter/Simulation/LastShotHubState", shotHubState.name());
     Logger.recordOutput(
         "Shooter/Simulation/LastLaunchPose3d",
         new Pose3d(
@@ -862,7 +1034,6 @@ public class RobotContainer {
 
     previousSimFieldSpeeds = currentFieldSpeeds;
     double rumbleStrength = nowSeconds < rumbleUntilTimestampSeconds ? WALL_RUMBLE_STRENGTH : 0.0;
-    controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
     Logger.recordOutput("FieldSimulation/WallImpact/RumbleStrength", rumbleStrength);
   }
 

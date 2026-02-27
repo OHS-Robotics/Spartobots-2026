@@ -3,6 +3,8 @@ package frc.robot.subsystems.body;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -21,6 +23,11 @@ public class GamePieceManager extends SubsystemBase {
     MANUAL_FEED,
     REVERSE,
     UNJAM
+  }
+
+  public enum ScoringPolicy {
+    ALLOW_ACTIVE_AND_INACTIVE,
+    ACTIVE_ONLY
   }
 
   private final Intake intake;
@@ -45,12 +52,18 @@ public class GamePieceManager extends SubsystemBase {
   private final Timer modeTimer = new Timer();
   private final Timer jamTimer = new Timer();
   private final Timer unjamTimer = new Timer();
+  private final Alert beamBreakConfigurationAlert =
+      new Alert(
+          "No game-piece beam break sensors are configured; sensorless fallback is active.",
+          AlertType.kWarning);
 
   private Mode mode = Mode.IDLE;
   private Mode modeBeforeUnjam = Mode.IDLE;
   private BooleanSupplier shooterReadySupplier = () -> false;
   private BooleanSupplier autoAimActiveSupplier = () -> false;
   private BooleanSupplier shotSolutionFeasibleSupplier = () -> true;
+  private BooleanSupplier hubActiveSupplier = () -> true;
+  private ScoringPolicy scoringPolicy = ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE;
   private boolean intakeDetected = false;
   private boolean hopperDetected = false;
   private boolean shooterDetected = false;
@@ -75,6 +88,7 @@ public class GamePieceManager extends SubsystemBase {
     sensorIO.updateInputs(sensorInputs);
     Logger.processInputs("GamePieceManager/Sensors", sensorInputs);
     updateSensors();
+    beamBreakConfigurationAlert.set(!hasAnyBeamBreakConfigured());
     updateJamDetection();
     runMode();
     logState();
@@ -90,6 +104,30 @@ public class GamePieceManager extends SubsystemBase {
         autoAimActiveSupplier != null ? autoAimActiveSupplier : () -> false;
     this.shotSolutionFeasibleSupplier =
         shotSolutionFeasibleSupplier != null ? shotSolutionFeasibleSupplier : () -> true;
+  }
+
+  public void setHubActiveSupplier(BooleanSupplier hubActiveSupplier) {
+    this.hubActiveSupplier = hubActiveSupplier != null ? hubActiveSupplier : () -> true;
+  }
+
+  public ScoringPolicy getScoringPolicy() {
+    return scoringPolicy;
+  }
+
+  public void setScoringPolicy(ScoringPolicy scoringPolicy) {
+    this.scoringPolicy =
+        scoringPolicy != null ? scoringPolicy : ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE;
+  }
+
+  public void toggleScoringPolicy() {
+    setScoringPolicy(
+        scoringPolicy == ScoringPolicy.ACTIVE_ONLY
+            ? ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE
+            : ScoringPolicy.ACTIVE_ONLY);
+  }
+
+  public boolean isScoringAllowedForCurrentHubState() {
+    return isScoringAllowed(scoringPolicy, hubActiveSupplier.getAsBoolean());
   }
 
   public Mode getMode() {
@@ -204,7 +242,8 @@ public class GamePieceManager extends SubsystemBase {
       case FEED:
         boolean feedAllowed =
             ShooterFeedInterlock.shouldAdvanceToShooter(
-                true, shooterReadySupplier.getAsBoolean(), hasPieceAvailableForFeed());
+                    true, shooterReadySupplier.getAsBoolean(), hasPieceAvailableForFeed())
+                && isScoringAllowedForCurrentHubState();
         if (feedAllowed) {
           applyFeed();
         } else {
@@ -212,7 +251,8 @@ public class GamePieceManager extends SubsystemBase {
         }
         break;
       case MANUAL_FEED:
-        applyManualFeed(isManualFeedIndexerAllowedForSimulation());
+        applyManualFeed(
+            isManualFeedIndexerAllowedForSimulation() && isScoringAllowedForCurrentHubState());
         break;
       case REVERSE:
         applyReverse();
@@ -358,9 +398,17 @@ public class GamePieceManager extends SubsystemBase {
     return sensorDetected || (useOverrides && overrideEntry.getBoolean(false));
   }
 
+  static boolean isScoringAllowed(ScoringPolicy scoringPolicy, boolean hubActive) {
+    if (scoringPolicy == null || scoringPolicy == ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE) {
+      return true;
+    }
+    return hubActive;
+  }
+
   private void logState() {
     boolean autoAimActive = autoAimActiveSupplier.getAsBoolean();
     boolean shotSolutionFeasible = shotSolutionFeasibleSupplier.getAsBoolean();
+    boolean hubActive = hubActiveSupplier.getAsBoolean();
     boolean manualFeedIndexerAllowed = isManualFeedIndexerAllowedForSimulation();
     Logger.recordOutput("GamePieceManager/Mode", mode.name());
     Logger.recordOutput("GamePieceManager/Sensor/IntakeDetected", intakeDetected);
@@ -372,8 +420,15 @@ public class GamePieceManager extends SubsystemBase {
         "GamePieceManager/Interlock/PieceAvailableForFeed", hasPieceAvailableForFeed());
     Logger.recordOutput("GamePieceManager/Interlock/AutoAimActive", autoAimActive);
     Logger.recordOutput("GamePieceManager/Interlock/ShotSolutionFeasible", shotSolutionFeasible);
+    Logger.recordOutput("GamePieceManager/Interlock/HubActive", hubActive);
+    Logger.recordOutput("GamePieceManager/Interlock/ScoringPolicy", scoringPolicy.name());
+    Logger.recordOutput(
+        "GamePieceManager/Interlock/ScoringAllowedForHubState",
+        isScoringAllowedForCurrentHubState());
     Logger.recordOutput(
         "GamePieceManager/Interlock/ManualFeedIndexerAllowed", manualFeedIndexerAllowed);
     Logger.recordOutput("GamePieceManager/Current/FeedCurrentAmps", getFeedCurrentAmps());
+    Logger.recordOutput(
+        "GamePieceManager/Sensor/AnyBeamBreakConfigured", hasAnyBeamBreakConfigured());
   }
 }

@@ -10,9 +10,7 @@ public interface ShooterIO {
     public boolean hoodConnected = false;
 
     public double pair1LeaderVelocityRadPerSec = 0.0;
-    public double pair1FollowerVelocityRadPerSec = 0.0;
     public double pair2LeaderVelocityRadPerSec = 0.0;
-    public double pair2FollowerVelocityRadPerSec = 0.0;
 
     public double pair1AppliedVolts = 0.0;
     public double pair2AppliedVolts = 0.0;

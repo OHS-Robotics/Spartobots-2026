@@ -48,6 +48,7 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
 import frc.robot.util.NetworkTablesUtil;
 import frc.robot.util.LocalADStarAK;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -516,20 +517,13 @@ public class Drive extends SubsystemBase {
   }
 
   public Command driveToOutpostCommand() {
-    return Commands.runOnce(
+    return Commands.defer(
         () -> {
-          Pose2d[] poses;
-          if (DriverStation.getAlliance().isPresent()
-              && DriverStation.getAlliance().get() == Alliance.Red) {
-            poses = new Pose2d[] {Constants.redOutpostBefore, Constants.redOutpost};
-          } else {
-            poses = new Pose2d[] {Constants.blueOutpostBefore, Constants.blueOutpost};
-          }
-
-          AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
+          Pose2d[] poses = selectOutpostApproachPoses(DriverStation.getAlliance());
+          return AutoBuilder.pathfindToPose(poses[0], pathConstraints, 0)
               .andThen(AutoBuilder.pathfindToPose(poses[1], pathConstraints, 0));
         },
-        this);
+        Set.of(this));
   }
 
   public Command autoLoadMiddleCommand() {
@@ -618,6 +612,21 @@ public class Drive extends SubsystemBase {
     return Constants.blueOutpost;
   }
 
+  static Pose2d selectAllianceHubPose(Optional<Alliance> alliance) {
+    return alliance.orElse(Alliance.Blue) == Alliance.Red ? Constants.redHub : Constants.blueHub;
+  }
+
+  static Pose2d[] selectOutpostApproachPoses(Optional<Alliance> alliance) {
+    if (alliance.orElse(Alliance.Blue) == Alliance.Red) {
+      return new Pose2d[] {Constants.redOutpostBefore, Constants.redOutpost};
+    }
+    return new Pose2d[] {Constants.blueOutpostBefore, Constants.blueOutpost};
+  }
+
+  public Pose2d getAllianceHubPose() {
+    return selectAllianceHubPose(DriverStation.getAlliance());
+  }
+
   public Pose2d getNearestHubPose() {
     return getNearestHub();
   }
@@ -657,7 +666,7 @@ public class Drive extends SubsystemBase {
         y,
         () -> {
           double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
-          Pose2d baseHub = getNearestHub();
+          Pose2d baseHub = getAllianceHubPose();
           Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
           logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
           return getRotationToHub(compensatedHub);

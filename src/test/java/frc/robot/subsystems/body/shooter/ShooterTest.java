@@ -102,8 +102,6 @@ class ShooterTest {
       inputs.hoodConnected = true;
       inputs.pair1LeaderVelocityRadPerSec = pair1MeasuredVelocityRadPerSec;
       inputs.pair2LeaderVelocityRadPerSec = pair2MeasuredVelocityRadPerSec;
-      inputs.pair1FollowerVelocityRadPerSec = pair1MeasuredVelocityRadPerSec;
-      inputs.pair2FollowerVelocityRadPerSec = pair2MeasuredVelocityRadPerSec;
       inputs.hoodPositionRotations = hoodSetpointRotations;
       inputs.hoodVelocityRotationsPerSec = 0.0;
     }

@@ -19,20 +19,14 @@ import java.util.function.DoubleSupplier;
 
 public class ShooterIOSparkMax implements ShooterIO {
   private final SparkBase pair1Leader =
-      new SparkMax(ShooterConstants.pair1LeaderCanId, MotorType.kBrushless);
-  private final SparkBase pair1Follower =
-      new SparkMax(ShooterConstants.pair1FollowerCanId, MotorType.kBrushless);
+      new SparkMax(ShooterConstants.pair1CanId, MotorType.kBrushless);
   private final SparkBase pair2Leader =
-      new SparkMax(ShooterConstants.pair2LeaderCanId, MotorType.kBrushless);
-  private final SparkBase pair2Follower =
-      new SparkMax(ShooterConstants.pair2FollowerCanId, MotorType.kBrushless);
+      new SparkMax(ShooterConstants.pair2CanId, MotorType.kBrushless);
   private final SparkBase hoodMotor =
       new SparkMax(ShooterConstants.hoodCanId, MotorType.kBrushless);
 
   private final RelativeEncoder pair1LeaderEncoder = pair1Leader.getEncoder();
-  private final RelativeEncoder pair1FollowerEncoder = pair1Follower.getEncoder();
   private final RelativeEncoder pair2LeaderEncoder = pair2Leader.getEncoder();
-  private final RelativeEncoder pair2FollowerEncoder = pair2Follower.getEncoder();
   private final RelativeEncoder hoodEncoder = hoodMotor.getEncoder();
 
   private final SparkClosedLoopController pair1Controller = pair1Leader.getClosedLoopController();
@@ -83,25 +77,6 @@ public class ShooterIOSparkMax implements ShooterIO {
         .busVoltagePeriodMs(20)
         .outputCurrentPeriodMs(20);
 
-    var pair1FollowerConfig = new SparkMaxConfig();
-    pair1FollowerConfig
-        .follow(pair1Leader, ShooterConstants.pairFollowerInverted)
-        .idleMode(IdleMode.kCoast)
-        .smartCurrentLimit(ShooterConstants.shooterMotorCurrentLimitAmps)
-        .voltageCompensation(12.0);
-    pair1FollowerConfig
-        .encoder
-        .velocityConversionFactor(shooterVelocityConversionFactorRadPerSec)
-        .uvwMeasurementPeriod(10)
-        .uvwAverageDepth(2);
-    pair1FollowerConfig
-        .signals
-        .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
-
     var pair2LeaderConfig = new SparkMaxConfig();
     pair2LeaderConfig
         .inverted(ShooterConstants.pair2Inverted)
@@ -122,25 +97,6 @@ public class ShooterIOSparkMax implements ShooterIO {
             ShooterConstants.shooterVelocityKd);
     pair2LeaderConfig.closedLoop.feedForward.kV(ShooterConstants.shooterVelocityKv);
     pair2LeaderConfig
-        .signals
-        .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
-
-    var pair2FollowerConfig = new SparkMaxConfig();
-    pair2FollowerConfig
-        .follow(pair2Leader, ShooterConstants.pairFollowerInverted)
-        .idleMode(IdleMode.kCoast)
-        .smartCurrentLimit(ShooterConstants.shooterMotorCurrentLimitAmps)
-        .voltageCompensation(12.0);
-    pair2FollowerConfig
-        .encoder
-        .velocityConversionFactor(shooterVelocityConversionFactorRadPerSec)
-        .uvwMeasurementPeriod(10)
-        .uvwAverageDepth(2);
-    pair2FollowerConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
@@ -179,27 +135,11 @@ public class ShooterIOSparkMax implements ShooterIO {
             pair1Leader.configure(
                 pair1LeaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
     tryUntilOk(
-        pair1Follower,
-        5,
-        () ->
-            pair1Follower.configure(
-                pair1FollowerConfig,
-                ResetMode.kResetSafeParameters,
-                PersistMode.kPersistParameters));
-    tryUntilOk(
         pair2Leader,
         5,
         () ->
             pair2Leader.configure(
                 pair2LeaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
-    tryUntilOk(
-        pair2Follower,
-        5,
-        () ->
-            pair2Follower.configure(
-                pair2FollowerConfig,
-                ResetMode.kResetSafeParameters,
-                PersistMode.kPersistParameters));
     tryUntilOk(
         hoodMotor,
         5,
@@ -216,10 +156,6 @@ public class ShooterIOSparkMax implements ShooterIO {
         pair1LeaderEncoder::getVelocity,
         (value) -> inputs.pair1LeaderVelocityRadPerSec = value);
     ifOk(
-        pair1Follower,
-        pair1FollowerEncoder::getVelocity,
-        (value) -> inputs.pair1FollowerVelocityRadPerSec = value);
-    ifOk(
         pair1Leader,
         new DoubleSupplier[] {pair1Leader::getAppliedOutput, pair1Leader::getBusVoltage},
         (values) -> inputs.pair1AppliedVolts = values[0] * values[1]);
@@ -231,10 +167,6 @@ public class ShooterIOSparkMax implements ShooterIO {
         pair2Leader,
         pair2LeaderEncoder::getVelocity,
         (value) -> inputs.pair2LeaderVelocityRadPerSec = value);
-    ifOk(
-        pair2Follower,
-        pair2FollowerEncoder::getVelocity,
-        (value) -> inputs.pair2FollowerVelocityRadPerSec = value);
     ifOk(
         pair2Leader,
         new DoubleSupplier[] {pair2Leader::getAppliedOutput, pair2Leader::getBusVoltage},

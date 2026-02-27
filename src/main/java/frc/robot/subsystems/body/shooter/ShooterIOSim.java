@@ -80,9 +80,7 @@ public class ShooterIOSim implements ShooterIO {
     inputs.hoodConnected = true;
 
     inputs.pair1LeaderVelocityRadPerSec = pair1Sim.getAngularVelocityRadPerSec();
-    inputs.pair1FollowerVelocityRadPerSec = pair1Sim.getAngularVelocityRadPerSec();
     inputs.pair2LeaderVelocityRadPerSec = pair2Sim.getAngularVelocityRadPerSec();
-    inputs.pair2FollowerVelocityRadPerSec = pair2Sim.getAngularVelocityRadPerSec();
 
     inputs.pair1AppliedVolts = pair1AppliedVolts;
     inputs.pair2AppliedVolts = pair2AppliedVolts;

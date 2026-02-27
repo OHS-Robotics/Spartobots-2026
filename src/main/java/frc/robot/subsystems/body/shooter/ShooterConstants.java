@@ -13,11 +13,9 @@ public final class ShooterConstants {
 
   public static final double gravityMetersPerSecSquared = 9.80665;
 
-  // Shooter wheel groups (velocity-sensitive)
-  public static final int pair1LeaderCanId = 31;
-  public static final int pair1FollowerCanId = 32;
-  public static final int pair2LeaderCanId = 33;
-  public static final int pair2FollowerCanId = 34;
+  // Shooter wheel motors (velocity-sensitive), one motor per side.
+  public static final int pair1CanId = 31;
+  public static final int pair2CanId = 33;
   public static final ControlSensitivity shooterWheelSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
 
@@ -25,10 +23,9 @@ public final class ShooterConstants {
   public static final int hoodCanId = 35;
   public static final ControlSensitivity hoodSensitivity = ControlSensitivity.POSITION_SENSITIVE;
 
-  // Motor direction: each pair spins the same direction, the two pairs opposite.
+  // Motor direction: each side spins opposite to the other side.
   public static final boolean pair1Inverted = false;
   public static final boolean pair2Inverted = true;
-  public static final boolean pairFollowerInverted = false;
   public static final boolean hoodInverted = false;
 
   // Electrical limits

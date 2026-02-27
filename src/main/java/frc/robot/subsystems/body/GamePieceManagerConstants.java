@@ -5,10 +5,10 @@ public final class GamePieceManagerConstants {
 
   public static final String configTableName = "Body/GamePieceManager";
 
-  // Set to a valid DIO channel on the real robot to enable each beam break.
-  public static final int intakeBeamBreakChannel = -1;
-  public static final int hopperBeamBreakChannel = -1;
-  public static final int shooterBeamBreakChannel = -1;
+  // Beam-break DIO channels (intake -> hopper -> shooter).
+  public static final int intakeBeamBreakChannel = 0;
+  public static final int hopperBeamBreakChannel = 1;
+  public static final int shooterBeamBreakChannel = 2;
   public static final boolean beamBreakActiveLow = true;
 
   // Feed profile
@@ -25,7 +25,7 @@ public final class GamePieceManagerConstants {
   public static final double unjamReverseSeconds = 0.20;
 
   // Fallback when no sensors are configured. Set <= 0 to disable.
-  public static final double sensorlessCollectToHoldSeconds = 0.0;
+  public static final double sensorlessCollectToHoldSeconds = 0.45;
 
   // Simulation staging
   public static final double simIntakeToHopperSeconds = 0.25;
