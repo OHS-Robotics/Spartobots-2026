@@ -113,6 +113,16 @@ public class Indexers extends SubsystemBase {
     bottomIndexerSpeedEntry.setDouble(targetBottomIndexerSpeed);
   }
 
+  public void setManualOutputs(double topOutput, double bottomOutput) {
+    lastAppliedTopIndexerSpeed = clampSpeed(topOutput);
+    lastAppliedBottomIndexerSpeed = clampSpeed(bottomOutput);
+    io.setTopOutput(lastAppliedTopIndexerSpeed);
+    io.setBottomOutput(lastAppliedBottomIndexerSpeed);
+    indexerRunning =
+        Math.abs(lastAppliedTopIndexerSpeed) > 1e-3
+            || Math.abs(lastAppliedBottomIndexerSpeed) > 1e-3;
+  }
+
   public double getTargetIndexerSpeed() {
     return (targetTopIndexerSpeed + targetBottomIndexerSpeed) / 2.0;
   }

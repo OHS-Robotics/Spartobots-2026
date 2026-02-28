@@ -127,12 +127,16 @@ public class RobotContainer {
   private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
+  private static final double SHOOTER_TRIGGER_DEADBAND = 0.02;
   // Temporary bring-up bindings for mechanism calibration.
   // Set false after intake/hopper calibration is complete.
   public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = true;
   private static final double INTAKE_PIVOT_BRINGUP_SPEED = 0.25;
   private static final double HOPPER_EXTENSION_BRINGUP_SPEED = 0.25;
-  private static final double TOP_INDEXER_BRINGUP_SPEED = 1.0;
+  private static final double TOP_INDEXER_MANUAL_FEED_SPEED = 0.45;
+  private static final double BOTTOM_INDEXER_BREAKAWAY_SPEED = 1.0; // CCW
+  private static final double BOTTOM_INDEXER_HOLD_SPEED = 0.9; // CCW
+  private static final double BOTTOM_INDEXER_BREAKAWAY_SECONDS = 0.40;
   private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
   private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
@@ -172,7 +176,8 @@ public class RobotContainer {
   public final CommandXboxController controller = new CommandXboxController(0);
   private Command activeAutoAssistCommand = null;
   private boolean shooterDemandFromAlign = false;
-  private boolean shooterDemandFromTrigger = false;
+  private double shooterDemandFromTriggerThrottle = 0.0;
+  private double bottomIndexerBreakawayUntilTimestampSeconds = 0.0;
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -402,16 +407,17 @@ public class RobotContainer {
     controller.rightStick().whileTrue(alignToHub());
 
     // Right trigger = run shooter while held.
-    controller.rightTrigger().whileTrue(runShooterDemandWhileHeldCommand());
-    // Left trigger = run agitator + indexers while held.
-    controller.leftTrigger().whileTrue(gamePieceManager.manualFeedWhileHeldCommand());
+    new Trigger(() -> controller.getRightTriggerAxis() > SHOOTER_TRIGGER_DEADBAND)
+        .whileTrue(runShooterDemandWhileHeldCommand());
+    // Left trigger = run manual feed + manual indexers while held.
+    controller.leftTrigger().whileTrue(runManualFeedAndIndexersWhileHeldCommand());
 
     // Driver feed controls: Y = collect with indexers, X = collect without indexers,
-    // A = reverse, B = run top indexer only while held.
+    // A = reverse, B = set IDLE.
     controller.y().whileTrue(gamePieceManager.collectWhileHeldCommand());
     controller.x().whileTrue(gamePieceManager.collectWithoutIndexerWhileHeldCommand());
     controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
-    controller.b().whileTrue(runTopIndexerWhileHeldCommand());
+    controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
 
     // Left bumper = cancel any auto-assist command.
     controller.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
@@ -600,8 +606,9 @@ public class RobotContainer {
   }
 
   private Command runShooterDemandWhileHeldCommand() {
-    return Commands.startEnd(
-        () -> setShooterDemandFromTrigger(true), () -> setShooterDemandFromTrigger(false));
+    return Commands.runEnd(
+        () -> setShooterDemandFromTriggerThrottle(controller.getRightTriggerAxis()),
+        () -> setShooterDemandFromTriggerThrottle(0.0));
   }
 
   private Command runIntakePivotWhileHeldCommand(double speed) {
@@ -614,15 +621,26 @@ public class RobotContainer {
         () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
   }
 
-  private Command runTopIndexerWhileHeldCommand() {
+  private Command runManualFeedAndIndexersWhileHeldCommand() {
+    return gamePieceManager.manualFeedWhileHeldCommand().alongWith(runIndexersWhileHeldCommand());
+  }
+
+  private Command runIndexersWhileHeldCommand() {
     return Commands.runEnd(
-        () -> {
-          indexers.setTargetTopIndexerSpeed(TOP_INDEXER_BRINGUP_SPEED);
-          indexers.setTargetBottomIndexerSpeed(0.0);
-          indexers.updateIndexers();
-        },
-        indexers::stopIndexers,
-        indexers);
+            () -> {
+              boolean inBottomBreakaway =
+                  Timer.getFPGATimestamp() < bottomIndexerBreakawayUntilTimestampSeconds;
+              double bottomOutput =
+                  inBottomBreakaway ? BOTTOM_INDEXER_BREAKAWAY_SPEED : BOTTOM_INDEXER_HOLD_SPEED;
+              double topOutput = inBottomBreakaway ? 0.0 : TOP_INDEXER_MANUAL_FEED_SPEED;
+              indexers.setManualOutputs(topOutput, bottomOutput);
+            },
+            indexers::stopIndexers,
+            indexers)
+        .beforeStarting(
+            () ->
+                bottomIndexerBreakawayUntilTimestampSeconds =
+                    Timer.getFPGATimestamp() + BOTTOM_INDEXER_BREAKAWAY_SECONDS);
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {
@@ -634,13 +652,20 @@ public class RobotContainer {
     refreshShooterControlDemand();
   }
 
-  private void setShooterDemandFromTrigger(boolean enabled) {
-    shooterDemandFromTrigger = enabled;
+  private void setShooterDemandFromTriggerThrottle(double throttle) {
+    shooterDemandFromTriggerThrottle = MathUtil.clamp(throttle, 0.0, 1.0);
     refreshShooterControlDemand();
   }
 
   private void refreshShooterControlDemand() {
-    shooter.setShotControlEnabled(shooterDemandFromAlign || shooterDemandFromTrigger);
+    boolean shooterDemandFromTrigger = shooterDemandFromTriggerThrottle > SHOOTER_TRIGGER_DEADBAND;
+    boolean shooterDemandEnabled = shooterDemandFromAlign || shooterDemandFromTrigger;
+    double shooterThrottleScale =
+        shooterDemandEnabled
+            ? (shooterDemandFromAlign ? 1.0 : shooterDemandFromTriggerThrottle)
+            : 1.0;
+    shooter.setOperatorWheelThrottleScale(shooterThrottleScale);
+    shooter.setShotControlEnabled(shooterDemandEnabled);
   }
 
   public void periodic() {
@@ -787,7 +812,7 @@ public class RobotContainer {
 
   public void onDisabledInit() {
     shooterDemandFromAlign = false;
-    shooterDemandFromTrigger = false;
+    shooterDemandFromTriggerThrottle = 0.0;
     refreshShooterControlDemand();
     gamePieceManager.requestMode(GamePieceManager.Mode.IDLE);
     cancelAutoAssist();
@@ -858,7 +883,7 @@ public class RobotContainer {
       internalGamePieceSimulation.update(
           Timer.getFPGATimestamp(),
           gamePieceManager.getMode(),
-          intake.getTargetIntakeSpeed(),
+          intake.getActualIntakeSpeed(),
           intake.getIntakePivotMeasuredPositionNormalized(),
           gamePieceManager.isManualFeedIndexerAllowedForSimulation(),
           robotPose,
@@ -974,7 +999,7 @@ public class RobotContainer {
     }
 
     boolean shouldRunIntake =
-        intake.getTargetIntakeSpeed() > IntakeConstants.simForwardOutputThreshold
+        intake.getActualIntakeSpeed() > IntakeConstants.simForwardOutputThreshold
             && intake.getIntakePivotMeasuredPositionNormalized()
                 >= GamePieceManagerConstants.simIntakeCaptureMinPivotNormalized;
     if (shouldRunIntake) {

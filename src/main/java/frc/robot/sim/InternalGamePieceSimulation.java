@@ -53,7 +53,7 @@ public class InternalGamePieceSimulation {
   public void update(
       double timestampSeconds,
       GamePieceManager.Mode mode,
-      double intakeTargetSpeed,
+      double intakeAppliedOutput,
       double pivotNormalized,
       boolean manualFeedIndexerAllowed,
       Pose2d robotPose,
@@ -65,7 +65,7 @@ public class InternalGamePieceSimulation {
     lastUpdateTimestampSeconds = timestampSeconds;
 
     boolean intakeForward =
-        intakeTargetSpeed > IntakeConstants.simForwardOutputThreshold
+        intakeAppliedOutput > IntakeConstants.simForwardOutputThreshold
             && pivotNormalized >= GamePieceManagerConstants.simIntakeCaptureMinPivotNormalized;
     boolean collectActive =
         mode == GamePieceManager.Mode.COLLECT || mode == GamePieceManager.Mode.COLLECT_NO_INDEXER;

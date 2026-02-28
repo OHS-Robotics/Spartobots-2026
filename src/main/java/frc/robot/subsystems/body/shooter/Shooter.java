@@ -40,6 +40,7 @@ public class Shooter extends SubsystemBase {
   private double pair1VelocityCommandRadPerSec = 0.0;
   private double pair2VelocityCommandRadPerSec = 0.0;
   private double wheelSpeedScale = ShooterConstants.defaultWheelSpeedScale;
+  private double operatorWheelThrottleScale = 1.0;
   private double pair1Direction = ShooterConstants.defaultPair1Direction;
   private double pair2Direction = ShooterConstants.defaultPair2Direction;
   private double hoodSetpointMotorRotations = 0.0;
@@ -242,6 +243,10 @@ public class Shooter extends SubsystemBase {
     if (!enabled) {
       lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
     }
+  }
+
+  public void setOperatorWheelThrottleScale(double throttleScale) {
+    operatorWheelThrottleScale = clampOperatorWheelThrottleScale(throttleScale);
   }
 
   public void setLaunchHeightMeters(double launchHeightMeters) {
@@ -941,6 +946,10 @@ public class Shooter extends SubsystemBase {
     return MathUtil.clamp(speedScale, 0.0, 1.5);
   }
 
+  private static double clampOperatorWheelThrottleScale(double throttleScale) {
+    return MathUtil.clamp(throttleScale, 0.0, 1.0);
+  }
+
   private static double clampMotionCompVelocityScale(double velocityScale) {
     return MathUtil.clamp(velocityScale, 0.0, 3.0);
   }
@@ -1023,6 +1032,7 @@ public class Shooter extends SubsystemBase {
     lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
     pair1VelocityCommandRadPerSec = 0.0;
     pair2VelocityCommandRadPerSec = 0.0;
+    operatorWheelThrottleScale = 1.0;
     hoodHomingActive = false;
     hoodHomed = false;
     hoodHomingSucceeded = false;
@@ -1074,11 +1084,17 @@ public class Shooter extends SubsystemBase {
   }
 
   private double getPair1VelocityTargetSetpointRadPerSec() {
-    return pair1WheelSetpointRadPerSec * wheelSpeedScale * pair1Direction;
+    return pair1WheelSetpointRadPerSec
+        * wheelSpeedScale
+        * operatorWheelThrottleScale
+        * pair1Direction;
   }
 
   private double getPair2VelocityTargetSetpointRadPerSec() {
-    return pair2WheelSetpointRadPerSec * wheelSpeedScale * pair2Direction;
+    return pair2WheelSetpointRadPerSec
+        * wheelSpeedScale
+        * operatorWheelThrottleScale
+        * pair2Direction;
   }
 
   private static double rampWheelVelocityCommand(double currentRadPerSec, double targetRadPerSec) {
@@ -1145,6 +1161,7 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput("Shooter/Control/Pair1SetpointRadPerSec", pair1WheelSetpointRadPerSec);
     Logger.recordOutput("Shooter/Control/Pair2SetpointRadPerSec", pair2WheelSetpointRadPerSec);
     Logger.recordOutput("Shooter/Control/WheelSpeedScale", wheelSpeedScale);
+    Logger.recordOutput("Shooter/Control/OperatorWheelThrottleScale", operatorWheelThrottleScale);
     Logger.recordOutput("Shooter/Control/Pair1Direction", pair1Direction);
     Logger.recordOutput("Shooter/Control/Pair2Direction", pair2Direction);
     Logger.recordOutput("Shooter/Control/Pair1CommandRadPerSec", pair1VelocityCommandRadPerSec);

@@ -256,10 +256,11 @@ public class GamePieceManager extends SubsystemBase {
             isManualFeedIndexerAllowedForSimulation() && isScoringAllowedForCurrentHubState());
         break;
       case REVERSE:
-        applyReverse();
+        applyReverse(true);
         break;
       case UNJAM:
-        applyReverse();
+        // Keep intake stopped when unjamming from manual feed (left-trigger behavior).
+        applyReverse(modeBeforeUnjam != Mode.MANUAL_FEED);
         if (unjamTimer.hasElapsed(GamePieceManagerConstants.unjamReverseSeconds)) {
           requestMode(modeBeforeUnjam);
         }
@@ -280,8 +281,7 @@ public class GamePieceManager extends SubsystemBase {
   private void updateJamDetection() {
     if (mode == Mode.COLLECT
         || mode == Mode.COLLECT_NO_INDEXER
-        || mode == Mode.FEED
-        || mode == Mode.MANUAL_FEED) {
+        || mode == Mode.FEED) {
       if (getFeedCurrentAmps() >= GamePieceManagerConstants.jamCurrentThresholdAmps) {
         if (!jamTimerActive) {
           jamTimer.restart();
@@ -355,11 +355,15 @@ public class GamePieceManager extends SubsystemBase {
     }
   }
 
-  private void applyReverse() {
-    intake.setTargetIntakeSpeed(GamePieceManagerConstants.reverseSpeed);
+  private void applyReverse(boolean runIntake) {
+    if (runIntake) {
+      intake.setTargetIntakeSpeed(GamePieceManagerConstants.reverseSpeed);
+      intake.updateIntake();
+    } else {
+      intake.stopIntake();
+    }
     hopper.setTargetAgitatorSpeed(GamePieceManagerConstants.reverseSpeed);
     indexers.setTargetIndexerSpeed(GamePieceManagerConstants.reverseSpeed);
-    intake.updateIntake();
     hopper.updateAgitator();
     indexers.updateIndexers();
   }
