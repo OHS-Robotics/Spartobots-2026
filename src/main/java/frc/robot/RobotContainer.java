@@ -36,12 +36,6 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.game.GameStateSubsystem;
-import frc.robot.sim.InternalGamePieceSimulation;
-import frc.robot.subsystems.body.GamePieceManager;
-import frc.robot.subsystems.body.GamePieceManagerConstants;
-import frc.robot.subsystems.body.GamePieceSensorIO;
-import frc.robot.subsystems.body.GamePieceSensorIODio;
-import frc.robot.subsystems.body.GamePieceSensorIOSim;
 import frc.robot.subsystems.body.Hopper;
 import frc.robot.subsystems.body.HopperIO;
 import frc.robot.subsystems.body.HopperIOSim;
@@ -51,7 +45,6 @@ import frc.robot.subsystems.body.IndexersIO;
 import frc.robot.subsystems.body.IndexersIOSim;
 import frc.robot.subsystems.body.IndexersIOSparkMax;
 import frc.robot.subsystems.body.Intake;
-import frc.robot.subsystems.body.IntakeConstants;
 import frc.robot.subsystems.body.IntakeIO;
 import frc.robot.subsystems.body.IntakeIOSim;
 import frc.robot.subsystems.body.IntakeIOSparkMax;
@@ -73,11 +66,9 @@ import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import java.util.function.Supplier;
-import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnField;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
@@ -108,7 +99,6 @@ public class RobotContainer {
   private static final double ENDGAME_RUMBLE_DURATION_SECS = 0.65;
   private static final double ENDGAME_RUMBLE_STRENGTH = 0.65;
   private static final String ROBOT_COMPONENTS_LOG_KEY = "AdvantageScope/Robot/Components";
-  private static final String DASHBOARD_SCORING_POLICY_KEY = "Strategy/ScoringPolicy";
   private static final int COMPONENT_INDEX_INTAKE_PIVOT = 0;
   private static final int COMPONENT_INDEX_HOPPER_EXTENSION = 1;
   private static final int COMPONENT_INDEX_SHOOTER_HOOD = 2;
@@ -137,12 +127,20 @@ public class RobotContainer {
   private static final double BOTTOM_INDEXER_BREAKAWAY_SPEED = 1.0; // CCW
   private static final double BOTTOM_INDEXER_HOLD_SPEED = 0.9; // CCW
   private static final double BOTTOM_INDEXER_BREAKAWAY_SECONDS = 0.40;
+  private static final double BASIC_COLLECT_INTAKE_SPEED = 0.65;
+  private static final double BASIC_COLLECT_AGITATOR_SPEED = 0.55;
+  private static final double BASIC_COLLECT_INDEXER_SPEED = 0.55;
+  private static final double BASIC_FEED_AGITATOR_SPEED = 0.75;
+  private static final double BASIC_FEED_INDEXER_SPEED = 0.75;
+  private static final double BASIC_REVERSE_SPEED = -0.45;
   private static final double START_AUTO_OPENING_SHOT_SECONDS = 1.75;
   private static final double START_AUTO_TRENCH_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_TIMEOUT_SECONDS = 3.0;
   private static final double START_AUTO_OUTPOST_TO_SHOOT_TIMEOUT_SECONDS = 4.0;
   private static final double START_AUTO_OUTPOST_SHOOT_SECONDS = 4.0;
   private static final double START_AUTO_LADDER_ALIGN_TIMEOUT_SECONDS = 4.0;
+  private static final int DRIVER_CONTROLLER_PORT = 0;
+  private static final int OPERATOR_CONTROLLER_PORT = 1;
   private static final int TOP_LEFT_PADDLE_BUTTON = 7;
   private static final int TOP_RIGHT_PADDLE_BUTTON = 8;
   private static final int BOTTOM_LEFT_PADDLE_BUTTON = 11;
@@ -166,14 +164,16 @@ public class RobotContainer {
   private final Intake intake;
   private final Hopper hopper;
   private final Indexers indexers;
-  private final GamePieceManager gamePieceManager;
   private final GameStateSubsystem gameState;
 
   @SuppressWarnings("unused")
   private final Vision vision;
 
-  // Controller
-  public final CommandXboxController controller = new CommandXboxController(0);
+  // Controllers
+  public final CommandXboxController driverController =
+      new CommandXboxController(DRIVER_CONTROLLER_PORT);
+  public final CommandXboxController operatorController =
+      new CommandXboxController(OPERATOR_CONTROLLER_PORT);
   private Command activeAutoAssistCommand = null;
   private boolean shooterDemandFromAlign = false;
   private double shooterDemandFromTriggerThrottle = 0.0;
@@ -183,8 +183,6 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   private SwerveDriveSimulation driveSimulation = null;
-  private IntakeSimulation mapleIntakeSimulation = null;
-  private InternalGamePieceSimulation internalGamePieceSimulation = null;
   private ChassisSpeeds previousSimFieldSpeeds = null;
   private double rumbleUntilTimestampSeconds = 0.0;
   private double endgameRumbleUntilTimestampSeconds = 0.0;
@@ -202,7 +200,6 @@ public class RobotContainer {
     Hopper hopperLocal;
     Indexers indexersLocal;
     Vision visionLocal;
-    GamePieceSensorIO sensorIOLocal;
 
     switch (Constants.currentMode) {
       case REAL:
@@ -210,7 +207,6 @@ public class RobotContainer {
         intakeLocal = new Intake(new IntakeIOSparkMax());
         hopperLocal = new Hopper(new HopperIOSparkMax());
         indexersLocal = new Indexers(new IndexersIOSparkMax());
-        sensorIOLocal = new GamePieceSensorIODio();
         driveLocal =
             new Drive(
                 new GyroIONavX(),
@@ -236,8 +232,6 @@ public class RobotContainer {
         intakeLocal = new Intake(new IntakeIOSim());
         hopperLocal = new Hopper(new HopperIOSim());
         indexersLocal = new Indexers(new IndexersIOSim());
-        internalGamePieceSimulation = new InternalGamePieceSimulation();
-        sensorIOLocal = new GamePieceSensorIOSim(internalGamePieceSimulation);
         driveLocal =
             new Drive(
                 new GyroIOSim(driveSimulation.getGyroSimulation()),
@@ -247,14 +241,6 @@ public class RobotContainer {
                 new ModuleIOSim(driveSimulation.getModules()[3]),
                 driveSimulation::setSimulationWorldPose);
         shooterLocal = new Shooter(new ShooterIOSim());
-        mapleIntakeSimulation =
-            IntakeSimulation.OverTheBumperIntake(
-                "Fuel",
-                driveSimulation,
-                Meters.of(IntakeConstants.simMapleIntakeWidthMeters),
-                Meters.of(IntakeConstants.simMapleIntakeExtensionMeters),
-                IntakeSimulation.IntakeSide.FRONT,
-                GamePieceManagerConstants.simIntakeCapacity);
         visionLocal =
             new Vision(
                 driveLocal::addVisionMeasurement,
@@ -275,7 +261,6 @@ public class RobotContainer {
         intakeLocal = new Intake(new IntakeIO() {});
         hopperLocal = new Hopper(new HopperIO() {});
         indexersLocal = new Indexers(new IndexersIO() {});
-        sensorIOLocal = new GamePieceSensorIO() {};
         driveLocal =
             new Drive(
                 new GyroIO() {},
@@ -301,19 +286,13 @@ public class RobotContainer {
     indexers = indexersLocal;
     gameState = new GameStateSubsystem();
     vision = visionLocal;
-    gamePieceManager = new GamePieceManager(intake, hopper, indexers, sensorIOLocal);
-    gamePieceManager.setShooterReadySupplier(shooter::isReadyToFire);
-    gamePieceManager.setHubActiveSupplier(gameState::isHubActive);
-    gamePieceManager.setScoringPolicy(GamePieceManager.ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE);
-    gamePieceManager.setManualFeedInterlockSuppliers(
-        () -> shooterDemandFromAlign, shooter::isHubShotSolutionFeasible);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
     autoChooser.addOption(
         "Start Match (Outpost -> Shoot -> Ladder)", outpostStartShootAndLadderAutoRoutine());
     autoChooser.addOption("Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
-    autoChooser.addOption("Hub Opening Shot (Interlocked Feed)", openingHubShotAutoRoutine());
+    autoChooser.addOption("Hub Opening Shot (Basic Feed)", openingHubShotAutoRoutine());
     autoChooser.addOption("Trench Collect (Timed)", trenchCollectAutoRoutine());
     autoChooser.addOption("Trench Collect (Timed) new thing", trenchCollectAutoRoutineNew());
     autoChooser.addOption("Outpost Collect (Timed)", outpostCollectAutoRoutine());
@@ -336,13 +315,13 @@ public class RobotContainer {
 
     // Register commands to be used in PathPlanner autos.
     NamedCommands.registerCommand(
-        "collectStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.COLLECT));
+        "collectStart", Commands.runOnce(() -> applyBasicCollect(true), intake, hopper, indexers));
     NamedCommands.registerCommand(
-        "collectStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
+        "collectStop", Commands.runOnce(this::stopGamePieceFlow, intake, hopper, indexers));
     NamedCommands.registerCommand(
-        "feedStart", gamePieceManager.setModeCommand(GamePieceManager.Mode.FEED));
+        "feedStart", Commands.runOnce(() -> applyBasicFeed(true), intake, hopper, indexers));
     NamedCommands.registerCommand(
-        "feedStop", gamePieceManager.setModeCommand(GamePieceManager.Mode.HOLD));
+        "feedStop", Commands.runOnce(this::stopGamePieceFlow, intake, hopper, indexers));
     NamedCommands.registerCommand(
         "shooterOn",
         Commands.runOnce(() -> shooter.setShotControlEnabled(true))
@@ -352,8 +331,11 @@ public class RobotContainer {
         Commands.runOnce(
             () -> {
               shooter.setShotControlEnabled(false);
-              gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
-            }));
+              stopGamePieceFlow();
+            },
+            intake,
+            hopper,
+            indexers));
     NamedCommands.registerCommand(
         "alignHub",
         drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds));
@@ -361,19 +343,6 @@ public class RobotContainer {
 
     // Configure the button bindings
     configureButtonBindings();
-    publishScoringPolicyState();
-    SmartDashboard.putData(
-        "Strategy/SetScoringPolicyAllowActiveAndInactive",
-        Commands.runOnce(
-                () -> setScoringPolicy(GamePieceManager.ScoringPolicy.ALLOW_ACTIVE_AND_INACTIVE))
-            .ignoringDisable(true));
-    SmartDashboard.putData(
-        "Strategy/SetScoringPolicyActiveOnly",
-        Commands.runOnce(() -> setScoringPolicy(GamePieceManager.ScoringPolicy.ACTIVE_ONLY))
-            .ignoringDisable(true));
-    SmartDashboard.putData(
-        "Strategy/ToggleScoringPolicy",
-        Commands.runOnce(this::toggleScoringPolicy).ignoringDisable(true));
     SmartDashboard.putData(
         "AutoAssist/ParkAtLadderL1",
         scheduleAutoAssist(this::parkAtLadderL1Command).ignoringDisable(true));
@@ -394,73 +363,91 @@ public class RobotContainer {
    * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
    */
   private void configureButtonBindings() {
+    configureDriverBindings();
+    configureOperatorBindings();
+  }
+
+  private void configureDriverBindings() {
     // Left stick = translation, right stick = rotation.
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
-            () -> controller.getLeftY(),
-            () -> controller.getLeftX(),
-            () -> -controller.getRightX(),
+            () -> driverController.getLeftY(),
+            () -> driverController.getLeftX(),
+            () -> -driverController.getRightX(),
             () -> false));
 
     // Right stick press (hold) = align to hub.
-    controller.rightStick().whileTrue(alignToHub());
-
-    // Right trigger = run shooter while held.
-    new Trigger(() -> controller.getRightTriggerAxis() > SHOOTER_TRIGGER_DEADBAND)
-        .whileTrue(runShooterDemandWhileHeldCommand());
-    // Left trigger = run manual feed + manual indexers while held.
-    controller.leftTrigger().whileTrue(runManualFeedAndIndexersWhileHeldCommand());
-
-    // Driver feed controls: Y = collect with indexers, X = collect without indexers,
-    // A = reverse, B = set IDLE.
-    controller.y().whileTrue(gamePieceManager.collectWhileHeldCommand());
-    controller.x().whileTrue(gamePieceManager.collectWithoutIndexerWhileHeldCommand());
-    controller.a().whileTrue(gamePieceManager.reverseWhileHeldCommand());
-    controller.b().onTrue(gamePieceManager.setModeCommand(GamePieceManager.Mode.IDLE));
+    driverController.rightStick().whileTrue(alignToHub());
 
     // Left bumper = cancel any auto-assist command.
-    controller.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
+    driverController.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
     // Right bumper = drive under nearest trench.
-    controller.rightBumper().onTrue(scheduleAutoAssist(this::autoDriveUnderTrenchCommand));
+    driverController.rightBumper().onTrue(scheduleAutoAssist(this::autoDriveUnderTrenchCommand));
     // Left stick press = park assist to ladder (L1 endgame alignment).
-    controller.leftStick().onTrue(scheduleAutoAssist(this::parkAtLadderL1Command));
+    driverController.leftStick().onTrue(scheduleAutoAssist(this::parkAtLadderL1Command));
+
+    if (!ENABLE_MECHANISM_BRINGUP_BINDINGS) {
+      // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
+      new Trigger(() -> driverController.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
+          .onTrue(scheduleAutoAssist(this::parkAtLadderL1Command));
+      new Trigger(() -> driverController.getHID().getRawButton(TOP_RIGHT_PADDLE_BUTTON))
+          .onTrue(scheduleAutoAssist(this::driveToOutpostCommand));
+      new Trigger(() -> driverController.getHID().getRawButton(BOTTOM_LEFT_PADDLE_BUTTON))
+          .onTrue(scheduleAutoAssist(this::alignToDepotCommand));
+    }
+
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      // driverController.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
+    }
+  }
+
+  private void configureOperatorBindings() {
+    // Right trigger = run shooter while held.
+    new Trigger(() -> operatorController.getRightTriggerAxis() > SHOOTER_TRIGGER_DEADBAND)
+        .whileTrue(runShooterDemandWhileHeldCommand());
+    // Left trigger = run manual feed + manual indexers while held.
+    operatorController.leftTrigger().whileTrue(runManualFeedAndIndexersWhileHeldCommand());
+
+    // Game-piece flow controls: Y = collect with indexers, X = collect without indexers,
+    // A = reverse, B = stop all game-piece motors.
+    operatorController.y().whileTrue(basicCollectWhileHeldCommand(true));
+    operatorController.x().whileTrue(basicCollectWhileHeldCommand(false));
+    operatorController.a().whileTrue(basicReverseWhileHeldCommand());
+    operatorController
+        .b()
+        .onTrue(Commands.runOnce(this::stopGamePieceFlow, intake, hopper, indexers));
 
     // D-pad up/down = manual hood extension with hard stops.
-    controller
+    operatorController
         .povUp()
         .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(MANUAL_HOOD_STEP_DEGREES)));
-    controller
+    operatorController
         .povDown()
         .whileTrue(
             Commands.run(() -> shooter.adjustHoodSetpointDegrees(-MANUAL_HOOD_STEP_DEGREES)));
 
     if (ENABLE_MECHANISM_BRINGUP_BINDINGS) {
       // D-pad left/right = manual intake pivot jog.
-      controller.povLeft().whileTrue(runIntakePivotWhileHeldCommand(-INTAKE_PIVOT_BRINGUP_SPEED));
-      controller.povRight().whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
+      operatorController
+          .povLeft()
+          .whileTrue(runIntakePivotWhileHeldCommand(-INTAKE_PIVOT_BRINGUP_SPEED));
+      operatorController
+          .povRight()
+          .whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
 
       // Back/start = manual hopper extension jog.
       // These override paddle remap bindings while bring-up mode is enabled.
-      controller
+      operatorController
           .back()
           .whileTrue(runHopperExtensionWhileHeldCommand(-HOPPER_EXTENSION_BRINGUP_SPEED));
-      controller
+      operatorController
           .start()
           .whileTrue(runHopperExtensionWhileHeldCommand(HOPPER_EXTENSION_BRINGUP_SPEED));
     } else {
-      // Paddle remaps (configure paddles in Xbox accessories app to emit these buttons).
-      new Trigger(() -> controller.getHID().getRawButton(TOP_LEFT_PADDLE_BUTTON))
-          .onTrue(scheduleAutoAssist(this::parkAtLadderL1Command));
-      new Trigger(() -> controller.getHID().getRawButton(TOP_RIGHT_PADDLE_BUTTON))
-          .onTrue(scheduleAutoAssist(this::driveToOutpostCommand));
-      new Trigger(() -> controller.getHID().getRawButton(BOTTOM_LEFT_PADDLE_BUTTON))
-          .onTrue(scheduleAutoAssist(this::alignToDepotCommand));
-      controller.back().onTrue(Commands.runOnce(this::toggleScoringPolicy));
-    }
-
-    if (Constants.currentMode == Constants.Mode.SIM) {
-      // controller.leftBumper().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
+      operatorController
+          .back()
+          .onTrue(Commands.runOnce(this::stopGamePieceFlow, intake, hopper, indexers));
     }
   }
 
@@ -485,8 +472,8 @@ public class RobotContainer {
   public Command alignToHub() {
     Command driveAlignCommand =
         drive.alignToHub(
-            () -> -controller.getLeftY(),
-            () -> -controller.getLeftX(),
+            () -> -driverController.getLeftY(),
+            () -> -driverController.getLeftX(),
             this::updateHubShotSolutionAndGetAirtimeSeconds);
     Command shooterAutoAdjustCommand =
         Commands.startEnd(
@@ -500,7 +487,7 @@ public class RobotContainer {
         .finallyDo(
             () -> {
               shooter.setShotControlEnabled(false);
-              gamePieceManager.requestMode(GamePieceManager.Mode.IDLE);
+              stopGamePieceFlow();
             });
   }
 
@@ -523,7 +510,7 @@ public class RobotContainer {
         .finallyDo(
             () -> {
               shooter.setShotControlEnabled(false);
-              gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
+              stopGamePieceFlow();
             });
   }
 
@@ -535,19 +522,17 @@ public class RobotContainer {
                 () -> {
                   updateHubShotSolutionAndGetAirtimeSeconds();
                   shooter.setShotControlEnabled(true);
-                  // FEED mode advances using hopper agitator + indexers when shooter-ready
-                  // interlock
-                  //
-                  // is met.
-                  gamePieceManager.requestMode(GamePieceManager.Mode.FEED);
+                  applyBasicFeed(true);
                 },
                 shooter,
-                gamePieceManager)
+                intake,
+                hopper,
+                indexers)
             .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false))
             .finallyDo(
                 () -> {
                   shooter.setShotControlEnabled(false);
-                  gamePieceManager.requestMode(GamePieceManager.Mode.HOLD);
+                  stopGamePieceFlow();
                 }));
   }
 
@@ -556,7 +541,7 @@ public class RobotContainer {
         drive.autoDriveUnderTrenchCommand(),
         Commands.runOnce(
             () -> {
-              intake.setTargetIntakeSpeed(GamePieceManagerConstants.collectIntakeSpeed);
+              intake.setTargetIntakeSpeed(BASIC_COLLECT_INTAKE_SPEED);
               intake.updateIntake();
             },
             intake),
@@ -568,17 +553,18 @@ public class RobotContainer {
   private Command trenchCollectAutoRoutine() {
     return Commands.deadline(
         drive.autoDriveUnderTrenchCommand().withTimeout(START_AUTO_TRENCH_TIMEOUT_SECONDS),
-        gamePieceManager.collectWhileHeldCommand());
+        basicCollectWhileHeldCommand(true));
   }
 
   private Command outpostCollectAutoRoutine() {
     return Commands.deadline(
         drive.driveToOutpostCommand().withTimeout(START_AUTO_OUTPOST_TIMEOUT_SECONDS),
-        gamePieceManager.collectWhileHeldCommand());
+        basicCollectWhileHeldCommand(true));
   }
 
   public Command alignToOutpost() {
-    return drive.alignToOutpost(() -> -controller.getLeftX(), () -> -controller.getLeftY());
+    return drive.alignToOutpost(
+        () -> -driverController.getLeftX(), () -> -driverController.getLeftY());
   }
 
   public Command alignToLadderCommand() {
@@ -587,14 +573,6 @@ public class RobotContainer {
 
   public Command parkAtLadderL1Command() {
     return alignToLadderCommand();
-  }
-
-  public Command setScoringPolicyCommand(GamePieceManager.ScoringPolicy scoringPolicy) {
-    return Commands.runOnce(() -> setScoringPolicy(scoringPolicy));
-  }
-
-  public Command toggleScoringPolicyCommand() {
-    return Commands.runOnce(this::toggleScoringPolicy);
   }
 
   public Command alignToDepotCommand() {
@@ -607,7 +585,7 @@ public class RobotContainer {
 
   private Command runShooterDemandWhileHeldCommand() {
     return Commands.runEnd(
-        () -> setShooterDemandFromTriggerThrottle(controller.getRightTriggerAxis()),
+        () -> setShooterDemandFromTriggerThrottle(operatorController.getRightTriggerAxis()),
         () -> setShooterDemandFromTriggerThrottle(0.0));
   }
 
@@ -621,8 +599,26 @@ public class RobotContainer {
         () -> hopper.setHopperExtensionSpeed(speed), hopper::stopHopperExtension, hopper);
   }
 
+  private Command basicCollectWhileHeldCommand(boolean runIndexers) {
+    return Commands.startEnd(
+        () -> applyBasicCollect(runIndexers), this::stopGamePieceFlow, intake, hopper, indexers);
+  }
+
+  private Command basicReverseWhileHeldCommand() {
+    return Commands.startEnd(
+        this::applyBasicReverse, this::stopGamePieceFlow, intake, hopper, indexers);
+  }
+
   private Command runManualFeedAndIndexersWhileHeldCommand() {
-    return gamePieceManager.manualFeedWhileHeldCommand().alongWith(runIndexersWhileHeldCommand());
+    return Commands.startEnd(
+            () -> applyBasicFeed(false),
+            () -> {
+              intake.stopIntake();
+              hopper.stopAgitator();
+            },
+            intake,
+            hopper)
+        .alongWith(runIndexersWhileHeldCommand());
   }
 
   private Command runIndexersWhileHeldCommand() {
@@ -641,6 +637,52 @@ public class RobotContainer {
             () ->
                 bottomIndexerBreakawayUntilTimestampSeconds =
                     Timer.getFPGATimestamp() + BOTTOM_INDEXER_BREAKAWAY_SECONDS);
+  }
+
+  private void applyBasicCollect(boolean runIndexers) {
+    intake.setTargetIntakeSpeed(BASIC_COLLECT_INTAKE_SPEED);
+    hopper.setTargetAgitatorSpeed(BASIC_COLLECT_AGITATOR_SPEED);
+    intake.updateIntake();
+    hopper.updateAgitator();
+    if (runIndexers) {
+      indexers.setTargetIndexerSpeed(BASIC_COLLECT_INDEXER_SPEED);
+      indexers.updateIndexers();
+      Logger.recordOutput("GamePieceControl/Mode", "COLLECT");
+    } else {
+      indexers.stopIndexers();
+      Logger.recordOutput("GamePieceControl/Mode", "COLLECT_NO_INDEXER");
+    }
+  }
+
+  private void applyBasicFeed(boolean runIndexers) {
+    intake.stopIntake();
+    hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
+    hopper.updateAgitator();
+    if (runIndexers) {
+      indexers.setTargetIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
+      indexers.updateIndexers();
+      Logger.recordOutput("GamePieceControl/Mode", "FEED");
+    } else {
+      indexers.stopIndexers();
+      Logger.recordOutput("GamePieceControl/Mode", "MANUAL_FEED");
+    }
+  }
+
+  private void applyBasicReverse() {
+    intake.setTargetIntakeSpeed(BASIC_REVERSE_SPEED);
+    hopper.setTargetAgitatorSpeed(BASIC_REVERSE_SPEED);
+    indexers.setTargetIndexerSpeed(BASIC_REVERSE_SPEED);
+    intake.updateIntake();
+    hopper.updateAgitator();
+    indexers.updateIndexers();
+    Logger.recordOutput("GamePieceControl/Mode", "REVERSE");
+  }
+
+  private void stopGamePieceFlow() {
+    intake.stopIntake();
+    hopper.stopAgitator();
+    indexers.stopIndexers();
+    Logger.recordOutput("GamePieceControl/Mode", "IDLE");
   }
 
   private void setShooterDemandFromAlign(boolean enabled) {
@@ -672,27 +714,7 @@ public class RobotContainer {
     updateHubShotSolutionAndGetAirtimeSeconds();
     logRobotModelComponentPoses();
     updateEndgameWindowState();
-    publishScoringPolicyState();
     updateDriverRumbleOutput(Timer.getFPGATimestamp());
-  }
-
-  private void setScoringPolicy(GamePieceManager.ScoringPolicy scoringPolicy) {
-    gamePieceManager.setScoringPolicy(scoringPolicy);
-    publishScoringPolicyState();
-  }
-
-  private void toggleScoringPolicy() {
-    gamePieceManager.toggleScoringPolicy();
-    publishScoringPolicyState();
-  }
-
-  private void publishScoringPolicyState() {
-    String policy = gamePieceManager.getScoringPolicy().name();
-    SmartDashboard.putString(DASHBOARD_SCORING_POLICY_KEY, policy);
-    Logger.recordOutput("Strategy/ScoringPolicy", policy);
-    Logger.recordOutput(
-        "Strategy/ScoringAllowedForCurrentHubState",
-        gamePieceManager.isScoringAllowedForCurrentHubState());
   }
 
   private void updateEndgameWindowState() {
@@ -728,7 +750,7 @@ public class RobotContainer {
       rumbleStrength = Math.max(rumbleStrength, WALL_RUMBLE_STRENGTH);
     }
 
-    controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
+    driverController.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
     Logger.recordOutput("DriverFeedback/RumbleStrength", rumbleStrength);
     Logger.recordOutput(
         "DriverFeedback/EndgameRumbleActive", nowSeconds < endgameRumbleUntilTimestampSeconds);
@@ -814,7 +836,7 @@ public class RobotContainer {
     shooterDemandFromAlign = false;
     shooterDemandFromTriggerThrottle = 0.0;
     refreshShooterControlDemand();
-    gamePieceManager.requestMode(GamePieceManager.Mode.IDLE);
+    stopGamePieceFlow();
     cancelAutoAssist();
     endgameWindowLatched = false;
     endgameRumbleUntilTimestampSeconds = 0.0;
@@ -831,12 +853,6 @@ public class RobotContainer {
     intake.resetSimulationState();
     hopper.resetSimulationState();
     indexers.resetSimulationState();
-    if (internalGamePieceSimulation != null) {
-      internalGamePieceSimulation.reset();
-    }
-    if (mapleIntakeSimulation != null) {
-      mapleIntakeSimulation.stopIntake();
-    }
     drive.setPose(SIM_START_POSE);
     arena.resetFieldForAuto();
     previousSimFieldSpeeds = null;
@@ -846,7 +862,7 @@ public class RobotContainer {
     simulatedShooterHubHits = 0;
     simulatedShooterShotsActiveHub = 0;
     simulatedShooterShotsInactiveHub = 0;
-    controller.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
+    driverController.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
     Logger.recordOutput("Shooter/Simulation/ShotsAtActiveHub", simulatedShooterShotsActiveHub);
@@ -873,27 +889,11 @@ public class RobotContainer {
     }
 
     SimulatedArena arena = SimulatedArena.getInstance();
-    updateMapleIntakeState();
     arena.simulationPeriodic();
-    queueCapturedGamePiecesFromMapleIntake();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
     ChassisSpeeds simFieldSpeeds =
         driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
-    if (internalGamePieceSimulation != null) {
-      internalGamePieceSimulation.update(
-          Timer.getFPGATimestamp(),
-          gamePieceManager.getMode(),
-          intake.getActualIntakeSpeed(),
-          intake.getIntakePivotMeasuredPositionNormalized(),
-          gamePieceManager.isManualFeedIndexerAllowedForSimulation(),
-          robotPose,
-          new Translation2d(simFieldSpeeds.vxMetersPerSecond, simFieldSpeeds.vyMetersPerSecond));
-      addPendingEjectionsToArena(arena);
-    }
     maybeLaunchSimulatedFuel(robotPose, simFieldSpeeds);
-    if (internalGamePieceSimulation != null) {
-      internalGamePieceSimulation.logOutputs();
-    }
     updateCollisionRumble(robotPose, simFieldSpeeds);
     HumpPoseSample humpPoseSample = sampleHumpPose(robotPose);
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
@@ -914,16 +914,17 @@ public class RobotContainer {
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
   }
 
+  private double getShooterFeedRateRatioForSimulation() {
+    if (BASIC_FEED_INDEXER_SPEED <= 1e-6) {
+      return 0.0;
+    }
+    return MathUtil.clamp(indexers.getAverageAppliedOutput() / BASIC_FEED_INDEXER_SPEED, 0.0, 1.0);
+  }
+
   private void maybeLaunchSimulatedFuel(Pose2d robotPose, ChassisSpeeds fieldRelativeSpeeds) {
-    double shooterFeedRateRatio = gamePieceManager.getFeedRateRatioForShooterSim();
+    double shooterFeedRateRatio = getShooterFeedRateRatioForSimulation();
     Logger.recordOutput("Shooter/Simulation/FeedRateRatio", shooterFeedRateRatio);
-    if (internalGamePieceSimulation != null && !internalGamePieceSimulation.hasShooterPiece()) {
-      return;
-    }
     if (!shooter.shouldTriggerSimulatedShot(Timer.getFPGATimestamp(), shooterFeedRateRatio)) {
-      return;
-    }
-    if (internalGamePieceSimulation != null && !internalGamePieceSimulation.consumeShooterPiece()) {
       return;
     }
 
@@ -991,50 +992,6 @@ public class RobotContainer {
             robotPose.getY(),
             shooter.getLaunchHeightMeters(),
             new Rotation3d(0.0, -launchPitch.getRadians(), shooterFacing.getRadians())));
-  }
-
-  private void updateMapleIntakeState() {
-    if (mapleIntakeSimulation == null) {
-      return;
-    }
-
-    boolean shouldRunIntake =
-        intake.getActualIntakeSpeed() > IntakeConstants.simForwardOutputThreshold
-            && intake.getIntakePivotMeasuredPositionNormalized()
-                >= GamePieceManagerConstants.simIntakeCaptureMinPivotNormalized;
-    if (shouldRunIntake) {
-      mapleIntakeSimulation.startIntake();
-    } else {
-      mapleIntakeSimulation.stopIntake();
-    }
-    Logger.recordOutput("GamePieceSimulation/MapleIntakeRunning", shouldRunIntake);
-  }
-
-  private void queueCapturedGamePiecesFromMapleIntake() {
-    if (mapleIntakeSimulation == null || internalGamePieceSimulation == null) {
-      return;
-    }
-
-    while (mapleIntakeSimulation.obtainGamePieceFromIntake()) {
-      internalGamePieceSimulation.queueCapturedPiece();
-    }
-  }
-
-  private void addPendingEjectionsToArena(SimulatedArena arena) {
-    if (internalGamePieceSimulation == null) {
-      return;
-    }
-
-    InternalGamePieceSimulation.PendingEjection ejection;
-    while ((ejection = internalGamePieceSimulation.pollPendingEjection()) != null) {
-      RebuiltFuelOnField ejectedFuel = new RebuiltFuelOnField(ejection.position());
-      ejectedFuel.setVelocity(
-          new ChassisSpeeds(
-              ejection.velocityMetersPerSecond().getX(),
-              ejection.velocityMetersPerSecond().getY(),
-              0.0));
-      arena.addGamePiece(ejectedFuel);
-    }
   }
 
   private void updateCollisionRumble(Pose2d robotPose, ChassisSpeeds currentFieldSpeeds) {

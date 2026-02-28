@@ -28,31 +28,30 @@ These should already be set in code before the tuning session starts:
    - `src/main/java/frc/robot/subsystems/body/GamePieceManagerConstants.java`
    - `sensorlessCollectToHoldSeconds = 0.45`
 
-## 2) Active operator controls during bring-up
+## 2) Active controls during bring-up
 
-With `ENABLE_MECHANISM_BRINGUP_BINDINGS = true`, bindings are:
+With `ENABLE_MECHANISM_BRINGUP_BINDINGS = true`, bindings are split across two Xbox controllers:
 
-- Drive:
+- Driver controller (`USB 0`)
   - Left stick = translation
   - Right stick X = rotation
-- Shooter:
+  - Right stick (hold) = align to hub
+  - Left bumper = cancel active auto-assist
+  - Right bumper = auto drive under trench
+  - Left stick (press) = park assist at ladder (L1)
+- Operator controller (`USB 1`)
   - Right trigger (hold) = shooter demand
-  - POV up/down (hold) = hood manual jog
-- Feed manager:
-  - Left trigger (hold) = manual feed
+  - Left trigger (hold) = manual feed + manual indexers
   - `Y` (hold) = collect with indexers
   - `X` (hold) = collect without indexers
   - `A` (hold) = reverse
-  - `B` (press) = set `IDLE`
-- Auto assist:
-  - Left bumper = cancel active auto-assist
-  - Right bumper = auto drive under trench
-- Temporary bring-up:
+  - `B` (press) = stop game-piece motors (`IDLE`)
+  - POV up/down (hold) = hood manual jog
   - POV left/right (hold) = intake pivot jog
   - Back/start (hold) = hopper extension jog
 
-Note: while bring-up mode is enabled, paddle remap triggers are intentionally disabled to avoid
-button conflicts with Back/Start.
+Note: while bring-up mode is enabled, driver paddle remap triggers are intentionally disabled to
+avoid conflicts with operator Back/Start usage.
 
 ## 2.5) Recommended single-day timeline
 
