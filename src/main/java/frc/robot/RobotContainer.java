@@ -48,6 +48,7 @@ import frc.robot.subsystems.body.Intake;
 import frc.robot.subsystems.body.IntakeIO;
 import frc.robot.subsystems.body.IntakeIOSim;
 import frc.robot.subsystems.body.IntakeIOSparkMax;
+import frc.robot.subsystems.body.ShooterFeedInterlock;
 import frc.robot.subsystems.body.shooter.Shooter;
 import frc.robot.subsystems.body.shooter.ShooterConstants;
 import frc.robot.subsystems.body.shooter.ShooterIO;
@@ -120,7 +121,7 @@ public class RobotContainer {
   private static final double SHOOTER_TRIGGER_DEADBAND = 0.02;
   // Temporary bring-up bindings for mechanism calibration.
   // Set false after intake/hopper calibration is complete.
-  public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = true;
+  public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = false;
   private static final double INTAKE_PIVOT_BRINGUP_SPEED = 0.25;
   private static final double HOPPER_EXTENSION_BRINGUP_SPEED = 0.25;
   private static final double TOP_INDEXER_MANUAL_FEED_SPEED = 0.45;
@@ -624,6 +625,15 @@ public class RobotContainer {
   private Command runIndexersWhileHeldCommand() {
     return Commands.runEnd(
             () -> {
+              boolean allowIndexer =
+                  ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
+                      true, shooterDemandFromAlign, shooter.isHubShotSolutionFeasible());
+              if (!allowIndexer) {
+                indexers.stopIndexers();
+                Logger.recordOutput("GamePieceControl/Mode", "MANUAL_FEED_INTERLOCKED");
+                return;
+              }
+
               boolean inBottomBreakaway =
                   Timer.getFPGATimestamp() < bottomIndexerBreakawayUntilTimestampSeconds;
               double bottomOutput =
@@ -659,9 +669,19 @@ public class RobotContainer {
     hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
     hopper.updateAgitator();
     if (runIndexers) {
-      indexers.setTargetIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
-      indexers.updateIndexers();
-      Logger.recordOutput("GamePieceControl/Mode", "FEED");
+      boolean feedAllowed =
+          ShooterFeedInterlock.shouldAdvanceToShooter(
+              true,
+              shooter.isReadyToFire(),
+              true /* Sensorless path: assume staged piece is present when feed is requested. */);
+      if (feedAllowed) {
+        indexers.setTargetIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
+        indexers.updateIndexers();
+        Logger.recordOutput("GamePieceControl/Mode", "FEED");
+      } else {
+        indexers.stopIndexers();
+        Logger.recordOutput("GamePieceControl/Mode", "FEED_INTERLOCKED");
+      }
     } else {
       indexers.stopIndexers();
       Logger.recordOutput("GamePieceControl/Mode", "MANUAL_FEED");

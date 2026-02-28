@@ -7,8 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import frc.robot.subsystems.body.GamePieceManager;
-import frc.robot.subsystems.body.GamePieceManagerConstants;
 import org.junit.jupiter.api.Test;
 
 class InternalGamePieceSimulationTest {
@@ -21,12 +19,12 @@ class InternalGamePieceSimulationTest {
 
     simulation.queueCapturedPiece();
     simulation.update(
-        0.0, GamePieceManager.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
+        0.0, InternalGamePieceSimulation.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
     assertTrue(simulation.hasIntakePiece());
 
     simulation.update(
-        GamePieceManagerConstants.simIntakeToHopperSeconds + 0.05,
-        GamePieceManager.Mode.COLLECT,
+        InternalGamePieceSimulation.simIntakeToHopperSeconds + 0.05,
+        InternalGamePieceSimulation.Mode.COLLECT,
         0.5,
         1.0,
         false,
@@ -36,10 +34,10 @@ class InternalGamePieceSimulationTest {
     assertTrue(simulation.hasHopperPiece());
 
     simulation.update(
-        GamePieceManagerConstants.simIntakeToHopperSeconds
-            + GamePieceManagerConstants.simHopperToShooterSeconds
+        InternalGamePieceSimulation.simIntakeToHopperSeconds
+            + InternalGamePieceSimulation.simHopperToShooterSeconds
             + 0.10,
-        GamePieceManager.Mode.FEED,
+        InternalGamePieceSimulation.Mode.FEED,
         0.0,
         1.0,
         false,
@@ -56,12 +54,12 @@ class InternalGamePieceSimulationTest {
     InternalGamePieceSimulation simulation = new InternalGamePieceSimulation();
     simulation.queueCapturedPiece();
     simulation.update(
-        0.0, GamePieceManager.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
+        0.0, InternalGamePieceSimulation.Mode.COLLECT, 0.5, 1.0, false, robotPose, robotVelocity);
     assertTrue(simulation.hasIntakePiece());
 
     simulation.update(
-        GamePieceManagerConstants.simReverseStepSeconds + 0.05,
-        GamePieceManager.Mode.REVERSE,
+        InternalGamePieceSimulation.simReverseStepSeconds + 0.05,
+        InternalGamePieceSimulation.Mode.REVERSE,
         -0.5,
         1.0,
         false,

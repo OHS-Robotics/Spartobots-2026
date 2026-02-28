@@ -13,7 +13,6 @@ import static frc.robot.subsystems.drive.DriveConstants.*;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
@@ -133,8 +132,6 @@ public class Drive extends SubsystemBase {
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   public int octant;
-  private PathPlannerPath rightMiddleLoad;
-  private PathPlannerPath leftMiddleLoad;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -201,17 +198,6 @@ public class Drive extends SubsystemBase {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
 
-    // Instantiate PathPlanner paths/autos
-    try {
-      rightMiddleLoad = PathPlannerPath.fromPathFile("BlueRightMiddleLoad");
-      leftMiddleLoad = PathPlannerPath.fromPathFile("BlueRightMiddleLoad");
-    } catch (Exception e) {
-      rightMiddleLoad = null;
-      leftMiddleLoad = null;
-    }
-
-    // Register PathPlanner auto commands
-
     // Configure SysId
     sysId =
         new SysIdRoutine(
@@ -230,12 +216,15 @@ public class Drive extends SubsystemBase {
     loadHubMotionCompTuning();
 
     odometryLock.lock(); // Prevents odometry updates while reading data
-    gyroIO.updateInputs(gyroInputs);
-    Logger.processInputs("Drive/Gyro", gyroInputs);
-    for (var module : modules) {
-      module.periodic();
+    try {
+      gyroIO.updateInputs(gyroInputs);
+      Logger.processInputs("Drive/Gyro", gyroInputs);
+      for (var module : modules) {
+        module.periodic();
+      }
+    } finally {
+      odometryLock.unlock();
     }
-    odometryLock.unlock();
 
     // Stop moving when disabled
     if (DriverStation.isDisabled()) {
@@ -523,32 +512,14 @@ public class Drive extends SubsystemBase {
   public Command autoLoadMiddleCommand() {
     return Commands.defer(
         () -> {
-          Pose2d pose;
-          Translation2d newPose;
-          PathPlannerAuto auto;
-          if (octant == 1) {
-            pose = Constants.beginBlueLeft;
-            newPose = Constants.beginRedLeft.getTranslation();
-            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
-          } else if (octant == 2) {
-            pose = Constants.beginRedRight;
-            newPose = Constants.beginBlueRight.getTranslation();
-            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
-          } else if (octant == 5) {
-            pose = Constants.beginBlueRight;
-            newPose = Constants.beginRedRight.getTranslation();
-            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
-          } else if (octant == 6) {
-            pose = Constants.beginRedLeft;
-            newPose = Constants.beginBlueLeft.getTranslation();
-            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
-          } else {
-            pose = Constants.beginBlueLeft;
-            newPose = Constants.beginBlueRight.getTranslation();
-            auto = new PathPlannerAuto("BlueRightMiddleLoadAuto");
+          try {
+            return new PathPlannerAuto("BlueRightMiddleLoadAuto");
+          } catch (RuntimeException e) {
+            DriverStation.reportError(
+                "Failed to load PathPlanner auto 'BlueRightMiddleLoadAuto': " + e.getMessage(),
+                e.getStackTrace());
+            return Commands.none();
           }
-
-          return auto;
         },
         Set.of(this));
   }
@@ -802,8 +773,4 @@ public class Drive extends SubsystemBase {
           return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
         });
   }
-
-  public void alignTo(Pose2d target) {}
-
-  public void update() {}
 }

@@ -102,12 +102,7 @@ public class DriveCommands {
           // Apply rotation deadband
           double omega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(), DEADBAND);
 
-          boolean isFlipped =
-              DriverStation.getAlliance().isPresent()
-                  && DriverStation.getAlliance().get() == Alliance.Red;
-
-          // fix weird flipping issue
-          isFlipped = !isFlipped;
+          boolean isFlipped = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
 
           // Square rotation value for more precise control
           omega = Math.copySign(omega * omega, omega);
@@ -192,9 +187,7 @@ public class DriveCommands {
                       linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
                       omega);
 
-              boolean isFlipped =
-                  DriverStation.getAlliance().isPresent()
-                      && DriverStation.getAlliance().get() == Alliance.Red;
+              boolean isFlipped = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
 
               drive.runVelocity(
                   ChassisSpeeds.fromFieldRelativeSpeeds(

@@ -4,8 +4,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
-import frc.robot.subsystems.body.GamePieceManager;
-import frc.robot.subsystems.body.GamePieceManagerConstants;
 import frc.robot.subsystems.body.IntakeConstants;
 import frc.robot.subsystems.drive.DriveConstants;
 import java.util.ArrayDeque;
@@ -13,6 +11,22 @@ import java.util.Queue;
 import org.littletonrobotics.junction.Logger;
 
 public class InternalGamePieceSimulation {
+  public enum Mode {
+    COLLECT,
+    COLLECT_NO_INDEXER,
+    FEED,
+    MANUAL_FEED,
+    REVERSE,
+    UNJAM
+  }
+
+  public static final double simIntakeToHopperSeconds = 0.25;
+  public static final double simHopperToShooterSeconds = 0.18;
+  public static final double simReverseStepSeconds = 0.2;
+  public static final double simIntakeCaptureMinPivotNormalized = 0.0;
+  public static final int simIntakeCapacity = 1;
+  public static final double simEjectSpeedMetersPerSec = 1.2;
+
   public record PendingEjection(Translation2d position, Translation2d velocityMetersPerSecond) {}
 
   private boolean intakeOccupied = false;
@@ -42,7 +56,7 @@ public class InternalGamePieceSimulation {
   }
 
   public void queueCapturedPiece() {
-    if (queuedCapturedPieces >= GamePieceManagerConstants.simIntakeCapacity) {
+    if (queuedCapturedPieces >= simIntakeCapacity) {
       lastEvent = "CaptureDropped";
       return;
     }
@@ -52,7 +66,7 @@ public class InternalGamePieceSimulation {
 
   public void update(
       double timestampSeconds,
-      GamePieceManager.Mode mode,
+      Mode mode,
       double intakeAppliedOutput,
       double pivotNormalized,
       boolean manualFeedIndexerAllowed,
@@ -66,14 +80,11 @@ public class InternalGamePieceSimulation {
 
     boolean intakeForward =
         intakeAppliedOutput > IntakeConstants.simForwardOutputThreshold
-            && pivotNormalized >= GamePieceManagerConstants.simIntakeCaptureMinPivotNormalized;
-    boolean collectActive =
-        mode == GamePieceManager.Mode.COLLECT || mode == GamePieceManager.Mode.COLLECT_NO_INDEXER;
+            && pivotNormalized >= simIntakeCaptureMinPivotNormalized;
+    boolean collectActive = mode == Mode.COLLECT || mode == Mode.COLLECT_NO_INDEXER;
     boolean feedActive =
-        mode == GamePieceManager.Mode.FEED
-            || (mode == GamePieceManager.Mode.MANUAL_FEED && manualFeedIndexerAllowed);
-    boolean reverseActive =
-        mode == GamePieceManager.Mode.REVERSE || mode == GamePieceManager.Mode.UNJAM;
+        mode == Mode.FEED || (mode == Mode.MANUAL_FEED && manualFeedIndexerAllowed);
+    boolean reverseActive = mode == Mode.REVERSE || mode == Mode.UNJAM;
 
     if (!intakeOccupied && queuedCapturedPieces > 0 && intakeForward) {
       intakeOccupied = true;
@@ -85,8 +96,8 @@ public class InternalGamePieceSimulation {
       intakeToHopperTimerSeconds = 0.0;
       hopperToShooterTimerSeconds = 0.0;
       reverseTimerSeconds += deltaTimeSeconds;
-      while (reverseTimerSeconds >= GamePieceManagerConstants.simReverseStepSeconds) {
-        reverseTimerSeconds -= GamePieceManagerConstants.simReverseStepSeconds;
+      while (reverseTimerSeconds >= simReverseStepSeconds) {
+        reverseTimerSeconds -= simReverseStepSeconds;
         reverseOneStage(robotPose, robotFieldVelocityMetersPerSecond);
       }
       return;
@@ -96,7 +107,7 @@ public class InternalGamePieceSimulation {
 
     if (collectActive && intakeOccupied && !hopperOccupied) {
       intakeToHopperTimerSeconds += deltaTimeSeconds;
-      if (intakeToHopperTimerSeconds >= GamePieceManagerConstants.simIntakeToHopperSeconds) {
+      if (intakeToHopperTimerSeconds >= simIntakeToHopperSeconds) {
         intakeOccupied = false;
         hopperOccupied = true;
         intakeToHopperTimerSeconds = 0.0;
@@ -108,7 +119,7 @@ public class InternalGamePieceSimulation {
 
     if (feedActive && hopperOccupied && !shooterOccupied) {
       hopperToShooterTimerSeconds += deltaTimeSeconds;
-      if (hopperToShooterTimerSeconds >= GamePieceManagerConstants.simHopperToShooterSeconds) {
+      if (hopperToShooterTimerSeconds >= simHopperToShooterSeconds) {
         hopperOccupied = false;
         shooterOccupied = true;
         hopperToShooterTimerSeconds = 0.0;
@@ -138,8 +149,7 @@ public class InternalGamePieceSimulation {
                       (DriveConstants.bumperLengthXMeters * 0.5)
                           + (IntakeConstants.simMapleIntakeExtensionMeters * 0.5)));
       Translation2d ejectVelocity =
-          robotFieldVelocityMetersPerSecond.plus(
-              robotForwardUnit.times(GamePieceManagerConstants.simEjectSpeedMetersPerSec));
+          robotFieldVelocityMetersPerSecond.plus(robotForwardUnit.times(simEjectSpeedMetersPerSec));
       pendingEjections.add(new PendingEjection(ejectOffset, ejectVelocity));
       lastEjectPose =
           new Pose3d(
