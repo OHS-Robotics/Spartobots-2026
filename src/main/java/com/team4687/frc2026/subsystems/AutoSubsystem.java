@@ -88,7 +88,6 @@ public class AutoSubsystem {
     }
 
     public Command getAutonomousCommand() {
-        // return pathChooser.getSelected();
-        return Commands.none();
+        return pathChooser.getSelected();
     }
 }

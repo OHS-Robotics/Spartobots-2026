@@ -91,9 +91,10 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public Command driveCommand(Supplier<ChassisSpeeds> robotVelocity, Supplier<ChassisSpeeds> fieldVelocity) {
         return run(() -> {
+            // System.out.println("Drive run");
             if (sendables.getFieldOriented()) swerveDrive.driveFieldOriented(fieldVelocity.get());
             else {
-                ChassisSpeeds speeds = robotVelocity.get();
+                ChassisSpeeds speeds = fieldVelocity.get();
                 swerveDrive.drive(speeds);
             }
         });
@@ -150,12 +151,17 @@ public class SwerveSubsystem extends SubsystemBase {
             Pose2d current = getPose();
             double angle = Math.atan2((current.getY()-target.getY()), (current.getX()-target.getX())) + Math.PI;
             double change = swerveDrive.getOdometryHeading().minus(new Rotation2d(angle)).getRadians();
-            System.out.printf("Target angle: %f, current %f, diff %f\nCurrent position: %f %f\n",
+            /*System.out.printf("Target angle: %f, current %f, diff %f\nCurrent position: %f %f\n",
             angle, swerveDrive.getOdometryHeading().getRadians(), change,
-            current.getX(), current.getY());
+            current.getX(), current.getY());*/
             double finalVelocity = Math.copySign(speed, -change);
             if (Math.abs(change) < speed) finalVelocity = -change;
-            if (Math.abs(change) < Constants.MIN_AUTO_ROTATIONAL_SPEED*0.75) finalVelocity = Math.copySign(Constants.MIN_AUTO_ROTATIONAL_SPEED*0.75, -change);
+            //if (Math.abs(change) < Constants.MIN_AUTO_ROTATIONAL_SPEED) finalVelocity = Math.copySign(Constants.MIN_AUTO_ROTATIONAL_SPEED, -change);
+            // This is a bit hacky because it's based on an issue where the angle is off by 180 degrees.
+            // This should be actually fixed at some point.
+            if (Math.abs(change) < Units.degreesToRadians(10) || Math.abs(change) > Units.degreesToRadians(170)) finalVelocity = 0.0;
+
+            System.out.printf("Change: %f, final velocity: %f\n", change, finalVelocity);
 
             this.drive(
                 sendables.getFieldOriented() ?
@@ -216,6 +222,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public void update() {
         swerveDrive.updateOdometry();
-        //vision.updatePoseEstimate(swerveDrive);
+        vision.updatePoseEstimate(swerveDrive);
     }
 }

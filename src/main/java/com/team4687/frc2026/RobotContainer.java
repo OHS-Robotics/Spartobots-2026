@@ -17,6 +17,7 @@ import java.util.Optional;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
@@ -49,6 +50,8 @@ public class RobotContainer {
 
   private boolean manipulatorRumbling = false;
 
+  private boolean robotZeroed = false;
+
   // Replace with CommandPS4Controller or CommandJoystick if needed
   private final CommandXboxController driverJoystick =
       new CommandXboxController(OperatorConstants.kDriverControllerPort);
@@ -67,18 +70,43 @@ public class RobotContainer {
     swerveDrive.update();
   }
 
+  public void zeroRobot() {
+    System.out.println("Zeroing robot");
+    if (!robotZeroed) {
+      launcher.launcherEncoder.setPosition(0.0);
+      if (DriverStation.getAlliance().get() == Alliance.Blue) {
+        System.out.println("*\n*\n*\nBlue position set\n*\n*\n*");
+        swerveDrive.swerveDrive.zeroGyro();
+      }
+      else {
+        System.out.println("*\n*\n*\nRed position set\n*\n*\n*");
+        //swerveDrive.swerveDrive.zeroGyro();
+        // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
+        swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
+      }
+      robotZeroed = true;
+    }
+  }
+
+  public void autonomousInit() {
+    zeroRobot();
+  }
+
   public void teleopInit() {
-    launcher.launcherEncoder.setPosition(0.0);
+    zeroRobot();
+
     // alignment controls
     if (!delayedEventsRun) {
+      //if (DriverStation.getAlliance().get() == Alliance.Red) driveFieldAngularVelocityStream.scaleTranslation(-1);
+
       System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
       driverJoystick.rightStick().whileTrue(
         DriverStation.getAlliance().get() == Alliance.Blue ?
-        /*swerveDrive.pointTowardsFixed(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED) :
-        swerveDrive.pointTowardsFixed(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED)*/
-        swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
-        swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MAX_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
+        swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MIN_AUTO_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
+        swerveDrive.pointTowardsAndDrive(Constants.redHub, Constants.MIN_AUTO_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream)
       );
+
+
       driverJoystick.rightStick().whileTrue(launcher.autoAlignAngle(swerveDrive::getPose,
         () -> DriverStation.getAlliance().get() == Alliance.Blue ? Constants.blueHub : Constants.redHub)
       );
@@ -111,6 +139,7 @@ public class RobotContainer {
   }
 
   public void teleopPeriodic() {
+    // System.out.printf("Odometry: %f\n", swerveDrive.swerveDrive.getYaw().getRadians());
     double matchTime = DriverStation.getMatchTime();
     final double rumbleLength = .5;
     final double rumbleStrength = .3;
@@ -184,6 +213,7 @@ public class RobotContainer {
     .robotRelative(true)
     .allianceRelativeControl(false);
   }
+
 
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class.
