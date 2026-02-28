@@ -41,10 +41,11 @@ public class VisionIOPhotonVision implements VisionIO {
    * @param name The configured name of the camera.
    * @param robotToCamera The 3D position of the camera relative to the robot.
    */
-  public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
+  public VisionIOPhotonVision(String name, Transform3d robotToCamera, int pipelineIndex) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
     poseEstimator = new PhotonPoseEstimator(aprilTagLayout, robotToCamera);
+    camera.setPipelineIndex(pipelineIndex);
   }
 
   @Override
@@ -133,80 +134,6 @@ public class VisionIOPhotonVision implements VisionIO {
     int i = 0;
     for (int id : tagIds) {
       inputs.tagIds[i++] = id;
-    }
-  }
-
-  @Override
-  public void updatePoseEstimate(Drive drive) {
-    List<PhotonPipelineResult> results = camera.getAllUnreadResults();
-    Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
-
-    for (var result : results) {
-      visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-      if (visionEstimatedPose.isEmpty()) {
-        visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
-      }
-
-      updateStdDevs(visionEstimatedPose, result.getTargets());
-
-      visionEstimatedPose.ifPresent(
-          est -> {
-            drive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds, stdDevs);
-          });
-    }
-  }
-
-  public void updateStdDevs(
-      Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {
-    /*
-     * Get the standard deviations for pipeline results.
-     * I'm still not 100% sure what this is *supposed* to be measuring,
-     * but the PhotonVision documentation shows it measuring the average
-     * distance between each target(apriltag) and the current estimated pose.
-     * At some point I think it might be interesting to test what
-     * happens if you measure the average distance between each
-     * result and the center point of all of the results.
-     * This might not even work, but it could be interesting.
-     * Essentially copied from the PhotonLib example
-     */
-
-    double averageDistance = 0.0;
-    int measuredTags = 0;
-
-    if (currentPose.isEmpty()) {
-      stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
-      return;
-    }
-
-    for (var target : targets) {
-      Optional<Pose3d> pose = poseEstimator.getFieldTags().getTagPose(target.getFiducialId());
-      if (pose.isEmpty()) {
-        continue;
-      }
-      measuredTags++;
-      averageDistance +=
-          pose.get()
-              .toPose2d()
-              .getTranslation()
-              .getDistance(currentPose.get().estimatedPose.toPose2d().getTranslation());
-    }
-
-    if (measuredTags == 0) {
-      stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
-    } else {
-      averageDistance /= measuredTags;
-
-      if (measuredTags > 1) {
-        stdDevs = VecBuilder.fill(0.5, 0.5, 1.0);
-      } else {
-        stdDevs = VecBuilder.fill(1.0, 1.0, 2.0);
-      }
-
-      if (measuredTags == 1 && averageDistance > 4.0) {
-        stdDevs = VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
-      } else {
-        stdDevs = stdDevs.times(1.0 + ((averageDistance * averageDistance) / 30.0));
-      }
     }
   }
 }

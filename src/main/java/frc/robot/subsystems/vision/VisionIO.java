@@ -41,6 +41,4 @@ public interface VisionIO {
   }
 
   public default void updateInputs(VisionIOInputs inputs) {}
-
-  public void updatePoseEstimate(Drive drive);
 }
