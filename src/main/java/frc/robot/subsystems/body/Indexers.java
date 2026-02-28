@@ -114,8 +114,14 @@ public class Indexers extends SubsystemBase {
   }
 
   public void setManualOutputs(double topOutput, double bottomOutput) {
-    lastAppliedTopIndexerSpeed = clampSpeed(topOutput);
-    lastAppliedBottomIndexerSpeed = clampSpeed(bottomOutput);
+    lastAppliedTopIndexerSpeed =
+        applyDirection(
+            topOutput, topIndexerDirectionEntry, IndexersConstants.defaultTopIndexerDirection);
+    lastAppliedBottomIndexerSpeed =
+        applyDirection(
+            bottomOutput,
+            bottomIndexerDirectionEntry,
+            IndexersConstants.defaultBottomIndexerDirection);
     io.setTopOutput(lastAppliedTopIndexerSpeed);
     io.setBottomOutput(lastAppliedBottomIndexerSpeed);
     indexerRunning =
@@ -210,6 +216,11 @@ public class Indexers extends SubsystemBase {
       double speed, double speedScale, NetworkTableEntry directionEntry, double defaultDirection) {
     double scaledSpeed = clampSpeed(speed) * clampSpeedScale(speedScale);
     return clampSpeed(scaledSpeed * normalizeDirection(directionEntry.getDouble(defaultDirection)));
+  }
+
+  private double applyDirection(
+      double speed, NetworkTableEntry directionEntry, double defaultDirection) {
+    return clampSpeed(speed * normalizeDirection(directionEntry.getDouble(defaultDirection)));
   }
 
   private double clampSpeed(double speed) {

@@ -26,7 +26,7 @@ public final class IndexersConstants {
 
   // Default direction/inversion
   public static final double defaultTopIndexerDirection = 1.0;
-  public static final double defaultBottomIndexerDirection = 1.0;
+  public static final double defaultBottomIndexerDirection = -1.0;
   public static final int indexerMotorCurrentLimitAmps = 80;
 
   // Estimated simulation configuration
