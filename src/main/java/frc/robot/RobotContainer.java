@@ -380,6 +380,12 @@ public class RobotContainer {
     // Right stick press (hold) = align to hub.
     driverController.rightStick().whileTrue(alignToHub());
 
+    // Right trigger = run shooter while held.
+    new Trigger(() -> driverController.getRightTriggerAxis() > SHOOTER_TRIGGER_DEADBAND)
+        .whileTrue(runShooterDemandWhileHeldCommand());
+    // Left trigger = run manual feed + manual indexers while held.
+    driverController.leftTrigger().whileTrue(runManualFeedAndIndexersWhileHeldCommand());
+
     // Left bumper = cancel any auto-assist command.
     driverController.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
     // Right bumper = drive under nearest trench.
@@ -403,12 +409,6 @@ public class RobotContainer {
   }
 
   private void configureOperatorBindings() {
-    // Right trigger = run shooter while held.
-    new Trigger(() -> operatorController.getRightTriggerAxis() > SHOOTER_TRIGGER_DEADBAND)
-        .whileTrue(runShooterDemandWhileHeldCommand());
-    // Left trigger = run manual feed + manual indexers while held.
-    operatorController.leftTrigger().whileTrue(runManualFeedAndIndexersWhileHeldCommand());
-
     // Game-piece flow controls: Y = collect with indexers, X = collect without indexers,
     // A = reverse, B = stop all game-piece motors.
     operatorController.y().whileTrue(basicCollectWhileHeldCommand(true));
@@ -585,7 +585,7 @@ public class RobotContainer {
 
   private Command runShooterDemandWhileHeldCommand() {
     return Commands.runEnd(
-        () -> setShooterDemandFromTriggerThrottle(operatorController.getRightTriggerAxis()),
+        () -> setShooterDemandFromTriggerThrottle(driverController.getRightTriggerAxis()),
         () -> setShooterDemandFromTriggerThrottle(0.0));
   }
 

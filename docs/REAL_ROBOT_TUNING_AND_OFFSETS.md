@@ -36,12 +36,12 @@ With `ENABLE_MECHANISM_BRINGUP_BINDINGS = true`, bindings are split across two X
   - Left stick = translation
   - Right stick X = rotation
   - Right stick (hold) = align to hub
+  - Right trigger (hold) = shooter demand
+  - Left trigger (hold) = manual feed + manual indexers
   - Left bumper = cancel active auto-assist
   - Right bumper = auto drive under trench
   - Left stick (press) = park assist at ladder (L1)
 - Operator controller (`USB 1`)
-  - Right trigger (hold) = shooter demand
-  - Left trigger (hold) = manual feed + manual indexers
   - `Y` (hold) = collect with indexers
   - `X` (hold) = collect without indexers
   - `A` (hold) = reverse
