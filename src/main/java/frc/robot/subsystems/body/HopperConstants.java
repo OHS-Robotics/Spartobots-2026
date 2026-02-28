@@ -13,8 +13,9 @@ public final class HopperConstants {
   public static final ControlSensitivity hopperAgitatorSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
 
-  // Hopper extension (position-sensitive)
-  public static final int hopperExtensionCanId = 39;
+  // L1 climber winch (reuses the previous hopper-extension control path).
+  public static final int l1ClimberCanId = 34;
+  public static final int hopperExtensionCanId = l1ClimberCanId;
   public static final ControlSensitivity hopperExtensionSensitivity =
       ControlSensitivity.POSITION_SENSITIVE;
 

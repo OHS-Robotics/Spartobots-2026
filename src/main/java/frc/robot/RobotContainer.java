@@ -437,7 +437,7 @@ public class RobotContainer {
           .povRight()
           .whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
 
-      // Back/start = manual hopper extension jog.
+      // Back/start = manual L1 climber jog (legacy Hopper extension control path).
       // These override paddle remap bindings while bring-up mode is enabled.
       operatorController
           .back()

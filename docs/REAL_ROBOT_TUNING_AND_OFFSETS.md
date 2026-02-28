@@ -48,7 +48,7 @@ With `ENABLE_MECHANISM_BRINGUP_BINDINGS = true`, bindings are split across two X
   - `B` (press) = stop game-piece motors (`IDLE`)
   - POV up/down (hold) = hood manual jog
   - POV left/right (hold) = intake pivot jog
-  - Back/start (hold) = hopper extension jog
+  - Back/start (hold) = L1 climber jog (legacy `Hopper/Extension` controls)
 
 Note: while bring-up mode is enabled, driver paddle remap triggers are intentionally disabled to
 avoid conflicts with operator Back/Start usage.
@@ -113,7 +113,7 @@ Procedure:
 3. Hold POV right to extend to hard stop, record rotations, write extended key.
 4. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
 
-### 4.3 Hopper extension calibration
+### 4.3 L1 climber calibration (legacy Hopper Extension keys)
 
 Tuning keys:
 - `/Spartobots2026/Subsystems/Body/Hopper/Tuning/Common/Extension/Calibration/RetractedPositionRotations`
@@ -124,8 +124,8 @@ Telemetry keys:
 - `/Spartobots2026/Subsystems/Body/Hopper/Telemetry/Extension/EncoderPositionNormalized`
 
 Procedure:
-1. Hold Back to retract to hard stop, record rotations, write retracted key.
-2. Hold Start to extend to hard stop, record rotations, write extended key.
+1. Hold Back to retract/lower to hard stop, record rotations, write retracted key.
+2. Hold Start to extend/raise to hard stop, record rotations, write extended key.
 3. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
 
 ### 4.4 Shooter hood calibration
@@ -152,7 +152,7 @@ Tune signs/scales under:
   - `/Spartobots2026/Subsystems/Body/Intake/Tuning/Common/Drive/Direction`
   - `/Spartobots2026/Subsystems/Body/Intake/Tuning/Common/Pivot/SpeedScale`
   - `/Spartobots2026/Subsystems/Body/Intake/Tuning/Common/Pivot/Inverted`
-- Hopper common tuning:
+- Hopper common tuning (used for the L1 climber path):
   - `/Spartobots2026/Subsystems/Body/Hopper/Tuning/Common/Agitator/Speed`
   - `/Spartobots2026/Subsystems/Body/Hopper/Tuning/Common/Agitator/Direction`
   - `/Spartobots2026/Subsystems/Body/Hopper/Tuning/Common/Extension/SpeedScale`
