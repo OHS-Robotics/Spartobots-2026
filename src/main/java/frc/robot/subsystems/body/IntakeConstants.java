@@ -12,11 +12,13 @@ public final class IntakeConstants {
   public static final int intakeDriveCanId = 30;
   public static final ControlSensitivity intakeDriveSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
+  public static final int intakeDriveCurrentLimitAmps = 80;
 
   // Intake pivot arm (position-sensitive)
   public static final int intakePivotCanId = 40;
   public static final ControlSensitivity intakePivotSensitivity =
       ControlSensitivity.POSITION_SENSITIVE;
+  public static final int intakePivotCurrentLimitAmps = 80;
 
   // Two-point pivot calibration in motor rotations
   public static final double defaultIntakePivotRetractedPositionRotations = 0.0;

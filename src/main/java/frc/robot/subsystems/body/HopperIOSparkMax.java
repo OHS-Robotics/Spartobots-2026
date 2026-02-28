@@ -20,11 +20,20 @@ public class HopperIOSparkMax implements HopperIO {
   private double agitatorPositionRotations = 0.0;
 
   public HopperIOSparkMax() {
-    SparkBaseConfig coastConfig = new SparkMaxConfig().idleMode(IdleMode.kCoast);
+    SparkBaseConfig agitatorConfig =
+        new SparkMaxConfig()
+            .idleMode(IdleMode.kCoast)
+            .smartCurrentLimit(HopperConstants.hopperAgitatorCurrentLimitAmps)
+            .voltageCompensation(12.0);
+    SparkBaseConfig extensionConfig =
+        new SparkMaxConfig()
+            .idleMode(IdleMode.kCoast)
+            .smartCurrentLimit(HopperConstants.hopperExtensionCurrentLimitAmps)
+            .voltageCompensation(12.0);
     hopperAgitator.configure(
-        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        agitatorConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     hopperExtension.configure(
-        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        extensionConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override

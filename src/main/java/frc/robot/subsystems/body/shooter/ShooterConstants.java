@@ -29,16 +29,16 @@ public final class ShooterConstants {
   public static final boolean hoodInverted = false;
 
   // Electrical limits
-  public static final int shooterMotorCurrentLimitAmps = 50;
-  public static final int hoodMotorCurrentLimitAmps = 30;
+  public static final int shooterMotorCurrentLimitAmps = 60;
+  public static final int hoodMotorCurrentLimitAmps = 40;
 
   // Closed-loop gains
-  public static final double shooterVelocityKp = 0.00035;
+  public static final double shooterVelocityKp = 0.00024;
   public static final double shooterVelocityKi = 0.0;
   public static final double shooterVelocityKd = 0.0;
   public static final double shooterVelocityKv =
       1.0 / Units.rotationsPerMinuteToRadiansPerSecond(5676.0);
-  public static final double hoodPositionKp = 2.0;
+  public static final double hoodPositionKp = 1.2;
   public static final double hoodPositionKi = 0.0;
   public static final double hoodPositionKd = 0.0;
 

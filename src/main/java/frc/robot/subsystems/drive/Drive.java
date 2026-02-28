@@ -64,6 +64,7 @@ public class Drive extends SubsystemBase {
   private static final double defaultPathRotationKp = 13.0;
   private static final double defaultPathRotationKi = 0.0;
   private static final double defaultPathRotationKd = 0.0;
+  private static final double minAimVectorMagnitudeMeters = 0.10;
 
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
@@ -615,6 +616,9 @@ public class Drive extends SubsystemBase {
 
   private Rotation2d getRotationToHub(Pose2d hub) {
     Translation2d toTarget = hub.getTranslation().minus(getPose().getTranslation());
+    if (toTarget.getNorm() < minAimVectorMagnitudeMeters) {
+      return getRotation();
+    }
     return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()))
         .plus(ShooterConstants.shooterFacingOffset);
   }
@@ -770,6 +774,9 @@ public class Drive extends SubsystemBase {
         () -> {
           Pose2d target = getNearestOutpost();
           Translation2d toTarget = target.getTranslation().minus(getPose().getTranslation());
+          if (toTarget.getNorm() < minAimVectorMagnitudeMeters) {
+            return getRotation();
+          }
           return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
         });
   }
