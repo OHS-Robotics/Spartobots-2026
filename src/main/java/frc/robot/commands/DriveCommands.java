@@ -43,6 +43,11 @@ public class DriveCommands {
   private static final double ANGLE_KFF = 0.0;
   private static final double ANGLE_MAX_VELOCITY = 45.0;
   private static final double ANGLE_MAX_ACCELERATION = 90.0;
+  private static final double ANGLE_POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.5);
+  private static final double ANGLE_VELOCITY_TOLERANCE_RAD_PER_SEC = Units.degreesToRadians(8.0);
+  private static final double ANGLE_GOAL_JUMP_REJECT_RAD = Units.degreesToRadians(120.0);
+  private static final double ANGLE_GOAL_JUMP_REJECT_ACTIVE_ERROR_RAD = Units.degreesToRadians(8.0);
+  private static final double ANGLE_INTEGRATOR_MAX_ABS_OUTPUT = 1.0;
   private static final double FF_START_DELAY = 2.0; // Secs
   private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
   private static final double FF_MAX_VOLTAGE = 12.0; // Volts
@@ -143,6 +148,8 @@ public class DriveCommands {
         getTunedValue(angleMaxVelocityEntry, ANGLE_MAX_VELOCITY, 0.1, 100.0);
     double initialAngleMaxAcceleration =
         getTunedValue(angleMaxAccelerationEntry, ANGLE_MAX_ACCELERATION, 0.1, 200.0);
+    initialAngleMaxVelocity =
+        Math.min(initialAngleMaxVelocity, Math.max(0.1, drive.getMaxAngularSpeedRadPerSec()));
 
     // Create PID controller
     ProfiledPIDController angleController =
@@ -152,6 +159,12 @@ public class DriveCommands {
             initialAngleKd,
             new TrapezoidProfile.Constraints(initialAngleMaxVelocity, initialAngleMaxAcceleration));
     angleController.enableContinuousInput(-Math.PI, Math.PI);
+    angleController.setTolerance(
+        ANGLE_POSITION_TOLERANCE_RAD, ANGLE_VELOCITY_TOLERANCE_RAD_PER_SEC);
+    angleController.setIntegratorRange(
+        -ANGLE_INTEGRATOR_MAX_ABS_OUTPUT, ANGLE_INTEGRATOR_MAX_ABS_OUTPUT);
+    final double[] lastGoalRadians = {Double.NaN};
+    final double[] lastErrorRadians = {Double.POSITIVE_INFINITY};
 
     // Construct command
     return Commands.run(
@@ -164,6 +177,9 @@ public class DriveCommands {
                   getTunedValue(angleMaxVelocityEntry, ANGLE_MAX_VELOCITY, 0.1, 100.0);
               double tunedAngleMaxAcceleration =
                   getTunedValue(angleMaxAccelerationEntry, ANGLE_MAX_ACCELERATION, 0.1, 200.0);
+              tunedAngleMaxVelocity =
+                  Math.min(
+                      tunedAngleMaxVelocity, Math.max(0.1, drive.getMaxAngularSpeedRadPerSec()));
               angleController.setPID(tunedAngleKp, tunedAngleKi, tunedAngleKd);
               angleController.setConstraints(
                   new TrapezoidProfile.Constraints(
@@ -173,12 +189,38 @@ public class DriveCommands {
               Translation2d linearVelocity =
                   getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
 
+              double currentHeadingRadians = drive.getRotation().getRadians();
+              double targetHeadingRadians = rotationSupplier.get().getRadians();
+              if (!Double.isFinite(targetHeadingRadians)) {
+                targetHeadingRadians =
+                    Double.isFinite(lastGoalRadians[0])
+                        ? lastGoalRadians[0]
+                        : currentHeadingRadians;
+              }
+              if (Double.isFinite(lastGoalRadians[0])) {
+                double goalJumpRadians =
+                    Math.abs(MathUtil.angleModulus(targetHeadingRadians - lastGoalRadians[0]));
+                if (goalJumpRadians > ANGLE_GOAL_JUMP_REJECT_RAD
+                    && lastErrorRadians[0] < ANGLE_GOAL_JUMP_REJECT_ACTIVE_ERROR_RAD) {
+                  targetHeadingRadians = lastGoalRadians[0];
+                }
+              }
+              lastGoalRadians[0] = targetHeadingRadians;
+
               // Calculate angular speed
-              double omega =
-                  angleController.calculate(
-                      drive.getRotation().getRadians(), rotationSupplier.get().getRadians());
+              double omega = angleController.calculate(currentHeadingRadians, targetHeadingRadians);
               double omegaFeedforward = angleController.getSetpoint().velocity * tunedAngleKff;
               omega += omegaFeedforward;
+              omega =
+                  MathUtil.clamp(
+                      omega,
+                      -drive.getMaxAngularSpeedRadPerSec(),
+                      drive.getMaxAngularSpeedRadPerSec());
+              lastErrorRadians[0] =
+                  Math.abs(MathUtil.angleModulus(targetHeadingRadians - currentHeadingRadians));
+              if (angleController.atGoal()) {
+                omega = 0.0;
+              }
 
               // Convert to field relative speeds & send command
               ChassisSpeeds speeds =
@@ -199,7 +241,13 @@ public class DriveCommands {
             drive)
 
         // Reset PID controller when command starts
-        .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
+        .beforeStarting(
+            () -> {
+              double currentHeadingRadians = drive.getRotation().getRadians();
+              angleController.reset(currentHeadingRadians);
+              lastGoalRadians[0] = currentHeadingRadians;
+              lastErrorRadians[0] = Double.POSITIVE_INFINITY;
+            });
   }
 
   private static double getTunedValue(

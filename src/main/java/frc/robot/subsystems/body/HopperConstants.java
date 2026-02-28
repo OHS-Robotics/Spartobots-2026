@@ -12,12 +12,14 @@ public final class HopperConstants {
   public static final int hopperAgitatorDriveCanId = 38;
   public static final ControlSensitivity hopperAgitatorSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
+  public static final int hopperAgitatorCurrentLimitAmps = 80;
 
   // L1 climber winch (reuses the previous hopper-extension control path).
   public static final int l1ClimberCanId = 34;
   public static final int hopperExtensionCanId = l1ClimberCanId;
   public static final ControlSensitivity hopperExtensionSensitivity =
       ControlSensitivity.POSITION_SENSITIVE;
+  public static final int hopperExtensionCurrentLimitAmps = 80;
 
   // Two-point extension calibration in motor rotations
   public static final double defaultHopperExtensionRetractedPositionRotations = 0.0;
