@@ -48,9 +48,16 @@ public class VisionIOPhotonVision implements VisionIO {
     inputs.connected = camera.isConnected();
 
     // Read new camera observations
+    var unreadResults = camera.getAllUnreadResults();
+    inputs.processedResultCount = unreadResults.size();
+    inputs.detectedTargetCount = 0;
+    inputs.latestResultTimestampSeconds = Double.NaN;
     Set<Short> tagIds = new HashSet<>();
     List<PoseObservation> poseObservations = new LinkedList<>();
-    for (var result : camera.getAllUnreadResults()) {
+    for (var result : unreadResults) {
+      inputs.detectedTargetCount += result.targets.size();
+      inputs.latestResultTimestampSeconds = result.getTimestampSeconds();
+
       // Update latest target observation
       if (result.hasTargets()) {
         inputs.latestTargetObservation =

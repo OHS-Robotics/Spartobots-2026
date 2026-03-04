@@ -70,17 +70,33 @@ public class Vision extends SubsystemBase {
     List<Pose3d> allRobotPoses = new LinkedList<>();
     List<Pose3d> allRobotPosesAccepted = new LinkedList<>();
     List<Pose3d> allRobotPosesRejected = new LinkedList<>();
+    int totalProcessedResultCount = 0;
+    int totalDetectedTargetCount = 0;
+    int totalAcceptedPoseCount = 0;
+    int totalRejectedPoseCount = 0;
+    int totalRejectedNoTags = 0;
+    int totalRejectedAmbiguity = 0;
+    int totalRejectedZ = 0;
+    int totalRejectedOutOfField = 0;
 
     // Loop over cameras
     for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
       // Update disconnected alert
       disconnectedAlerts[cameraIndex].set(!inputs[cameraIndex].connected);
+      totalProcessedResultCount += inputs[cameraIndex].processedResultCount;
+      totalDetectedTargetCount += inputs[cameraIndex].detectedTargetCount;
 
       // Initialize logging values
       List<Pose3d> tagPoses = new LinkedList<>();
       List<Pose3d> robotPoses = new LinkedList<>();
       List<Pose3d> robotPosesAccepted = new LinkedList<>();
       List<Pose3d> robotPosesRejected = new LinkedList<>();
+      int acceptedPoseCount = 0;
+      int rejectedPoseCount = 0;
+      int rejectedNoTags = 0;
+      int rejectedAmbiguity = 0;
+      int rejectedZ = 0;
+      int rejectedOutOfField = 0;
 
       // Add tag poses
       for (int tagId : inputs[cameraIndex].tagIds) {
@@ -92,25 +108,41 @@ public class Vision extends SubsystemBase {
 
       // Loop over pose observations
       for (var observation : inputs[cameraIndex].poseObservations) {
-        // Check whether to reject pose
-        boolean rejectPose =
-            observation.tagCount() == 0 // Must have at least one tag
-                || (observation.tagCount() == 1
-                    && observation.ambiguity() > maxAmbiguity) // Cannot be high ambiguity
-                || Math.abs(observation.pose().getZ())
-                    > maxZError // Must have realistic Z coordinate
-
-                // Must be within the field boundaries
-                || observation.pose().getX() < 0.0
+        boolean noTags = observation.tagCount() == 0;
+        boolean highAmbiguity =
+            observation.tagCount() == 1
+                && observation.ambiguity() > maxAmbiguity; // Cannot be high ambiguity
+        boolean badZ = Math.abs(observation.pose().getZ()) > maxZError; // Must be realistic Z
+        boolean outOfField =
+            // Must be within the field boundaries
+            observation.pose().getX() < 0.0
                 || observation.pose().getX() > aprilTagLayout.getFieldLength()
                 || observation.pose().getY() < 0.0
                 || observation.pose().getY() > aprilTagLayout.getFieldWidth();
 
+        // Check whether to reject pose
+        boolean rejectPose =
+            noTags || highAmbiguity || badZ || outOfField;
+
         // Add pose to log
         robotPoses.add(observation.pose());
         if (rejectPose) {
+          rejectedPoseCount++;
+          if (noTags) {
+            rejectedNoTags++;
+          }
+          if (highAmbiguity) {
+            rejectedAmbiguity++;
+          }
+          if (badZ) {
+            rejectedZ++;
+          }
+          if (outOfField) {
+            rejectedOutOfField++;
+          }
           robotPosesRejected.add(observation.pose());
         } else {
+          acceptedPoseCount++;
           robotPosesAccepted.add(observation.pose());
         }
 
@@ -153,10 +185,41 @@ public class Vision extends SubsystemBase {
       Logger.recordOutput(
           "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesRejected",
           robotPosesRejected.toArray(new Pose3d[0]));
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/ProcessedResultCount",
+          inputs[cameraIndex].processedResultCount);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/DetectedTargetCount",
+          inputs[cameraIndex].detectedTargetCount);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/LatestResultTimestampSeconds",
+          inputs[cameraIndex].latestResultTimestampSeconds);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/AcceptedPoseCount",
+          acceptedPoseCount);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/RejectedPoseCount",
+          rejectedPoseCount);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/NoTags", rejectedNoTags);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/Ambiguity",
+          rejectedAmbiguity);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/Z", rejectedZ);
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/OutOfField",
+          rejectedOutOfField);
       allTagPoses.addAll(tagPoses);
       allRobotPoses.addAll(robotPoses);
       allRobotPosesAccepted.addAll(robotPosesAccepted);
       allRobotPosesRejected.addAll(robotPosesRejected);
+      totalAcceptedPoseCount += acceptedPoseCount;
+      totalRejectedPoseCount += rejectedPoseCount;
+      totalRejectedNoTags += rejectedNoTags;
+      totalRejectedAmbiguity += rejectedAmbiguity;
+      totalRejectedZ += rejectedZ;
+      totalRejectedOutOfField += rejectedOutOfField;
     }
 
     // Log summary data
@@ -166,6 +229,14 @@ public class Vision extends SubsystemBase {
         "Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(new Pose3d[0]));
     Logger.recordOutput(
         "Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
+    Logger.recordOutput("Vision/Summary/ProcessedResultCount", totalProcessedResultCount);
+    Logger.recordOutput("Vision/Summary/DetectedTargetCount", totalDetectedTargetCount);
+    Logger.recordOutput("Vision/Summary/AcceptedPoseCount", totalAcceptedPoseCount);
+    Logger.recordOutput("Vision/Summary/RejectedPoseCount", totalRejectedPoseCount);
+    Logger.recordOutput("Vision/Summary/Rejected/NoTags", totalRejectedNoTags);
+    Logger.recordOutput("Vision/Summary/Rejected/Ambiguity", totalRejectedAmbiguity);
+    Logger.recordOutput("Vision/Summary/Rejected/Z", totalRejectedZ);
+    Logger.recordOutput("Vision/Summary/Rejected/OutOfField", totalRejectedOutOfField);
   }
 
   @FunctionalInterface
