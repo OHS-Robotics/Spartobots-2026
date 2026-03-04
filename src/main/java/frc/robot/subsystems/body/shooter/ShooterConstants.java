@@ -40,7 +40,7 @@ public final class ShooterConstants {
       1.0 / Units.rotationsPerMinuteToRadiansPerSecond(5676.0);
   public static final double hoodPositionKp = 1.2;
   public static final double hoodPositionKi = 0.0;
-  public static final double hoodPositionKd = 0.0;
+  public static final double hoodPositionKd = 0.6;
 
   // Runtime shooter wheel tuning
   public static final double defaultWheelSpeedScale = 1.0;

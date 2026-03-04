@@ -49,8 +49,7 @@ public class Intake extends SubsystemBase {
   private final NetworkTableEntry intakeSpeedEntry = tuningTable.getEntry("Drive/Speed");
   private final NetworkTableEntry intakePivotSpeedScaleEntry =
       tuningTable.getEntry("Pivot/SpeedScale");
-  private final NetworkTableEntry intakePivotInvertedEntry =
-      tuningTable.getEntry("Pivot/Inverted");
+  private final NetworkTableEntry intakePivotInvertedEntry = tuningTable.getEntry("Pivot/Inverted");
   private final NetworkTableEntry intakeDriveDirectionEntry =
       tuningTable.getEntry("Drive/Direction");
   private final NetworkTableEntry intakePivotRetractedPositionEntry =
@@ -261,8 +260,7 @@ public class Intake extends SubsystemBase {
   private void publishPivotEncoderToNetworkTables() {
     intakePivotEncoderPositionEntry.setDouble(getIntakePivotMeasuredPositionRotations());
     intakePivotEncoderVelocityEntry.setDouble(inputs.pivotVelocityRpm);
-    intakePivotEncoderNormalizedPositionEntry.setDouble(
-        getIntakePivotMeasuredPositionNormalized());
+    intakePivotEncoderNormalizedPositionEntry.setDouble(getIntakePivotMeasuredPositionNormalized());
   }
 
   private void publishActuatorStateToNetworkTables() {
@@ -328,8 +326,7 @@ public class Intake extends SubsystemBase {
     intakePivotCalibrationElapsedSeconds = 0.0;
     intakePivotCalibrationPhaseElapsedSeconds = 0.0;
     intakePivotCalibrationStallSeconds = 0.0;
-    intakePivotCalibrationRetractedHardStopRotations =
-        getIntakePivotMeasuredPositionRotations();
+    intakePivotCalibrationRetractedHardStopRotations = getIntakePivotMeasuredPositionRotations();
     intakePivotCalibrationExtendedHardStopRotations = getIntakePivotMeasuredPositionRotations();
   }
 
@@ -372,8 +369,7 @@ public class Intake extends SubsystemBase {
         return;
       }
 
-      intakePivotCalibrationExtendedHardStopRotations =
-          getIntakePivotMeasuredPositionRotations();
+      intakePivotCalibrationExtendedHardStopRotations = getIntakePivotMeasuredPositionRotations();
       double measuredTravelRotations =
           Math.abs(
               intakePivotCalibrationExtendedHardStopRotations
@@ -467,8 +463,7 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput("Intake/Measured/DriveCurrentAmps", inputs.driveCurrentAmps);
     Logger.recordOutput("Intake/Measured/PivotCurrentAmps", inputs.pivotCurrentAmps);
     Logger.recordOutput(
-        "Intake/Measured/PivotEncoderPositionRotations",
-        getIntakePivotMeasuredPositionRotations());
+        "Intake/Measured/PivotEncoderPositionRotations", getIntakePivotMeasuredPositionRotations());
     Logger.recordOutput("Intake/Measured/PivotEncoderVelocityRpm", inputs.pivotVelocityRpm);
     Logger.recordOutput(
         "Intake/Measured/PivotEncoderPositionNormalized",

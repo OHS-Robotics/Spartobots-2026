@@ -121,8 +121,7 @@ public class Vision extends SubsystemBase {
                 || observation.pose().getY() > aprilTagLayout.getFieldWidth();
 
         // Check whether to reject pose
-        boolean rejectPose =
-            noTags || highAmbiguity || badZ || outOfField;
+        boolean rejectPose = noTags || highAmbiguity || badZ || outOfField;
 
         // Add pose to log
         robotPoses.add(observation.pose());
