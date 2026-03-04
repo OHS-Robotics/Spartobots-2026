@@ -9,7 +9,6 @@ package frc.robot.subsystems.vision;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import frc.robot.subsystems.drive.Drive;
 import org.littletonrobotics.junction.AutoLog;
 
 public interface VisionIO {
@@ -18,6 +17,9 @@ public interface VisionIO {
     public boolean connected = false;
     public TargetObservation latestTargetObservation =
         new TargetObservation(Rotation2d.kZero, Rotation2d.kZero);
+    public int processedResultCount = 0;
+    public int detectedTargetCount = 0;
+    public double latestResultTimestampSeconds = Double.NaN;
     public PoseObservation[] poseObservations = new PoseObservation[0];
     public int[] tagIds = new int[0];
   }

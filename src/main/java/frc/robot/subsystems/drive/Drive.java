@@ -58,12 +58,12 @@ import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
   // PathPlanner PID values
-  private static final double defaultPathTranslationKp = 5.0;
+  private static final double defaultPathTranslationKp = 40.0;
   private static final double defaultPathTranslationKi = 0.0;
-  private static final double defaultPathTranslationKd = 0.0;
-  private static final double defaultPathRotationKp = 13.0;
+  private static final double defaultPathTranslationKd = 5.0;
+  private static final double defaultPathRotationKp = 40.0;
   private static final double defaultPathRotationKi = 0.0;
-  private static final double defaultPathRotationKd = 0.0;
+  private static final double defaultPathRotationKd = 5.0;
   private static final double minAimVectorMagnitudeMeters = 0.10;
 
   static final Lock odometryLock = new ReentrantLock();
