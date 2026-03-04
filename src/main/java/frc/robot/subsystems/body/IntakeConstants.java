@@ -21,8 +21,16 @@ public final class IntakeConstants {
   public static final int intakePivotCurrentLimitAmps = 80;
 
   // Two-point pivot calibration in motor rotations
+  // Intake extension pivots about a shaft, so both hard-stop rotations must be measured directly.
   public static final double defaultIntakePivotRetractedPositionRotations = 0.0;
   public static final double defaultIntakePivotExtendedPositionRotations = 1.0;
+  public static final double intakePivotCalibrationOutputTowardRetractedHardStop = -0.20;
+  public static final double intakePivotCalibrationOutputTowardExtendedHardStop = 0.20;
+  public static final double intakePivotCalibrationMinCurrentAmps = 8.0;
+  public static final double intakePivotCalibrationMaxVelocityRpm = 8.0;
+  public static final double intakePivotCalibrationStallConfirmSeconds = 0.20;
+  public static final double intakePivotCalibrationTimeoutSeconds = 3.5;
+  public static final double intakePivotCalibrationMinTravelRotations = 0.20;
 
   // Default open-loop speeds
   public static final double defaultIntakeSpeed = 0.5;

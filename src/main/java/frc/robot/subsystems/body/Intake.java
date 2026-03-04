@@ -11,6 +11,13 @@ import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Intake extends SubsystemBase {
+  private static final double loopPeriodSeconds = 0.02;
+
+  private enum IntakePivotCalibrationPhase {
+    SEEK_RETRACTED_HARD_STOP,
+    SEEK_EXTENDED_HARD_STOP
+  }
+
   private double targetIntakeSpeed = IntakeConstants.defaultIntakeSpeed;
   private Command currentIntakeRunCommand;
   public boolean intakeRunning = false;
@@ -20,6 +27,16 @@ public class Intake extends SubsystemBase {
       IntakeConstants.defaultIntakePivotRetractedPositionRotations;
   private double intakePivotExtendedPositionRotations =
       IntakeConstants.defaultIntakePivotExtendedPositionRotations;
+  private boolean intakePivotCalibrationActive = false;
+  private boolean intakePivotCalibrated = false;
+  private boolean intakePivotCalibrationSucceeded = false;
+  private IntakePivotCalibrationPhase intakePivotCalibrationPhase =
+      IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP;
+  private double intakePivotCalibrationElapsedSeconds = 0.0;
+  private double intakePivotCalibrationPhaseElapsedSeconds = 0.0;
+  private double intakePivotCalibrationStallSeconds = 0.0;
+  private double intakePivotCalibrationRetractedHardStopRotations = 0.0;
+  private double intakePivotCalibrationExtendedHardStopRotations = 0.0;
 
   private final IntakeIO io;
   private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
@@ -32,7 +49,8 @@ public class Intake extends SubsystemBase {
   private final NetworkTableEntry intakeSpeedEntry = tuningTable.getEntry("Drive/Speed");
   private final NetworkTableEntry intakePivotSpeedScaleEntry =
       tuningTable.getEntry("Pivot/SpeedScale");
-  private final NetworkTableEntry intakePivotInvertedEntry = tuningTable.getEntry("Pivot/Inverted");
+  private final NetworkTableEntry intakePivotInvertedEntry =
+      tuningTable.getEntry("Pivot/Inverted");
   private final NetworkTableEntry intakeDriveDirectionEntry =
       tuningTable.getEntry("Drive/Direction");
   private final NetworkTableEntry intakePivotRetractedPositionEntry =
@@ -69,6 +87,9 @@ public class Intake extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Intake", inputs);
     loadNetworkTableConfig();
+    if (intakePivotCalibrationActive) {
+      updateIntakePivotCalibration();
+    }
     publishPivotEncoderToNetworkTables();
     publishActuatorStateToNetworkTables();
     logTelemetry();
@@ -109,14 +130,47 @@ public class Intake extends SubsystemBase {
   }
 
   public void setIntakePivotSpeed(double speed) {
+    if (intakePivotCalibrationActive) {
+      return;
+    }
     lastAppliedIntakePivotSpeed =
         applyScaleAndInversion(speed, intakePivotSpeedScaleEntry, intakePivotInvertedEntry);
     io.setPivotOutput(lastAppliedIntakePivotSpeed);
   }
 
   public void stopIntakePivot() {
+    if (intakePivotCalibrationActive) {
+      return;
+    }
     lastAppliedIntakePivotSpeed = 0.0;
     io.setPivotOutput(0.0);
+  }
+
+  public Command manualIntakePivotWhileHeldCommand(double speed) {
+    return Commands.runEnd(() -> setIntakePivotSpeed(speed), this::stopIntakePivot, this);
+  }
+
+  public Command calibrateIntakePivotToHardStopsCommand() {
+    return runOnce(this::startIntakePivotCalibration)
+        .andThen(Commands.waitUntil(() -> !intakePivotCalibrationActive))
+        .finallyDo(
+            interrupted -> {
+              if (interrupted) {
+                cancelIntakePivotCalibration();
+              }
+            });
+  }
+
+  public boolean isIntakePivotCalibrationActive() {
+    return intakePivotCalibrationActive;
+  }
+
+  public boolean isIntakePivotCalibrated() {
+    return intakePivotCalibrated;
+  }
+
+  public boolean didLastIntakePivotCalibrationSucceed() {
+    return intakePivotCalibrationSucceeded;
   }
 
   public Command toggleIntakeCommand() {
@@ -207,7 +261,8 @@ public class Intake extends SubsystemBase {
   private void publishPivotEncoderToNetworkTables() {
     intakePivotEncoderPositionEntry.setDouble(getIntakePivotMeasuredPositionRotations());
     intakePivotEncoderVelocityEntry.setDouble(inputs.pivotVelocityRpm);
-    intakePivotEncoderNormalizedPositionEntry.setDouble(getIntakePivotMeasuredPositionNormalized());
+    intakePivotEncoderNormalizedPositionEntry.setDouble(
+        getIntakePivotMeasuredPositionNormalized());
   }
 
   private void publishActuatorStateToNetworkTables() {
@@ -237,6 +292,14 @@ public class Intake extends SubsystemBase {
             intakePivotExtendedPositionRotations));
   }
 
+  public double getIntakePivotRetractedPositionRotations() {
+    return intakePivotRetractedPositionRotations;
+  }
+
+  public double getIntakePivotExtendedPositionRotations() {
+    return intakePivotExtendedPositionRotations;
+  }
+
   public void resetSimulationState() {
     io.resetSimulationState();
   }
@@ -255,6 +318,102 @@ public class Intake extends SubsystemBase {
 
   private static double normalizeDirection(double direction) {
     return direction < 0.0 ? -1.0 : 1.0;
+  }
+
+  private void startIntakePivotCalibration() {
+    intakePivotCalibrationActive = true;
+    intakePivotCalibrated = false;
+    intakePivotCalibrationSucceeded = false;
+    intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP;
+    intakePivotCalibrationElapsedSeconds = 0.0;
+    intakePivotCalibrationPhaseElapsedSeconds = 0.0;
+    intakePivotCalibrationStallSeconds = 0.0;
+    intakePivotCalibrationRetractedHardStopRotations =
+        getIntakePivotMeasuredPositionRotations();
+    intakePivotCalibrationExtendedHardStopRotations = getIntakePivotMeasuredPositionRotations();
+  }
+
+  private void cancelIntakePivotCalibration() {
+    intakePivotCalibrationActive = false;
+    intakePivotCalibrationElapsedSeconds = 0.0;
+    intakePivotCalibrationPhaseElapsedSeconds = 0.0;
+    intakePivotCalibrationStallSeconds = 0.0;
+    setRawPivotOutput(0.0);
+  }
+
+  private void updateIntakePivotCalibration() {
+    intakePivotCalibrationElapsedSeconds += loopPeriodSeconds;
+    intakePivotCalibrationPhaseElapsedSeconds += loopPeriodSeconds;
+
+    if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP) {
+      setRawPivotOutput(IntakeConstants.intakePivotCalibrationOutputTowardRetractedHardStop);
+    } else {
+      setRawPivotOutput(IntakeConstants.intakePivotCalibrationOutputTowardExtendedHardStop);
+    }
+
+    boolean velocityNearZero =
+        Math.abs(inputs.pivotVelocityRpm) <= IntakeConstants.intakePivotCalibrationMaxVelocityRpm;
+    boolean currentHigh =
+        Math.abs(inputs.pivotCurrentAmps) >= IntakeConstants.intakePivotCalibrationMinCurrentAmps;
+    if (velocityNearZero && currentHigh) {
+      intakePivotCalibrationStallSeconds += loopPeriodSeconds;
+    } else {
+      intakePivotCalibrationStallSeconds = 0.0;
+    }
+
+    if (intakePivotCalibrationStallSeconds
+        >= IntakeConstants.intakePivotCalibrationStallConfirmSeconds) {
+      if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP) {
+        intakePivotCalibrationRetractedHardStopRotations =
+            getIntakePivotMeasuredPositionRotations();
+        intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_EXTENDED_HARD_STOP;
+        intakePivotCalibrationPhaseElapsedSeconds = 0.0;
+        intakePivotCalibrationStallSeconds = 0.0;
+        return;
+      }
+
+      intakePivotCalibrationExtendedHardStopRotations =
+          getIntakePivotMeasuredPositionRotations();
+      double measuredTravelRotations =
+          Math.abs(
+              intakePivotCalibrationExtendedHardStopRotations
+                  - intakePivotCalibrationRetractedHardStopRotations);
+      finishIntakePivotCalibration(
+          measuredTravelRotations >= IntakeConstants.intakePivotCalibrationMinTravelRotations);
+      return;
+    }
+
+    if (intakePivotCalibrationPhaseElapsedSeconds
+        >= IntakeConstants.intakePivotCalibrationTimeoutSeconds) {
+      finishIntakePivotCalibration(false);
+    }
+  }
+
+  private void finishIntakePivotCalibration(boolean success) {
+    intakePivotCalibrationActive = false;
+    intakePivotCalibrationSucceeded = success;
+    setRawPivotOutput(0.0);
+    if (!success) {
+      return;
+    }
+
+    intakePivotCalibrated = true;
+    setPivotCalibrationFromHardStops(
+        intakePivotCalibrationRetractedHardStopRotations,
+        intakePivotCalibrationExtendedHardStopRotations);
+  }
+
+  private void setPivotCalibrationFromHardStops(
+      double retractedRotations, double extendedRotations) {
+    intakePivotRetractedPositionRotations = retractedRotations;
+    intakePivotExtendedPositionRotations = extendedRotations;
+    intakePivotRetractedPositionEntry.setDouble(intakePivotRetractedPositionRotations);
+    intakePivotExtendedPositionEntry.setDouble(intakePivotExtendedPositionRotations);
+  }
+
+  private void setRawPivotOutput(double speed) {
+    lastAppliedIntakePivotSpeed = clampSpeed(speed);
+    io.setPivotOutput(lastAppliedIntakePivotSpeed);
   }
 
   private void stopCommand(Command command) {
@@ -286,10 +445,30 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput("Intake/State/LastAppliedPivotOutput", lastAppliedIntakePivotSpeed);
     Logger.recordOutput("Intake/State/ActualDriveOutput", inputs.driveAppliedOutput);
     Logger.recordOutput("Intake/State/ActualPivotOutput", inputs.pivotAppliedOutput);
+    Logger.recordOutput("Intake/Calibration/Pivot/Active", intakePivotCalibrationActive);
+    Logger.recordOutput("Intake/Calibration/Pivot/Calibrated", intakePivotCalibrated);
+    Logger.recordOutput(
+        "Intake/Calibration/Pivot/LastRunSucceeded", intakePivotCalibrationSucceeded);
+    Logger.recordOutput(
+        "Intake/Calibration/Pivot/ElapsedSeconds", intakePivotCalibrationElapsedSeconds);
+    Logger.recordOutput(
+        "Intake/Calibration/Pivot/StallSeconds", intakePivotCalibrationStallSeconds);
+    Logger.recordOutput(
+        "Intake/Calibration/Pivot/Phase",
+        intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP
+            ? "SEEK_RETRACTED_HARD_STOP"
+            : "SEEK_EXTENDED_HARD_STOP");
+    Logger.recordOutput(
+        "Intake/Calibration/Pivot/MeasuredRetractedHardStopRotations",
+        intakePivotCalibrationRetractedHardStopRotations);
+    Logger.recordOutput(
+        "Intake/Calibration/Pivot/MeasuredExtendedHardStopRotations",
+        intakePivotCalibrationExtendedHardStopRotations);
     Logger.recordOutput("Intake/Measured/DriveCurrentAmps", inputs.driveCurrentAmps);
     Logger.recordOutput("Intake/Measured/PivotCurrentAmps", inputs.pivotCurrentAmps);
     Logger.recordOutput(
-        "Intake/Measured/PivotEncoderPositionRotations", getIntakePivotMeasuredPositionRotations());
+        "Intake/Measured/PivotEncoderPositionRotations",
+        getIntakePivotMeasuredPositionRotations());
     Logger.recordOutput("Intake/Measured/PivotEncoderVelocityRpm", inputs.pivotVelocityRpm);
     Logger.recordOutput(
         "Intake/Measured/PivotEncoderPositionNormalized",

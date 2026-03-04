@@ -122,7 +122,7 @@ public class RobotContainer {
   // Temporary bring-up bindings for mechanism calibration.
   // Set false after intake/hopper calibration is complete.
   public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = false;
-  private static final double INTAKE_PIVOT_BRINGUP_SPEED = 0.25;
+  private static final double INTAKE_PIVOT_MANUAL_SPEED = 0.25;
   private static final double HOPPER_EXTENSION_BRINGUP_SPEED = 0.25;
   private static final double TOP_INDEXER_MANUAL_FEED_SPEED = 0.45;
   private static final double BOTTOM_INDEXER_BREAKAWAY_SPEED = 1.0; // CCW
@@ -343,6 +343,8 @@ public class RobotContainer {
         "alignHub",
         drive.alignToHub(() -> 0.0, () -> 0.0, this::updateHubShotSolutionAndGetAirtimeSeconds));
     NamedCommands.registerCommand("homeHood", shooter.homeHoodToHardStopCommand());
+    NamedCommands.registerCommand(
+        "calibrateIntakePivot", intake.calibrateIntakePivotToHardStopsCommand());
 
     // Configure the button bindings
     configureButtonBindings();
@@ -350,6 +352,8 @@ public class RobotContainer {
         "AutoAssist/ParkAtLadderL1",
         scheduleAutoAssist(this::parkAtLadderL1Command).ignoringDisable(true));
     SmartDashboard.putData("Shooter/HomeHoodToHardStop", shooter.homeHoodToHardStopCommand());
+    SmartDashboard.putData(
+        "Intake/CalibratePivotToHardStops", intake.calibrateIntakePivotToHardStopsCommand());
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       SmartDashboard.putData(
@@ -430,15 +434,15 @@ public class RobotContainer {
         .whileTrue(
             Commands.run(() -> shooter.adjustHoodSetpointDegrees(-MANUAL_HOOD_STEP_DEGREES)));
 
-    if (ENABLE_MECHANISM_BRINGUP_BINDINGS) {
-      // D-pad left/right = manual intake pivot jog.
-      operatorController
-          .povLeft()
-          .whileTrue(runIntakePivotWhileHeldCommand(-INTAKE_PIVOT_BRINGUP_SPEED));
-      operatorController
-          .povRight()
-          .whileTrue(runIntakePivotWhileHeldCommand(INTAKE_PIVOT_BRINGUP_SPEED));
+    // D-pad left/right = manual intake extension pivot jog.
+    operatorController
+        .povLeft()
+        .whileTrue(intake.manualIntakePivotWhileHeldCommand(-INTAKE_PIVOT_MANUAL_SPEED));
+    operatorController
+        .povRight()
+        .whileTrue(intake.manualIntakePivotWhileHeldCommand(INTAKE_PIVOT_MANUAL_SPEED));
 
+    if (ENABLE_MECHANISM_BRINGUP_BINDINGS) {
       // Back/start = manual L1 climber jog (legacy Hopper extension control path).
       // These override paddle remap bindings while bring-up mode is enabled.
       operatorController
@@ -451,6 +455,7 @@ public class RobotContainer {
       operatorController
           .back()
           .onTrue(Commands.runOnce(this::stopGamePieceFlow, intake, hopper, indexers));
+      operatorController.start().onTrue(intake.calibrateIntakePivotToHardStopsCommand());
     }
   }
 
@@ -590,11 +595,6 @@ public class RobotContainer {
     return Commands.runEnd(
         () -> setShooterDemandFromTriggerThrottle(driverController.getRightTriggerAxis()),
         () -> setShooterDemandFromTriggerThrottle(0.0));
-  }
-
-  private Command runIntakePivotWhileHeldCommand(double speed) {
-    return Commands.runEnd(
-        () -> intake.setIntakePivotSpeed(speed), intake::stopIntakePivot, intake);
   }
 
   private Command runHopperExtensionWhileHeldCommand(double speed) {

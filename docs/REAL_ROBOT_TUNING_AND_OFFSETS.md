@@ -48,7 +48,8 @@ With `ENABLE_MECHANISM_BRINGUP_BINDINGS = true`, bindings are split across two X
   - `B` (press) = stop game-piece motors (`IDLE`)
   - POV up/down (hold) = hood manual jog
   - POV left/right (hold) = intake pivot jog
-  - Back/start (hold) = L1 climber jog (legacy `Hopper/Extension` controls)
+  - `Start` (press, non-bring-up mode) = run intake pivot hard-stop calibration command
+  - Back/start (hold, bring-up mode) = L1 climber jog (legacy `Hopper/Extension` controls)
 
 Note: while bring-up mode is enabled, driver paddle remap triggers are intentionally disabled to
 avoid conflicts with operator Back/Start usage.
@@ -109,8 +110,8 @@ Telemetry keys:
 
 Procedure:
 1. Enable robot.
-2. Hold POV left to retract to hard stop, record rotations, write retracted key.
-3. Hold POV right to extend to hard stop, record rotations, write extended key.
+2. Run `Intake/CalibratePivotToHardStops` from SmartDashboard (or press operator `Start` in non-bring-up mode).
+3. If calibration fails, use POV left/right to confirm motor direction and clear obstructions, then rerun.
 4. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
 
 ### 4.3 L1 climber calibration (legacy Hopper Extension keys)
