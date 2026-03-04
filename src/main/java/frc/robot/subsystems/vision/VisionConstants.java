@@ -14,6 +14,7 @@ import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import frc.robot.Constants;
+import frc.robot.subsystems.drive.DriveConstants;
 
 public class VisionConstants {
   public static record CameraSimConfig(
@@ -32,18 +33,18 @@ public class VisionConstants {
   public static final AprilTagFieldLayout aprilTagLayout = Constants.FIELD_LAYOUT;
 
   // Camera names, must match names configured on coprocessor
-  public static String camera0Name = "Arducam_OV9281_USB_Camera";
-  public static String camera1Name = "Arducam_OV9281_USB_Camera (1)";
+  public static String camera0Name = "Arducam_Left_Front";
+  public static String camera1Name = "Arducam_Right_Front";
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
   public static Transform3d robotToCamera0 =
       new Transform3d(
           new Translation3d(
-              Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
-          new Rotation3d(0, 0, Units.degreesToRadians(-90)));
+              DriveConstants.wheelBase, DriveConstants.trackWidth, Units.inchesToMeters(7)),
+          new Rotation3d(0, Units.degreesToRadians(-40), Units.degreesToRadians(45)));
   public static Transform3d robotToCamera1 =
-      new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI));
+      new Transform3d(DriveConstants.wheelBase, -DriveConstants.trackWidth, Units.inchesToMeters(7), new Rotation3d(0.0, Units.degreesToRadians(-40), Units.degreesToRadians(-45)));
 
   public static int camera0Pipeline = 0;
   public static int camera1Pipeline = 1;
