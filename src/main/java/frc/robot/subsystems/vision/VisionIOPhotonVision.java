@@ -16,27 +16,18 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import frc.robot.subsystems.drive.Drive;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.targeting.PhotonPipelineResult;
-import org.photonvision.targeting.PhotonTrackedTarget;
 
 /** IO implementation for real PhotonVision hardware. */
 public class VisionIOPhotonVision implements VisionIO {
-  private static final double TIMESTAMP_EPSILON_SECONDS = 1e-6;
-
   private final PhotonPoseEstimator poseEstimator;
   protected final PhotonCamera camera;
   protected final Transform3d robotToCamera;
-  private double lastProcessedTimestampSeconds = Double.NEGATIVE_INFINITY;
   public Matrix<N3, N1> stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
 
   /**
@@ -45,36 +36,21 @@ public class VisionIOPhotonVision implements VisionIO {
    * @param name The configured name of the camera.
    * @param robotToCamera The 3D position of the camera relative to the robot.
    */
-  public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
+  public VisionIOPhotonVision(String name, Transform3d robotToCamera, int pipelineIndex) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
     poseEstimator = new PhotonPoseEstimator(aprilTagLayout, robotToCamera);
+    camera.setPipelineIndex(pipelineIndex);
   }
 
   @Override
   public void updateInputs(VisionIOInputs inputs) {
     inputs.connected = camera.isConnected();
-    inputs.processedResultCount = 0;
-    inputs.detectedTargetCount = 0;
-    inputs.latestResultTimestampSeconds = Double.NaN;
 
     // Read new camera observations
     Set<Short> tagIds = new HashSet<>();
     List<PoseObservation> poseObservations = new LinkedList<>();
-    List<PhotonPipelineResult> results = getNewResults();
-    inputs.processedResultCount = results.size();
-
-    for (var result : results) {
-      lastProcessedTimestampSeconds =
-          Math.max(lastProcessedTimestampSeconds, result.getTimestampSeconds());
-      inputs.latestResultTimestampSeconds = result.getTimestampSeconds();
-      inputs.detectedTargetCount += result.getTargets().size();
-      for (var target : result.getTargets()) {
-        if (target.getFiducialId() >= 0) {
-          tagIds.add((short) target.getFiducialId());
-        }
-      }
-
+    for (var result : camera.getAllUnreadResults()) {
       // Update latest target observation
       if (result.hasTargets()) {
         inputs.latestTargetObservation =
@@ -96,11 +72,9 @@ public class VisionIOPhotonVision implements VisionIO {
 
         // Calculate average tag distance
         double totalTagDistance = 0.0;
-        for (var target : result.getTargets()) {
+        for (var target : result.targets) {
           totalTagDistance += target.bestCameraToTarget.getTranslation().getNorm();
         }
-        double averageTagDistance =
-            result.getTargets().isEmpty() ? 0.0 : totalTagDistance / result.getTargets().size();
 
         // Add tag IDs
         tagIds.addAll(multitagResult.fiducialIDsUsed);
@@ -112,14 +86,14 @@ public class VisionIOPhotonVision implements VisionIO {
                 robotPose, // 3D pose estimate
                 multitagResult.estimatedPose.ambiguity, // Ambiguity
                 multitagResult.fiducialIDsUsed.size(), // Tag count
-                averageTagDistance, // Average tag distance
+                totalTagDistance / result.targets.size(), // Average tag distance
                 PoseObservationType.PHOTONVISION)); // Observation type
 
-      } else if (!result.getTargets().isEmpty()) { // Single tag result
-        var target = result.getBestTarget();
+      } else if (!result.targets.isEmpty()) { // Single tag result
+        var target = result.targets.get(0);
 
         // Calculate robot pose
-        var tagPose = aprilTagLayout.getTagPose(target.getFiducialId());
+        var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
         if (tagPose.isPresent()) {
           Transform3d fieldToTarget =
               new Transform3d(tagPose.get().getTranslation(), tagPose.get().getRotation());
@@ -127,6 +101,9 @@ public class VisionIOPhotonVision implements VisionIO {
           Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
           Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
           Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
+
+          // Add tag ID
+          tagIds.add((short) target.fiducialId);
 
           // Add observation
           poseObservations.add(
@@ -153,96 +130,5 @@ public class VisionIOPhotonVision implements VisionIO {
     for (int id : tagIds) {
       inputs.tagIds[i++] = id;
     }
-  }
-
-  @Override
-  public void updatePoseEstimate(Drive drive) {
-    List<PhotonPipelineResult> results = getNewResults();
-    Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
-
-    for (var result : results) {
-      lastProcessedTimestampSeconds =
-          Math.max(lastProcessedTimestampSeconds, result.getTimestampSeconds());
-      visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-      if (visionEstimatedPose.isEmpty()) {
-        visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
-      }
-
-      updateStdDevs(visionEstimatedPose, result.getTargets());
-
-      visionEstimatedPose.ifPresent(
-          est -> {
-            drive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds, stdDevs);
-          });
-    }
-  }
-
-  public void updateStdDevs(
-      Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {
-    /*
-     * Get the standard deviations for pipeline results.
-     * I'm still not 100% sure what this is *supposed* to be measuring,
-     * but the PhotonVision documentation shows it measuring the average
-     * distance between each target(apriltag) and the current estimated pose.
-     * At some point I think it might be interesting to test what
-     * happens if you measure the average distance between each
-     * result and the center point of all of the results.
-     * This might not even work, but it could be interesting.
-     * Essentially copied from the PhotonLib example
-     */
-
-    double averageDistance = 0.0;
-    int measuredTags = 0;
-
-    if (currentPose.isEmpty()) {
-      stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
-      return;
-    }
-
-    for (var target : targets) {
-      Optional<Pose3d> pose = poseEstimator.getFieldTags().getTagPose(target.getFiducialId());
-      if (pose.isEmpty()) {
-        continue;
-      }
-      measuredTags++;
-      averageDistance +=
-          pose.get()
-              .toPose2d()
-              .getTranslation()
-              .getDistance(currentPose.get().estimatedPose.toPose2d().getTranslation());
-    }
-
-    if (measuredTags == 0) {
-      stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
-    } else {
-      averageDistance /= measuredTags;
-
-      if (measuredTags > 1) {
-        stdDevs = VecBuilder.fill(0.5, 0.5, 1.0);
-      } else {
-        stdDevs = VecBuilder.fill(1.0, 1.0, 2.0);
-      }
-
-      if (measuredTags == 1 && averageDistance > 4.0) {
-        stdDevs = VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
-      } else {
-        stdDevs = stdDevs.times(1.0 + ((averageDistance * averageDistance) / 30.0));
-      }
-    }
-  }
-
-  private List<PhotonPipelineResult> getNewResults() {
-    List<PhotonPipelineResult> unreadResults = camera.getAllUnreadResults();
-    if (!unreadResults.isEmpty()) {
-      return unreadResults;
-    }
-
-    PhotonPipelineResult latestResult = camera.getLatestResult();
-    if (latestResult.getTimestampSeconds()
-        > lastProcessedTimestampSeconds + TIMESTAMP_EPSILON_SECONDS) {
-      return List.of(latestResult);
-    }
-
-    return Collections.emptyList();
   }
 }
