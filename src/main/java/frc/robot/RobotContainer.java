@@ -220,9 +220,13 @@ public class RobotContainer {
             new Vision(
                 driveLocal::addVisionMeasurement,
                 new VisionIOPhotonVision(
-                    VisionConstants.camera0Name, VisionConstants.robotToCamera0, VisionConstants.camera0Pipeline),
+                    VisionConstants.camera0Name,
+                    VisionConstants.robotToCamera0,
+                    VisionConstants.camera0Pipeline),
                 new VisionIOPhotonVision(
-                    VisionConstants.camera1Name, VisionConstants.robotToCamera1, VisionConstants.camera1Pipeline));
+                    VisionConstants.camera1Name,
+                    VisionConstants.robotToCamera1,
+                    VisionConstants.camera1Pipeline));
         break;
 
       case SIM:
@@ -276,9 +280,13 @@ public class RobotContainer {
             new Vision(
                 driveLocal::addVisionMeasurement,
                 new VisionIOPhotonVision(
-                    VisionConstants.camera0Name, VisionConstants.robotToCamera0, VisionConstants.camera0Pipeline),
+                    VisionConstants.camera0Name,
+                    VisionConstants.robotToCamera0,
+                    VisionConstants.camera0Pipeline),
                 new VisionIOPhotonVision(
-                    VisionConstants.camera1Name, VisionConstants.robotToCamera1, VisionConstants.camera1Pipeline));
+                    VisionConstants.camera1Name,
+                    VisionConstants.robotToCamera1,
+                    VisionConstants.camera1Pipeline));
         break;
     }
 

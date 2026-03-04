@@ -120,8 +120,8 @@ public class DriveConstants {
   public static final double turnPIDMaxInput = 2 * Math.PI; // Radians
 
   // PathPlanner configuration
-  public static final double robotMassKg = 74.088;
-  public static final double robotMOI = 6.883;
+  public static final double robotMassKg = 49.89;
+  public static final double robotMOI = 4.9;
   public static final double wheelCOF = 1.2;
   public static final RobotConfig ppConfig =
       new RobotConfig(
@@ -137,25 +137,26 @@ public class DriveConstants {
           moduleTranslations);
   public static final PathConstraints pathConstraints =
       new PathConstraints(
-          maxSpeedMetersPerSec,
-          maxAccelerationMeterPerSecSquared,
-          maxRotationalSpeedRadiansPerSec,
-          maxRotationalAccelerationRadiansPerSecSquared);
+          maxSpeedMetersPerSec / 3,
+          maxAccelerationMeterPerSecSquared / 3,
+          maxRotationalSpeedRadiansPerSec / 3,
+          maxRotationalAccelerationRadiansPerSecSquared / 3);
   public static final double trenchApproachGoalEndVelocityMetersPerSec = 0.0;
   public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
 
   // MapleSim configuration
-  public static final double bumperLengthXMeters = Units.inchesToMeters(30.0);
-  public static final double bumperWidthYMeters = Units.inchesToMeters(30.0);
+  public static final double bumperLengthXMeters = 0.75;
+  public static final double bumperWidthYMeters = 0.75;
   public static final double mapleDriveFrictionVolts = 0.1;
-  public static final double mapleTurnFrictionVolts = 0.2;
-  public static final double mapleSteerInertiaKgMetersSq = 0.02;
+  public static final double mapleTurnFrictionVolts = 0.1;
+  public static final double mapleSteerInertiaKgMetersSq = 0.004;
 
   public static final DriveTrainSimulationConfig mapleSimConfig =
       DriveTrainSimulationConfig.Default()
           .withRobotMass(Kilograms.of(robotMassKg))
           .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
           .withCustomModuleTranslations(moduleTranslations)
+          .withTrackLengthTrackWidth(Meters.of(wheelBase), Meters.of(trackWidth))
           .withGyro(COTS.ofNav2X())
           .withSwerveModule(
               new SwerveModuleSimulationConfig(
@@ -170,17 +171,5 @@ public class DriveConstants {
                   wheelCOF));
 
   // alignment config
-  public static final double aligned = Units.degreesToRadians(5);
-
-  public static final double alignKp = 0;
-  public static final double alignKi = 0;
-  public static final double alignKd = 0;
-
-  public static final double driveToPoseControllerKp = 5.0;
-  public static final double driveToPoseControllerKi = 1.0;
-  public static final double driveToPoseControllerKd = 1.0;
-
-  public static final double alignmentAcceptableDistance = 1; // meters
-
   public static final double trenchSnapTo = Units.degreesToRadians(180);
 }
