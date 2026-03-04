@@ -17,6 +17,7 @@ import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import frc.robot.subsystems.drive.Drive;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,9 +31,12 @@ import org.photonvision.targeting.PhotonTrackedTarget;
 
 /** IO implementation for real PhotonVision hardware. */
 public class VisionIOPhotonVision implements VisionIO {
+  private static final double TIMESTAMP_EPSILON_SECONDS = 1e-6;
+
   private final PhotonPoseEstimator poseEstimator;
   protected final PhotonCamera camera;
   protected final Transform3d robotToCamera;
+  private double lastProcessedTimestampSeconds = Double.NEGATIVE_INFINITY;
   public Matrix<N3, N1> stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
 
   /**
@@ -50,11 +54,27 @@ public class VisionIOPhotonVision implements VisionIO {
   @Override
   public void updateInputs(VisionIOInputs inputs) {
     inputs.connected = camera.isConnected();
+    inputs.processedResultCount = 0;
+    inputs.detectedTargetCount = 0;
+    inputs.latestResultTimestampSeconds = Double.NaN;
 
     // Read new camera observations
     Set<Short> tagIds = new HashSet<>();
     List<PoseObservation> poseObservations = new LinkedList<>();
-    for (var result : camera.getAllUnreadResults()) {
+    List<PhotonPipelineResult> results = getNewResults();
+    inputs.processedResultCount = results.size();
+
+    for (var result : results) {
+      lastProcessedTimestampSeconds =
+          Math.max(lastProcessedTimestampSeconds, result.getTimestampSeconds());
+      inputs.latestResultTimestampSeconds = result.getTimestampSeconds();
+      inputs.detectedTargetCount += result.getTargets().size();
+      for (var target : result.getTargets()) {
+        if (target.getFiducialId() >= 0) {
+          tagIds.add((short) target.getFiducialId());
+        }
+      }
+
       // Update latest target observation
       if (result.hasTargets()) {
         inputs.latestTargetObservation =
@@ -76,9 +96,11 @@ public class VisionIOPhotonVision implements VisionIO {
 
         // Calculate average tag distance
         double totalTagDistance = 0.0;
-        for (var target : result.targets) {
+        for (var target : result.getTargets()) {
           totalTagDistance += target.bestCameraToTarget.getTranslation().getNorm();
         }
+        double averageTagDistance =
+            result.getTargets().isEmpty() ? 0.0 : totalTagDistance / result.getTargets().size();
 
         // Add tag IDs
         tagIds.addAll(multitagResult.fiducialIDsUsed);
@@ -90,14 +112,14 @@ public class VisionIOPhotonVision implements VisionIO {
                 robotPose, // 3D pose estimate
                 multitagResult.estimatedPose.ambiguity, // Ambiguity
                 multitagResult.fiducialIDsUsed.size(), // Tag count
-                totalTagDistance / result.targets.size(), // Average tag distance
+                averageTagDistance, // Average tag distance
                 PoseObservationType.PHOTONVISION)); // Observation type
 
-      } else if (!result.targets.isEmpty()) { // Single tag result
-        var target = result.targets.get(0);
+      } else if (!result.getTargets().isEmpty()) { // Single tag result
+        var target = result.getBestTarget();
 
         // Calculate robot pose
-        var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
+        var tagPose = aprilTagLayout.getTagPose(target.getFiducialId());
         if (tagPose.isPresent()) {
           Transform3d fieldToTarget =
               new Transform3d(tagPose.get().getTranslation(), tagPose.get().getRotation());
@@ -105,9 +127,6 @@ public class VisionIOPhotonVision implements VisionIO {
           Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
           Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
           Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
-
-          // Add tag ID
-          tagIds.add((short) target.fiducialId);
 
           // Add observation
           poseObservations.add(
@@ -138,10 +157,12 @@ public class VisionIOPhotonVision implements VisionIO {
 
   @Override
   public void updatePoseEstimate(Drive drive) {
-    List<PhotonPipelineResult> results = camera.getAllUnreadResults();
+    List<PhotonPipelineResult> results = getNewResults();
     Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
 
     for (var result : results) {
+      lastProcessedTimestampSeconds =
+          Math.max(lastProcessedTimestampSeconds, result.getTimestampSeconds());
       visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
       if (visionEstimatedPose.isEmpty()) {
         visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
@@ -208,5 +229,20 @@ public class VisionIOPhotonVision implements VisionIO {
         stdDevs = stdDevs.times(1.0 + ((averageDistance * averageDistance) / 30.0));
       }
     }
+  }
+
+  private List<PhotonPipelineResult> getNewResults() {
+    List<PhotonPipelineResult> unreadResults = camera.getAllUnreadResults();
+    if (!unreadResults.isEmpty()) {
+      return unreadResults;
+    }
+
+    PhotonPipelineResult latestResult = camera.getLatestResult();
+    if (latestResult.getTimestampSeconds()
+        > lastProcessedTimestampSeconds + TIMESTAMP_EPSILON_SECONDS) {
+      return List.of(latestResult);
+    }
+
+    return Collections.emptyList();
   }
 }

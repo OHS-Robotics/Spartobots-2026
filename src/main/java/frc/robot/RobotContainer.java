@@ -66,6 +66,7 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -119,6 +120,7 @@ public class RobotContainer {
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
   private static final double SHOOTER_TRIGGER_DEADBAND = 0.02;
+  private static final double MANUAL_FEED_TRIGGER_DEADBAND = 0.02;
   // Temporary bring-up bindings for mechanism calibration.
   // Set false after intake/hopper calibration is complete.
   public static final boolean ENABLE_MECHANISM_BRINGUP_BINDINGS = false;
@@ -385,7 +387,9 @@ public class RobotContainer {
     new Trigger(() -> driverController.getRightTriggerAxis() > SHOOTER_TRIGGER_DEADBAND)
         .whileTrue(runShooterDemandWhileHeldCommand());
     // Left trigger = run manual feed + manual indexers while held.
-    driverController.leftTrigger().whileTrue(runManualFeedAndIndexersWhileHeldCommand());
+    new Trigger(() -> driverController.getLeftTriggerAxis() > MANUAL_FEED_TRIGGER_DEADBAND)
+        .whileTrue(
+            runManualFeedAndIndexersWhileHeldCommand(() -> driverController.getLeftTriggerAxis()));
 
     // Left bumper = cancel any auto-assist command.
     driverController.leftBumper().onTrue(Commands.runOnce(this::cancelAutoAssist));
@@ -610,19 +614,19 @@ public class RobotContainer {
         this::applyBasicReverse, this::stopGamePieceFlow, intake, hopper, indexers);
   }
 
-  private Command runManualFeedAndIndexersWhileHeldCommand() {
-    return Commands.startEnd(
-            () -> applyBasicFeed(false),
+  private Command runManualFeedAndIndexersWhileHeldCommand(DoubleSupplier throttleSupplier) {
+    return Commands.runEnd(
+            () -> applyManualFeed(throttleSupplier.getAsDouble()),
             () -> {
               intake.stopIntake();
               hopper.stopAgitator();
             },
             intake,
             hopper)
-        .alongWith(runIndexersWhileHeldCommand());
+        .alongWith(runIndexersWhileHeldCommand(throttleSupplier));
   }
 
-  private Command runIndexersWhileHeldCommand() {
+  private Command runIndexersWhileHeldCommand(DoubleSupplier throttleSupplier) {
     return Commands.runEnd(
             () -> {
               boolean allowIndexer =
@@ -636,9 +640,13 @@ public class RobotContainer {
 
               boolean inBottomBreakaway =
                   Timer.getFPGATimestamp() < bottomIndexerBreakawayUntilTimestampSeconds;
+              double throttleScale = getManualFeedThrottleScale(throttleSupplier.getAsDouble());
               double bottomOutput =
-                  inBottomBreakaway ? BOTTOM_INDEXER_BREAKAWAY_SPEED : BOTTOM_INDEXER_HOLD_SPEED;
-              double topOutput = inBottomBreakaway ? 0.0 : TOP_INDEXER_MANUAL_FEED_SPEED;
+                  (inBottomBreakaway ? BOTTOM_INDEXER_BREAKAWAY_SPEED : BOTTOM_INDEXER_HOLD_SPEED)
+                      * throttleScale;
+              double topOutput =
+                  (inBottomBreakaway ? 0.0 : TOP_INDEXER_MANUAL_FEED_SPEED) * throttleScale;
+              Logger.recordOutput("GamePieceControl/Mode", "MANUAL_FEED");
               indexers.setManualOutputs(topOutput, bottomOutput);
             },
             indexers::stopIndexers,
@@ -647,6 +655,19 @@ public class RobotContainer {
             () ->
                 bottomIndexerBreakawayUntilTimestampSeconds =
                     Timer.getFPGATimestamp() + BOTTOM_INDEXER_BREAKAWAY_SECONDS);
+  }
+
+  private void applyManualFeed(double throttle) {
+    intake.stopIntake();
+    double throttleScale = getManualFeedThrottleScale(throttle);
+    hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED * throttleScale);
+    hopper.updateAgitator();
+    Logger.recordOutput("GamePieceControl/ManualFeedThrottleScale", throttleScale);
+  }
+
+  private double getManualFeedThrottleScale(double throttle) {
+    double clampedThrottle = MathUtil.clamp(throttle, 0.0, 1.0);
+    return MathUtil.applyDeadband(clampedThrottle, MANUAL_FEED_TRIGGER_DEADBAND);
   }
 
   private void applyBasicCollect(boolean runIndexers) {
