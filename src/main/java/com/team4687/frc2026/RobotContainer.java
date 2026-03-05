@@ -74,15 +74,14 @@ public class RobotContainer {
     System.out.println("Zeroing robot");
     if (!robotZeroed) {
       launcher.launcherEncoder.setPosition(0.0);
-      if (DriverStation.getAlliance().get() == Alliance.Blue) {
-        System.out.println("*\n*\n*\nBlue position set\n*\n*\n*");
-        swerveDrive.swerveDrive.zeroGyro();
-      }
-      else {
-        System.out.println("*\n*\n*\nRed position set\n*\n*\n*");
-        //swerveDrive.swerveDrive.zeroGyro();
+      intake.intakeRotateEncoder.setPosition(0.0);
+      if (Robot.isSimulation()) swerveDrive.swerveDrive.resetOdometry(new Pose2d(5.0, 5.0, new Rotation2d()));
+
+      // todo: test
+      //swerveDrive.swerveDrive.zeroGyro();
+      if (DriverStation.getAlliance().get() == Alliance.Red) {
+        // swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
         // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
-        swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
       }
       robotZeroed = true;
     }
@@ -97,9 +96,12 @@ public class RobotContainer {
 
     // alignment controls
     if (!delayedEventsRun) {
-      //if (DriverStation.getAlliance().get() == Alliance.Red) driveFieldAngularVelocityStream.scaleTranslation(-1);
-
-      System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
+      /*if (DriverStation.getAlliance().get() == Alliance.Red) {
+        driveFieldAngularVelocityStream.scaleTranslation(-1);
+      }*/
+     driveFieldAngularVelocityStream.scaleTranslation(-1);
+      
+      // System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
       driverJoystick.rightStick().whileTrue(
         DriverStation.getAlliance().get() == Alliance.Blue ?
         swerveDrive.pointTowardsAndDrive(Constants.blueHub, Constants.MIN_AUTO_ROTATIONAL_SPEED, driveRobotAngularVelocityStream, driveFieldAngularVelocityStream) :
@@ -170,6 +172,8 @@ public class RobotContainer {
    */
   private void configureBindings() {
     swerveDrive.setDefaultCommand(swerveDrive.driveCommand(driveRobotAngularVelocityStream, driveFieldAngularVelocityStream));
+    intake.setDefaultCommand(intake.runIntakeAngle(manipulatorJoystick::getLeftY));
+
     // todo: align to alliance zone
     // todo: climber up/down
     // todo: intake/hopper movement

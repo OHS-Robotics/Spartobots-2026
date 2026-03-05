@@ -1,6 +1,9 @@
 package com.team4687.frc2026.subsystems.body;
 
+import java.util.function.DoubleSupplier;
+
 import com.revrobotics.PersistMode;
+import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
@@ -19,7 +22,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 public class IntakeSubsystem extends SubsystemBase {
     class IntakeSendables implements Sendable {
         public double targetIntakeSpeed = 0.67;
-        public double targetBeltSpeed = 0.5;
+        public double targetBeltSpeed = 0.67;
 
         @Override
         public void initSendable(SendableBuilder builder) {
@@ -46,6 +49,8 @@ public class IntakeSubsystem extends SubsystemBase {
 
     SparkMax hopperBelt  = new SparkMax(38, MotorType.kBrushless);
     SparkMax hopperExtender = new SparkMax(39, MotorType.kBrushless);
+
+    public RelativeEncoder intakeRotateEncoder = intakeRotate.getEncoder();
 
     public IntakeSubsystem() {
         SparkBaseConfig intakeDriveConfig  = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
@@ -175,5 +180,15 @@ public class IntakeSubsystem extends SubsystemBase {
         return Commands.runOnce(() -> sendables.targetBeltSpeed = Math.max(sendables.targetBeltSpeed-0.05, 0.0));
     }
 
-    // todo: moving hopper and intake
+    public Command runIntakeAngle(DoubleSupplier val) {
+        return run(() -> {
+            
+            if (true) { // dummy values
+                intakeRotate.set(val.getAsDouble() * 0.25);
+            }
+            else {
+                intakeRotate.set(0.0);
+            }
+        });
+    }
 }

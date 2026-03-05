@@ -38,7 +38,7 @@ public final class Constants {
   );
 
   // main robot
- /*public static final Transform3d[] cameraPositions = {
+ public static final Transform3d[] cameraPositions = {
       new Transform3d(
           new Translation3d(
             Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
@@ -46,16 +46,16 @@ public final class Constants {
 
       new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI))
   };
-  public static final String[] cameraNames = {"Arducam_Right_Front", "Arducam_Left_Front"};*/
+  public static final String[] cameraNames = {"Arducam_Right_Front", "Arducam_Left_Front"};
 
   // test robot
-  public static final Transform3d[] cameraPositions = {
+  /*public static final Transform3d[] cameraPositions = {
       new Transform3d(
           new Translation3d(
             Units.inchesToMeters(12.0), Units.inchesToMeters(-10.5), Units.inchesToMeters(11)),
           new Rotation3d(0, Units.degreesToRadians(45.0), Units.degreesToRadians(180)))
   };
-  public static final String[] cameraNames = {"Arducam_Backup"};
+  public static final String[] cameraNames = {"Arducam_Backup"};*/
 
   public static final Pose2d redHub = new Pose2d(11.9, 4.0, new Rotation2d(Math.PI));
   public static final Pose2d blueHub = new Pose2d(4.0, 4.0, new Rotation2d(0));
