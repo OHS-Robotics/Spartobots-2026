@@ -513,14 +513,26 @@ public class Drive extends SubsystemBase {
   public Command autoLoadMiddleCommand() {
     return Commands.defer(
         () -> {
-          try {
-            return new PathPlannerAuto("BlueRightMiddleLoadAuto");
-          } catch (RuntimeException e) {
-            DriverStation.reportError(
-                "Failed to load PathPlanner auto 'BlueRightMiddleLoadAuto': " + e.getMessage(),
-                e.getStackTrace());
-            return Commands.none();
+          Pose2d[] targets;
+          switch (octant) {
+            case 1:
+              targets = new Pose2d[] {Constants.redRight, Constants.blueRight};
+              break;
+            case 2:
+              targets = new Pose2d[] {Constants.blueLeft, Constants.redLeft};
+              break;
+            case 5:
+              targets = new Pose2d[] {Constants.redLeft, Constants.blueLeft};
+              break;
+            case 6:
+              targets = new Pose2d[] {Constants.blueRight, Constants.redRight};
+              break;
+            default:
+              targets = new Pose2d[] {Constants.redRight, Constants.blueRight};
+              break;
           }
+          return AutoBuilder.pathfindToPose(targets[0], pathConstraints, 0)
+              .andThen(AutoBuilder.pathfindToPose(targets[1], pathConstraints, 0));
         },
         Set.of(this));
   }
