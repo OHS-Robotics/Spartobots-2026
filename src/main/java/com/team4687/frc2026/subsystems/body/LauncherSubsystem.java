@@ -199,6 +199,7 @@ public class LauncherSubsystem extends SubsystemBase {
 
     public Command autoStopLauncherCommand() {
         return runOnce(() -> {
+            System.out.println("Stopping launcher");
             stopLauncher();
             stopIntake();
         });

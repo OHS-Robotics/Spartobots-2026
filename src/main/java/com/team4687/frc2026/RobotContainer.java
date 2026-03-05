@@ -77,8 +77,8 @@ public class RobotContainer {
     if (!robotZeroed) {
       launcher.launcherEncoder.setPosition(0.0);
       // Placeholder, remember to change
-      intake.intakeRotateEncoder.setPosition(19.0);
-      climber.climberEncoder.setPosition(0.0);
+      intake.intakeRotateEncoder.setPosition(0.0);
+      climber.climberEncoder.setPosition(55.0); // all the way up
 
       if (Robot.isSimulation()) swerveDrive.swerveDrive.resetOdometry(new Pose2d(5.0, 5.0, new Rotation2d()));
 
@@ -106,7 +106,7 @@ public class RobotContainer {
       /*if (DriverStation.getAlliance().get() == Alliance.Red) {
         driveFieldAngularVelocityStream.scaleTranslation(-1);
       }*/
-     driveFieldAngularVelocityStream.scaleTranslation(-1);
+     // driveFieldAngularVelocityStream.scaleTranslation(-1);
       
       // System.out.printf("Rotate event added: %s\n", DriverStation.getAlliance().get() == Alliance.Blue ? "blue" : "red");
       driverJoystick.rightStick().whileTrue(
@@ -211,9 +211,9 @@ public class RobotContainer {
     manipulatorJoystick.povRight().whileTrue(launcher.increaseLauncherAngle());
     manipulatorJoystick.povRight().whileFalse(Commands.runOnce(() -> launcher.launcherAngleDrive.set(0.0), launcher));
 
-    driverJoystick.povUp().whileTrue(climber.climberUp());
+    // driverJoystick.povUp().whileTrue(climber.climberUp());
     driverJoystick.povDown().whileTrue(climber.climberDown());
-    driverJoystick.povUp().onFalse(climber.climberStop());
+    // driverJoystick.povUp().onFalse(climber.climberStop());
     driverJoystick.povDown().onFalse(climber.climberStop());
   }
 
@@ -240,7 +240,7 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
     //return swerveDrive.changePosition(new Translation2d(0.0, 2.0), Units.feetToMeters(3.0));
-    return Commands.parallel(auto.getAutonomousCommand(), intake.initializeIntakeAngle());
+    return intake.initializeIntakeAngle().andThen(auto.getAutonomousCommand());
   }
 
   // from https://docs.wpilib.org/en/stable/docs/yearly-overview/2026-game-data.html

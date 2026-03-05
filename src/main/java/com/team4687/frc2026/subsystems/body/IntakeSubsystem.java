@@ -173,6 +173,18 @@ public class IntakeSubsystem extends SubsystemBase {
         });
     }
 
+    public Command startBeltCommand() {
+        return runOnce(() -> {
+            updateBelt();
+        });
+    }
+
+    public Command stopBeltCommand() {
+        return runOnce(() -> {
+            stopBelt();
+        });
+    }
+
     public Command increaseBeltSpeed() {
         return Commands.runOnce(() -> sendables.targetBeltSpeed = Math.min(sendables.targetBeltSpeed+0.05, 1.0));
     }
@@ -183,29 +195,36 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public Command runIntakeAngle(DoubleSupplier val) {
         return run(() -> {
-            // Dummy values. Remember to change these!
-            if (intakeRotateEncoder.getPosition() > -0.1 && intakeRotateEncoder.getPosition() < 20.0) {
-                intakeRotate.set(val.getAsDouble() * 0.25);
+            // Negative motor speed moves the intake down
+            double s = val.getAsDouble();
+            if (s < 0) {
+                if (intakeRotateEncoder.getPosition() > 1 && intakeRotateEncoder.getPosition() < 42.0) {
+                    intakeRotate.set(s * 0.25);
+                }
+                else intakeRotate.set(0.0);
             }
             else {
-                intakeRotate.set(0.0);
+                if (intakeRotateEncoder.getPosition() > -2 && intakeRotateEncoder.getPosition() < 40.0) {
+                    intakeRotate.set(s * 0.25);
+                }
+                else intakeRotate.set(0.0);
             }
+            
         });
     }
 
     public Command startIntakeAngle() {
         return Commands.runEnd(() -> {
-            // Dummy values. Remember to change these!
-            if (intakeRotateEncoder.getPosition() > -0.1 && intakeRotateEncoder.getPosition() < 20.0) {
-                intakeRotate.set(-0.25); // inwards?
+            if (intakeRotateEncoder.getPosition() > 1 && intakeRotateEncoder.getPosition() < 43.0) {
+                intakeRotate.set(-0.15); // inwards
             }
             else intakeRotate.set(0.0);
         }, () -> intakeRotate.set(0.0), this);
     }
 
     public Command initializeIntakeAngle() {
-        return run(() -> intakeRotate.set(-0.25)) // outwards?
-        .until(() -> intakeRotateEncoder.getPosition() < 0.1) // Dummy value
+        return run(() -> intakeRotate.set(0.8)) // outwards
+        .until(() -> intakeRotateEncoder.getPosition() > 37.0)
         .andThen(() -> intakeRotate.set(0.0));
     }
 

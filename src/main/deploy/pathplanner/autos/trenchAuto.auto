@@ -53,12 +53,6 @@
           }
         },
         {
-          "type": "named",
-          "data": {
-            "name": "readyClimber"
-          }
-        },
-        {
           "type": "path",
           "data": {
             "pathName": "autoClimbTodo"

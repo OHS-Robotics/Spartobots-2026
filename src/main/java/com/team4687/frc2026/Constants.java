@@ -41,12 +41,15 @@ public final class Constants {
  public static final Transform3d[] cameraPositions = {
       new Transform3d(
           new Translation3d(
-            Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
-          new Rotation3d(0, 0, Units.degreesToRadians(-90))),
+            Units.inchesToMeters(-10.25 + 1.5), Units.inchesToMeters(10.25-2), Units.inchesToMeters(8)),
+          new Rotation3d(0, Units.degreesToRadians(-40.0), Units.degreesToRadians(225))),
 
-      new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI))
+      new Transform3d(
+          new Translation3d(
+            Units.inchesToMeters(-10.25 + 1.5), Units.inchesToMeters(-10.25 + 2), Units.inchesToMeters(8)),
+          new Rotation3d(0, Units.degreesToRadians(-40.0), Units.degreesToRadians(180-45)))
   };
-  public static final String[] cameraNames = {"Arducam_Right_Front", "Arducam_Left_Front"};
+  public static final String[] cameraNames = {"Arducam_Left_Front", "Arducam_Right_Front"};
 
   // test robot
   /*public static final Transform3d[] cameraPositions = {

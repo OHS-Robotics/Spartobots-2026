@@ -82,8 +82,8 @@ public class AutoSubsystem {
         NamedCommands.registerCommand("runIntake", intake.runIntake());
         NamedCommands.registerCommand("stopIntake", intake.stopIntakeCommand());
         // Note: running the intake angle might be dangerous, we've had some problems with it catching.
-        NamedCommands.registerCommand("runLauncher", launcher.autoRunLauncherCommand().andThen(intake.startIntakeAngle()));
-        NamedCommands.registerCommand("stopLauncher", launcher.autoStopLauncherCommand().andThen(intake.stopIntakeAngle()));
+        NamedCommands.registerCommand("runLauncher", launcher.autoRunLauncherCommand().andThen(intake.startIntakeAngle()).andThen(intake.startBeltCommand()));
+        NamedCommands.registerCommand("stopLauncher", launcher.autoStopLauncherCommand().andThen(intake.stopIntakeAngle()).andThen(intake.stopBeltCommand()));
         NamedCommands.registerCommand("runClimber", climber.climberDown());
         NamedCommands.registerCommand("readyClimber", climber.initializeClimber());
     }
