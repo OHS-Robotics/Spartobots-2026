@@ -7,6 +7,7 @@ package com.team4687.frc2026;
 import com.team4687.frc2026.Constants.*;
 import com.team4687.frc2026.subsystems.AutoSubsystem;
 import com.team4687.frc2026.subsystems.SwerveSubsystem;
+import com.team4687.frc2026.subsystems.body.ClimberSubsystem;
 import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
 import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 
@@ -37,8 +38,9 @@ public class RobotContainer {
   public SwerveSubsystem swerveDrive = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
   public IntakeSubsystem intake      = new IntakeSubsystem();
   public LauncherSubsystem launcher  = new LauncherSubsystem();
+  public ClimberSubsystem climber    = new ClimberSubsystem();
 
-  public AutoSubsystem auto = new AutoSubsystem(swerveDrive, launcher, intake);
+  public AutoSubsystem auto = new AutoSubsystem(swerveDrive, launcher, intake, climber);
 
   SwerveInputStream driveFieldAngularVelocityStream;
   SwerveInputStream driveRobotAngularVelocityStream;
@@ -74,7 +76,10 @@ public class RobotContainer {
     System.out.println("Zeroing robot");
     if (!robotZeroed) {
       launcher.launcherEncoder.setPosition(0.0);
-      intake.intakeRotateEncoder.setPosition(0.0);
+      // Placeholder, remember to change
+      intake.intakeRotateEncoder.setPosition(19.0);
+      climber.climberEncoder.setPosition(0.0);
+
       if (Robot.isSimulation()) swerveDrive.swerveDrive.resetOdometry(new Pose2d(5.0, 5.0, new Rotation2d()));
 
       // todo: test
@@ -92,6 +97,8 @@ public class RobotContainer {
   }
 
   public void teleopInit() {
+    launcher.launcherAngleDrive.set(0.0); // just in case it's still running for some reason
+    climber.climber.set(0.0); // ditto
     zeroRobot();
 
     // alignment controls
@@ -114,7 +121,8 @@ public class RobotContainer {
       );
 
       // left/right tower align
-      driverJoystick.povLeft().onTrue(DriverStation.getAlliance().get() == Alliance.Blue ?
+      // Disabled for comp because I'm not confident they will work
+      /*driverJoystick.povLeft().onTrue(DriverStation.getAlliance().get() == Alliance.Blue ?
         swerveDrive.driveTo(new Pose2d(1.0, 5.0, new Rotation2d(-Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED) :
         swerveDrive.driveTo(new Pose2d(15.5, 3.25, new Rotation2d(Math.PI/2)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
       );
@@ -131,7 +139,7 @@ public class RobotContainer {
       // red feeder align
       driverJoystick.rightTrigger().onTrue(
         swerveDrive.driveTo(new Pose2d(15.9, 7.4, new Rotation2d(0.0)), Constants.MAX_SPEED, Constants.MAX_ROTATIONAL_SPEED)
-      );
+      );*/
 
       delayedEventsRun = true;
 
@@ -202,6 +210,11 @@ public class RobotContainer {
     manipulatorJoystick.povLeft().whileFalse(Commands.runOnce(() -> launcher.launcherAngleDrive.set(0.0), launcher));
     manipulatorJoystick.povRight().whileTrue(launcher.increaseLauncherAngle());
     manipulatorJoystick.povRight().whileFalse(Commands.runOnce(() -> launcher.launcherAngleDrive.set(0.0), launcher));
+
+    driverJoystick.povUp().whileTrue(climber.climberUp());
+    driverJoystick.povDown().whileTrue(climber.climberDown());
+    driverJoystick.povUp().onFalse(climber.climberStop());
+    driverJoystick.povDown().onFalse(climber.climberStop());
   }
 
   private void configureInputStreams() {
@@ -227,7 +240,7 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
     //return swerveDrive.changePosition(new Translation2d(0.0, 2.0), Units.feetToMeters(3.0));
-    return auto.getAutonomousCommand();
+    return Commands.parallel(auto.getAutonomousCommand(), intake.initializeIntakeAngle());
   }
 
   // from https://docs.wpilib.org/en/stable/docs/yearly-overview/2026-game-data.html

@@ -28,8 +28,8 @@ public final class Constants {
     public static final double deadband = 0.125;
   }
 
-  public static final double MAX_SPEED = Units.feetToMeters(7.5); // test value: actual 13.5
-  public static final double MAX_ACCELERATION = Units.feetToMeters(4.1);
+  public static final double MAX_SPEED = Units.feetToMeters(13.5); // test value: actual 13.5
+  public static final double MAX_ACCELERATION = Units.feetToMeters(4.1); // auto max accel: 2.5m/s
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(270.0);
   public static final double MIN_AUTO_ROTATIONAL_SPEED = Units.degreesToRadians(60.0);
   public static final double MAX_ROTATIONAL_ACCELERATION = Units.degreesToRadians(90.0);

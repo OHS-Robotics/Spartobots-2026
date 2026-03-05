@@ -5,6 +5,7 @@ import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.team4687.frc2026.subsystems.body.ClimberSubsystem;
 import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
 import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 
@@ -18,14 +19,16 @@ public class AutoSubsystem {
     private SwerveSubsystem swerveDrive;
     private LauncherSubsystem launcher;
     private IntakeSubsystem intake;
+    private ClimberSubsystem climber;
     private SendableChooser<Command> pathChooser;
 
     private Command testAuto;
 
-    public AutoSubsystem(SwerveSubsystem useSwerve, LauncherSubsystem useLauncher, IntakeSubsystem useIntake) {
+    public AutoSubsystem(SwerveSubsystem useSwerve, LauncherSubsystem useLauncher, IntakeSubsystem useIntake, ClimberSubsystem useClimber) {
         swerveDrive = useSwerve;
         launcher = useLauncher;
         intake = useIntake;
+        climber = useClimber;
   
         configureAutoBuilder();
         pathChooser = AutoBuilder.buildAutoChooser("trenchLeft");
@@ -78,8 +81,11 @@ public class AutoSubsystem {
     private void registerNamedCommands() {
         NamedCommands.registerCommand("runIntake", intake.runIntake());
         NamedCommands.registerCommand("stopIntake", intake.stopIntakeCommand());
-        NamedCommands.registerCommand("runLauncher", launcher.autoRunLauncherCommand());
-        NamedCommands.registerCommand("stopLauncher", launcher.autoStopLauncherCommand());
+        // Note: running the intake angle might be dangerous, we've had some problems with it catching.
+        NamedCommands.registerCommand("runLauncher", launcher.autoRunLauncherCommand().andThen(intake.startIntakeAngle()));
+        NamedCommands.registerCommand("stopLauncher", launcher.autoStopLauncherCommand().andThen(intake.stopIntakeAngle()));
+        NamedCommands.registerCommand("runClimber", climber.climberDown());
+        NamedCommands.registerCommand("readyClimber", climber.initializeClimber());
     }
 
     private void registerPaths() {

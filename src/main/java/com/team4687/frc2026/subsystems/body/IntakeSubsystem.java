@@ -17,6 +17,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.FunctionalCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class IntakeSubsystem extends SubsystemBase {
@@ -182,13 +183,33 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public Command runIntakeAngle(DoubleSupplier val) {
         return run(() -> {
-            
-            if (true) { // dummy values
+            // Dummy values. Remember to change these!
+            if (intakeRotateEncoder.getPosition() > -0.1 && intakeRotateEncoder.getPosition() < 20.0) {
                 intakeRotate.set(val.getAsDouble() * 0.25);
             }
             else {
                 intakeRotate.set(0.0);
             }
         });
+    }
+
+    public Command startIntakeAngle() {
+        return Commands.runEnd(() -> {
+            // Dummy values. Remember to change these!
+            if (intakeRotateEncoder.getPosition() > -0.1 && intakeRotateEncoder.getPosition() < 20.0) {
+                intakeRotate.set(-0.25); // inwards?
+            }
+            else intakeRotate.set(0.0);
+        }, () -> intakeRotate.set(0.0), this);
+    }
+
+    public Command initializeIntakeAngle() {
+        return run(() -> intakeRotate.set(-0.25)) // outwards?
+        .until(() -> intakeRotateEncoder.getPosition() < 0.1) // Dummy value
+        .andThen(() -> intakeRotate.set(0.0));
+    }
+
+    public Command stopIntakeAngle() {
+        return Commands.runOnce(() -> intakeRotate.set(0.0));
     }
 }
