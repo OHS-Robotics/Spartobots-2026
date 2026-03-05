@@ -161,7 +161,7 @@ public class SwerveSubsystem extends SubsystemBase {
             // This should be actually fixed at some point.
             if (Math.abs(change) < Units.degreesToRadians(10) || Math.abs(change) > Units.degreesToRadians(170)) finalVelocity = 0.0;
 
-            System.out.printf("Change: %f, final velocity: %f\n", change, finalVelocity);
+            // System.out.printf("Change: %f, final velocity: %f\n", change, finalVelocity);
 
             this.drive(
                 sendables.getFieldOriented() ?

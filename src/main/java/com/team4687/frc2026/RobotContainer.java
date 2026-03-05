@@ -116,9 +116,9 @@ public class RobotContainer {
       );
 
 
-      driverJoystick.rightStick().whileTrue(launcher.autoAlignAngle(swerveDrive::getPose,
+      /*driverJoystick.rightStick().whileTrue(launcher.autoAlignAngle(swerveDrive::getPose,
         () -> DriverStation.getAlliance().get() == Alliance.Blue ? Constants.blueHub : Constants.redHub)
-      );
+      );*/
 
       // left/right tower align
       // Disabled for comp because I'm not confident they will work
