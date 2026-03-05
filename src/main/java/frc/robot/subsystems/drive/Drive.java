@@ -58,12 +58,12 @@ import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
   // PathPlanner PID values
-  private static final double defaultPathTranslationKp = 40.0;
+  private static final double defaultPathTranslationKp = 5.0;
   private static final double defaultPathTranslationKi = 0.0;
-  private static final double defaultPathTranslationKd = 5.0;
-  private static final double defaultPathRotationKp = 40.0;
+  private static final double defaultPathTranslationKd = 1.0;
+  private static final double defaultPathRotationKp = 5.0;
   private static final double defaultPathRotationKi = 0.0;
-  private static final double defaultPathRotationKd = 5.0;
+  private static final double defaultPathRotationKd = 1.0;
   private static final double minAimVectorMagnitudeMeters = 0.10;
 
   static final Lock odometryLock = new ReentrantLock();
@@ -516,19 +516,19 @@ public class Drive extends SubsystemBase {
           Pose2d[] targets;
           switch (octant) {
             case 1:
-              targets = new Pose2d[] {Constants.redRight, Constants.blueRight};
+              targets = Constants.Middle.blueLeft;
               break;
             case 2:
-              targets = new Pose2d[] {Constants.blueLeft, Constants.redLeft};
+              targets = Constants.Middle.redRight;
               break;
             case 5:
-              targets = new Pose2d[] {Constants.redLeft, Constants.blueLeft};
+              targets = Constants.Middle.blueRight;
               break;
             case 6:
-              targets = new Pose2d[] {Constants.blueRight, Constants.redRight};
+              targets = Constants.Middle.redLeft;
               break;
             default:
-              targets = new Pose2d[] {Constants.redRight, Constants.blueRight};
+              targets = Constants.Middle.blueLeft;
               break;
           }
           return AutoBuilder.pathfindToPose(targets[0], pathConstraints, 0)

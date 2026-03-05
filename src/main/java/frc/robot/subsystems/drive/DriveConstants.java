@@ -137,10 +137,10 @@ public class DriveConstants {
           moduleTranslations);
   public static final PathConstraints pathConstraints =
       new PathConstraints(
-          maxSpeedMetersPerSec / 3,
-          maxAccelerationMeterPerSecSquared / 3,
-          maxRotationalSpeedRadiansPerSec / 3,
-          maxRotationalAccelerationRadiansPerSecSquared / 3);
+          maxSpeedMetersPerSec / 2,
+          maxAccelerationMeterPerSecSquared,
+          maxRotationalSpeedRadiansPerSec / 2,
+          maxRotationalAccelerationRadiansPerSecSquared);
   public static final double trenchApproachGoalEndVelocityMetersPerSec = 0.0;
   public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
 
