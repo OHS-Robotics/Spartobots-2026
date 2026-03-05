@@ -80,12 +80,12 @@ public class RobotContainer {
       intake.intakeRotateEncoder.setPosition(0.0);
       climber.climberEncoder.setPosition(55.0); // all the way up
 
-      if (Robot.isSimulation()) swerveDrive.swerveDrive.resetOdometry(new Pose2d(5.0, 5.0, new Rotation2d()));
+      // if (Robot.isSimulation()) swerveDrive.swerveDrive.resetOdometry(new Pose2d(5.0, 5.0, new Rotation2d()));
 
       // todo: test
       //swerveDrive.swerveDrive.zeroGyro();
       if (DriverStation.getAlliance().get() == Alliance.Red) {
-        // swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
+        swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
         // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
       }
       robotZeroed = true;
@@ -211,10 +211,10 @@ public class RobotContainer {
     manipulatorJoystick.povRight().whileTrue(launcher.increaseLauncherAngle());
     manipulatorJoystick.povRight().whileFalse(Commands.runOnce(() -> launcher.launcherAngleDrive.set(0.0), launcher));
 
-    // driverJoystick.povUp().whileTrue(climber.climberUp());
+    driverJoystick.povUp().whileTrue(climber.climberUp());
     driverJoystick.povDown().whileTrue(climber.climberDown());
     // driverJoystick.povUp().onFalse(climber.climberStop());
-    driverJoystick.povDown().onFalse(climber.climberStop());
+    //driverJoystick.povDown().onFalse(climber.climberStop());
   }
 
   private void configureInputStreams() {

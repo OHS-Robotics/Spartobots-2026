@@ -29,6 +29,8 @@ public class ClimberSubsystem extends SubsystemBase {
                 climber.set(1);
             }
             else climber.set(0.0);
+        }).finallyDo((boolean interrupt) -> {
+            climber.set(0);
         });
     }
 
@@ -39,6 +41,8 @@ public class ClimberSubsystem extends SubsystemBase {
                 climber.set(-1);
             }
             else climber.set(0.0);
+        }).finallyDo((boolean interrupt) -> {
+            climber.set(0);
         });
     }
 
