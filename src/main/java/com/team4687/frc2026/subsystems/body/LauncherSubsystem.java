@@ -27,7 +27,7 @@ import com.team4687.frc2026.subsystems.body.HubSolver;
 public class LauncherSubsystem extends SubsystemBase {
     public class LauncherSendables implements Sendable {
 
-        public double targetIntakeSpeed = 0.3;
+        public double targetIntakeSpeed = 1.0;
         public double targetLaunchSpeed = 0.5;
 
         @Override
@@ -69,9 +69,9 @@ public class LauncherSubsystem extends SubsystemBase {
     public RelativeEncoder launcherEncoder = launcherAngleDrive.getEncoder();
 
     SparkMax primaryLauncherLeft    = new SparkMax(31, MotorType.kBrushless); // runs same as primary right
-    SparkMax secondaryLauncherLeft  = new SparkMax(32, MotorType.kBrushless); // runs opposite of primary, same as secondary right
+    // SparkMax secondaryLauncherLeft  = new SparkMax(32, MotorType.kBrushless); // runs opposite of primary, same as secondary right
     SparkMax primaryLauncherRight   = new SparkMax(33, MotorType.kBrushless); // runs same as primary left
-    SparkMax secondaryLauncherRight = new SparkMax(34, MotorType.kBrushless); // runs opposite of primary, same as secondary left
+    // SparkMax secondaryLauncherRight = new SparkMax(34, MotorType.kBrushless); // runs opposite of primary, same as secondary left
 
     SparkMax topAgitator    = new SparkMax(36, MotorType.kBrushless); // intake for launcher
     SparkMax bottomAgitator = new SparkMax(37, MotorType.kBrushless); // i don't know how this works with the top agitator
@@ -83,11 +83,11 @@ public class LauncherSubsystem extends SubsystemBase {
     // b for agitator
 
     public LauncherSubsystem() {
-        SparkBaseConfig pLL = new SparkMaxConfig().idleMode(IdleMode.kCoast); // important!
+        SparkBaseConfig pLL = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true); // important!
         // if this is set to brake it will damage the motors when stopping because of the flywheels.
         // primary Launcher Left, secondary Launcher Right, etc.
         SparkBaseConfig sLL = new SparkMaxConfig().idleMode(IdleMode.kCoast).follow(primaryLauncherLeft);
-        SparkBaseConfig pLR = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
+        SparkBaseConfig pLR = new SparkMaxConfig().idleMode(IdleMode.kCoast);
         SparkBaseConfig sLR = new SparkMaxConfig().idleMode(IdleMode.kCoast).follow(primaryLauncherRight);
         // all launcher motors must be coast
 
@@ -101,9 +101,9 @@ public class LauncherSubsystem extends SubsystemBase {
         launcherEncoder.setPosition(0.0);
 
         primaryLauncherLeft.configure(pLL, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-        secondaryLauncherLeft.configure(sLL, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        // secondaryLauncherLeft.configure(sLL, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
         primaryLauncherRight.configure(pLR, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-        secondaryLauncherRight.configure(sLR, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        // secondaryLauncherRight.configure(sLR, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
 
         topAgitator.configure(tA, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
         bottomAgitator.configure(bA, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
@@ -294,7 +294,7 @@ public class LauncherSubsystem extends SubsystemBase {
             solver.updateHubShotSolution(robotPose.get(), hubPose.get());
             if (!solver.isHubShotSolutionFeasible()) return;
 
-            double target = solver.getHubLaunchAngleSetpoint().getDegrees() * 14.5/45; // might be wrong
+            double target = (45-solver.getHubLaunchAngleSetpoint().getDegrees()) * 14.5/45; // might be wrong
 
             if (target + launcherEncoder.getPosition() < 0.2) {
                 if (launcherEncoder.getPosition() < 0) launcherAngleDrive.set(0.1);
@@ -307,7 +307,7 @@ public class LauncherSubsystem extends SubsystemBase {
             else {
                 launcherAngleDrive.set(0.0);
             }
-        }).until(() -> Math.abs(solver.getHubLaunchAngleSetpoint().getDegrees() * 14.5/45 + launcherEncoder.getPosition()) < 0.2);
+        }).until(() -> Math.abs((45-solver.getHubLaunchAngleSetpoint().getDegrees()) * 14.5/45 + launcherEncoder.getPosition()) < 0.2);
 
 
     }

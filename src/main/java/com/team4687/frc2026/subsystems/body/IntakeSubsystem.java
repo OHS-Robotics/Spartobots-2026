@@ -1,6 +1,9 @@
 package com.team4687.frc2026.subsystems.body;
 
+import java.util.function.DoubleSupplier;
+
 import com.revrobotics.PersistMode;
+import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
@@ -14,12 +17,13 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.FunctionalCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class IntakeSubsystem extends SubsystemBase {
     class IntakeSendables implements Sendable {
         public double targetIntakeSpeed = 0.67;
-        public double targetBeltSpeed = 0.5;
+        public double targetBeltSpeed = 0.67;
 
         @Override
         public void initSendable(SendableBuilder builder) {
@@ -46,6 +50,8 @@ public class IntakeSubsystem extends SubsystemBase {
 
     SparkMax hopperBelt  = new SparkMax(38, MotorType.kBrushless);
     SparkMax hopperExtender = new SparkMax(39, MotorType.kBrushless);
+
+    public RelativeEncoder intakeRotateEncoder = intakeRotate.getEncoder();
 
     public IntakeSubsystem() {
         SparkBaseConfig intakeDriveConfig  = new SparkMaxConfig().idleMode(IdleMode.kCoast).inverted(true);
@@ -175,5 +181,35 @@ public class IntakeSubsystem extends SubsystemBase {
         return Commands.runOnce(() -> sendables.targetBeltSpeed = Math.max(sendables.targetBeltSpeed-0.05, 0.0));
     }
 
-    // todo: moving hopper and intake
+    public Command runIntakeAngle(DoubleSupplier val) {
+        return run(() -> {
+            // Dummy values. Remember to change these!
+            if (intakeRotateEncoder.getPosition() > -0.1 && intakeRotateEncoder.getPosition() < 20.0) {
+                intakeRotate.set(val.getAsDouble() * 0.25);
+            }
+            else {
+                intakeRotate.set(0.0);
+            }
+        });
+    }
+
+    public Command startIntakeAngle() {
+        return Commands.runEnd(() -> {
+            // Dummy values. Remember to change these!
+            if (intakeRotateEncoder.getPosition() > -0.1 && intakeRotateEncoder.getPosition() < 20.0) {
+                intakeRotate.set(-0.25); // inwards?
+            }
+            else intakeRotate.set(0.0);
+        }, () -> intakeRotate.set(0.0), this);
+    }
+
+    public Command initializeIntakeAngle() {
+        return run(() -> intakeRotate.set(-0.25)) // outwards?
+        .until(() -> intakeRotateEncoder.getPosition() < 0.1) // Dummy value
+        .andThen(() -> intakeRotate.set(0.0));
+    }
+
+    public Command stopIntakeAngle() {
+        return Commands.runOnce(() -> intakeRotate.set(0.0));
+    }
 }
