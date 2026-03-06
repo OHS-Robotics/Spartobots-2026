@@ -197,25 +197,14 @@ public class IntakeSubsystem extends SubsystemBase {
         return run(() -> {
             // Negative motor speed moves the intake down
             double s = val.getAsDouble();
-            if (s < 0) {
-                if (intakeRotateEncoder.getPosition() > 1 && intakeRotateEncoder.getPosition() < 42.0) {
-                    intakeRotate.set(s * 0.25);
-                }
-                else intakeRotate.set(0.0);
-            }
-            else {
-                if (intakeRotateEncoder.getPosition() > -2 && intakeRotateEncoder.getPosition() < 40.0) {
-                    intakeRotate.set(s * 0.25);
-                }
-                else intakeRotate.set(0.0);
-            }
+            intakeRotate.set(s * 0.25);
             
         });
     }
 
     public Command startIntakeAngle() {
         return Commands.runEnd(() -> {
-            if (intakeRotateEncoder.getPosition() > 1 && intakeRotateEncoder.getPosition() < 43.0) {
+            if (intakeRotateEncoder.getPosition() > 1) {
                 intakeRotate.set(-0.15); // inwards
             }
             else intakeRotate.set(0.0);
@@ -223,8 +212,8 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public Command initializeIntakeAngle() {
-        return run(() -> intakeRotate.set(0.8)) // outwards
-        .until(() -> intakeRotateEncoder.getPosition() > 37.0)
+        return run(() -> intakeRotate.set(0.4)) // outwards
+        .until(() -> intakeRotateEncoder.getPosition() > 35.0)
         .andThen(() -> intakeRotate.set(0.0));
     }
 

@@ -43,25 +43,13 @@
         {
           "type": "wait",
           "data": {
-            "waitTime": 3.0
+            "waitTime": 4.0
           }
         },
         {
           "type": "named",
           "data": {
             "name": "stopLauncher"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "autoClimbTodo"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "runClimber"
           }
         }
       ]

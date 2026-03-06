@@ -10,6 +10,7 @@ import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
 import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -31,12 +32,12 @@ public class AutoSubsystem {
         climber = useClimber;
   
         configureAutoBuilder();
-        pathChooser = AutoBuilder.buildAutoChooser("trenchLeft");
+        pathChooser = AutoBuilder.buildAutoChooser("depotAuto");
         SmartDashboard.putData("Auto path", pathChooser);
     }
 
     private void configureAutoBuilder() {
-        final boolean enableFeedForward = true;
+        final boolean enableFeedForward = false;
 
 
         RobotConfig config = null;
@@ -52,6 +53,8 @@ public class AutoSubsystem {
             swerveDrive::resetPose,
             swerveDrive::getRobotRelativeSpeeds,
             (speeds, feedforwards) -> {
+                if (DriverStation.getAlliance().get() == Alliance.Red) speeds = speeds.times(-1);
+
                 if (enableFeedForward) {
                     swerveDrive.swerveDrive.drive(speeds,
                     swerveDrive.swerveDrive.kinematics.toSwerveModuleStates(speeds),
@@ -61,7 +64,7 @@ public class AutoSubsystem {
                     swerveDrive.swerveDrive.setChassisSpeeds(speeds);
                 }
             },
-            new PPHolonomicDriveController(new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+            new PPHolonomicDriveController(new PIDConstants(1.0, 0.0, 0.0), new PIDConstants(1.0, 0.0, 0.0)),
             config,
             () -> {
                 var alliance = DriverStation.getAlliance();

@@ -209,7 +209,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Pose2d getPose() {
-        return swerveDrive.field.getRobotPose();
+        return swerveDrive.getPose();
     }
 
     public void resetPose(Pose2d pose) {
