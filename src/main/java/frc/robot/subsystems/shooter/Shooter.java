@@ -2,6 +2,7 @@ package frc.robot.subsystems.shooter;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -20,10 +21,10 @@ public class Shooter extends SubsystemBase {
     this.launchHeightMeters = launchHeightMeters;
   }
 
-  public double estimateHubShotAirtimeSeconds(Pose2d robotPose, Pose2d hubPose) {
+  public double estimateHubShotAirtimeSeconds(Pose2d robotPose, Pose3d hubPose) {
     double horizontalDistanceMeters =
-        robotPose.getTranslation().getDistance(hubPose.getTranslation());
-    double targetHeightDeltaMeters = ShooterConstants.hubCenterHeightMeters - launchHeightMeters;
+        robotPose.getTranslation().getDistance(hubPose.toPose2d().getTranslation());
+    double targetHeightDeltaMeters = hubPose.getZ() - launchHeightMeters;
     return estimateShotAirtimeSeconds(horizontalDistanceMeters, targetHeightDeltaMeters);
   }
 

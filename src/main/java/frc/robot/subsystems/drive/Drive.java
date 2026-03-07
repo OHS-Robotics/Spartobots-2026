@@ -36,13 +36,13 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.FieldConstants;
+import frc.robot.FieldConstants.FieldTarget;
 import frc.robot.commands.DriveCommands;
-import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -53,8 +53,6 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
 public class Drive extends SubsystemBase {
-
-  public final VisionSubsystem vision = new VisionSubsystem();
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
@@ -369,16 +367,12 @@ public class Drive extends SubsystemBase {
     return testPath;
   }
 
-  private Pose2d getNearestHub() {
-    double distanceToRedHub =
-        getPose().getTranslation().getDistance(Constants.redHub.getTranslation());
-    double distanceToBlueHub =
-        getPose().getTranslation().getDistance(Constants.blueHub.getTranslation());
-    return distanceToRedHub < distanceToBlueHub ? Constants.redHub : Constants.blueHub;
+  public Pose2d getAllianceHubPose() {
+    return FieldConstants.getTargetPose(FieldTarget.HUB_CENTER);
   }
 
-  public Pose2d getNearestHubPose() {
-    return getNearestHub();
+  public Pose2d getAllianceOutpostPose() {
+    return FieldConstants.getTargetPose(FieldTarget.OUTPOST);
   }
 
   private Translation2d getFieldRelativeVelocity() {
@@ -413,7 +407,7 @@ public class Drive extends SubsystemBase {
         y,
         () -> {
           double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
-          Pose2d baseHub = getNearestHub();
+          Pose2d baseHub = getAllianceHubPose();
           Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
           logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
           return getRotationToHub(compensatedHub);
@@ -462,32 +456,9 @@ public class Drive extends SubsystemBase {
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
-    Pose2d target = Constants.blueHub;
-    DoubleSupplier angleSetpoint =
-        () ->
-            Math.atan2(
-                this.getPose().getY() - target.getY(), this.getPose().getX() - target.getX());
-    return Commands.run(
-            () -> {
-              DriveCommands.joystickDrive(
-                  this,
-                  x,
-                  y,
-                  () ->
-                      this.getPose().getRotation().getRadians()
-                          - Math.atan2(
-                              this.getPose().getY() - target.getY(),
-                              this.getPose().getX() - target.getX()));
-            })
-        .until(
-            () ->
-                Math.abs(this.getPose().getRotation().getRadians() - angleSetpoint.getAsDouble())
-                    < DriveConstants.aligned);
+    return DriveCommands.joystickDriveAtAngle(
+        this, x, y, () -> getAllianceOutpostPose().getRotation());
   }
 
   public void alignTo(Pose2d target) {}
-
-  public void update() {
-    vision.updatePoseEstimate(this);
-  }
 }

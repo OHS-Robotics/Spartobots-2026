@@ -13,9 +13,6 @@ public final class ShooterConstants {
   public static final Rotation2d defaultLaunchAngle = Rotation2d.fromDegrees(56.0);
   public static final double defaultLaunchHeightMeters = Units.inchesToMeters(30.0);
 
-  // Approximate center of the scoring opening above the carpet.
-  public static final double hubCenterHeightMeters = Units.inchesToMeters(104.0);
-
   public static final double minLaunchSpeedMetersPerSec = 1.0;
   public static final double minAirtimeSeconds = 0.05;
   public static final double maxAirtimeSeconds = 2.5;

@@ -9,32 +9,20 @@ package frc.robot.subsystems.vision;
 
 import static frc.robot.subsystems.vision.VisionConstants.*;
 
-import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
-import frc.robot.subsystems.drive.Drive;
+import frc.robot.FieldConstants;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
-import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.targeting.PhotonTrackedTarget;
 
 /** IO implementation for real PhotonVision hardware. */
 public class VisionIOPhotonVision implements VisionIO {
-  private PhotonPoseEstimator poseEstimator;
   protected final PhotonCamera camera;
   protected final Transform3d robotToCamera;
-  public Matrix<N3, N1> stdDevs;
-
-  private boolean initialized = false;
 
   /**
    * Creates a new VisionIOPhotonVision.
@@ -45,7 +33,6 @@ public class VisionIOPhotonVision implements VisionIO {
   public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
-    initialized = true;
   }
 
   @Override
@@ -98,7 +85,7 @@ public class VisionIOPhotonVision implements VisionIO {
         var target = result.targets.get(0);
 
         // Calculate robot pose
-        var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
+        var tagPose = FieldConstants.APRIL_TAG_LAYOUT.getTagPose(target.fiducialId);
         if (tagPose.isPresent()) {
           Transform3d fieldToTarget =
               new Transform3d(tagPose.get().getTranslation(), tagPose.get().getRotation());
@@ -134,80 +121,6 @@ public class VisionIOPhotonVision implements VisionIO {
     int i = 0;
     for (int id : tagIds) {
       inputs.tagIds[i++] = id;
-    }
-  }
-
-  @Override
-  public void updatePoseEstimate(Drive drive) {}
-
-  /*@Override
-  public void updatePoseEstimate(Drive drive) {
-    if (!initialized) return;
-
-    List<PhotonPipelineResult> results = camera.getAllUnreadResults();
-    Optional<EstimatedRobotPose> visionEstimatedPose = Optional.empty();
-
-    for (var result : results) {
-      visionEstimatedPose = poseEstimator.estimateCoprocMultiTagPose(result);
-      System.out.println(visionEstimatedPose.get().estimatedPose);
-      if (visionEstimatedPose.isEmpty())
-        visionEstimatedPose = poseEstimator.estimateLowestAmbiguityPose(result);
-
-      updateStdDevs(visionEstimatedPose, result.getTargets());
-      // todo: update standard deviations
-
-      visionEstimatedPose.ifPresent(
-          est -> {
-            // drive.setVisionMeasurementStdDevs(stdDevs);
-            drive.addVisionMeasurement(est.estimatedPose.toPose2d(), est.timestampSeconds, stdDevs);
-          });
-    }
-  }*/
-
-  public void updateStdDevs(
-      Optional<EstimatedRobotPose> currentPose, List<PhotonTrackedTarget> targets) {
-    /*
-     * Get the standard deviations for pipeline results.
-     * I'm still not 100% sure what this is *supposed* to be measuring,
-     * but the PhotonVision documentation shows it measuring the average
-     * distance between each target(apriltag) and the current estimated pose.
-     * At some point I think it might be interesting to test what
-     * happens if you measure the average distance between each
-     * result and the center point of all of the results.
-     * This might not even work, but it could be interesting.
-     * Essentially copied from the PhotonLib example
-     */
-
-    double averageDistance = 0.0;
-    int measuredTags = 0;
-
-    if (currentPose.isEmpty()) {
-      stdDevs = VecBuilder.fill(4, 4, 8); // todo: choose good values for these
-      return;
-    }
-
-    for (var target : targets) {
-      Optional<Pose3d> pose = poseEstimator.getFieldTags().getTagPose(target.getFiducialId());
-      if (pose.isPresent()) continue;
-      measuredTags++;
-      averageDistance +=
-          pose.get()
-              .toPose2d()
-              .getTranslation()
-              .getDistance(currentPose.get().estimatedPose.toPose2d().getTranslation());
-    }
-
-    if (measuredTags == 0) {
-      stdDevs = VecBuilder.fill(4, 4, 8);
-    } else {
-      averageDistance /= measuredTags;
-
-      if (measuredTags > 1)
-        stdDevs = VecBuilder.fill(0.5, 0.5, 1); // more magic numbers to be replaced later
-
-      if (measuredTags == 1 && averageDistance > 4)
-        VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
-      else stdDevs = stdDevs.times(1 + (averageDistance * averageDistance / 30));
     }
   }
 }

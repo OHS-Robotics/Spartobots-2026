@@ -16,12 +16,14 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.FieldConstants.FieldTarget;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
@@ -232,7 +234,9 @@ public class RobotContainer {
     return drive.alignToHub(
         () -> -controller.getLeftY(),
         () -> -controller.getLeftX(),
-        () -> shooter.estimateHubShotAirtimeSeconds(drive.getPose(), drive.getNearestHubPose()));
+        () ->
+            shooter.estimateHubShotAirtimeSeconds(
+                drive.getPose(), FieldConstants.getTargetPose3d(FieldTarget.HUB_CENTER)));
   }
 
   public Command alignToOutpost() {
@@ -306,21 +310,25 @@ public class RobotContainer {
   }
 
   private HumpPoseSample sampleHumpPose(Pose2d robotPose) {
-    HumpPoseSample blueSample = sampleSingleHump(Constants.blueHub.getX(), robotPose);
-    HumpPoseSample redSample = sampleSingleHump(Constants.redHub.getX(), robotPose);
+    HumpPoseSample blueSample =
+        sampleSingleHump(
+            FieldConstants.getTargetPose(FieldTarget.HUB_CENTER, Alliance.Blue), robotPose);
+    HumpPoseSample redSample =
+        sampleSingleHump(
+            FieldConstants.getTargetPose(FieldTarget.HUB_CENTER, Alliance.Red), robotPose);
     return blueSample.heightMeters() >= redSample.heightMeters() ? blueSample : redSample;
   }
 
-  private HumpPoseSample sampleSingleHump(double hubCenterXMeters, Pose2d robotPose) {
+  private HumpPoseSample sampleSingleHump(Pose2d hubPose, Pose2d robotPose) {
     double maxHumpXDistance =
         (HUB_WIDTH_X_METERS / 2.0)
             + (DriveConstants.trackWidth / 2.0)
             + HUMP_X_CLEARANCE_MARGIN_METERS;
-    if (Math.abs(robotPose.getX() - hubCenterXMeters) > maxHumpXDistance) {
+    if (Math.abs(robotPose.getX() - hubPose.getX()) > maxHumpXDistance) {
       return FLAT_GROUND_SAMPLE;
     }
 
-    double yOffsetFromHub = robotPose.getY() - Constants.blueHub.getY();
+    double yOffsetFromHub = robotPose.getY() - hubPose.getY();
     double absYOffset = Math.abs(yOffsetFromHub);
     double halfTopLength = HUB_TOP_LENGTH_Y_METERS / 2.0;
     if (absYOffset > (halfTopLength + HUB_RAMP_LENGTH_Y_METERS)) {
