@@ -84,10 +84,6 @@ public class RobotContainer {
 
       // todo: test
       //swerveDrive.swerveDrive.zeroGyro();
-      if (DriverStation.getAlliance().get() == Alliance.Red) {
-        swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
-        // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
-      }
       robotZeroed = true;
     }
   }
@@ -100,6 +96,10 @@ public class RobotContainer {
     launcher.launcherAngleDrive.set(0.0); // just in case it's still running for some reason
     climber.climber.set(0.0); // ditto
     zeroRobot();
+    if (DriverStation.getAlliance().get() == Alliance.Red) {
+      swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
+      // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
+    }
 
     // alignment controls
     if (!delayedEventsRun) {

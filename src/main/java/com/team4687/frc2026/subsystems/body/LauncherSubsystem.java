@@ -292,7 +292,8 @@ public class LauncherSubsystem extends SubsystemBase {
     public Command autoAlignAngle(Supplier<Pose2d> robotPose, Supplier<Pose2d> hubPose) {
         // this will not reset the angle drive when the command ends!
         return run(() -> {
-            solver.updateHubShotSolution(robotPose.get(), hubPose.get());
+            
+            /*solver.updateHubShotSolution(robotPose.get(), hubPose.get());
             if (!solver.isHubShotSolutionFeasible()) return;
 
             double target = (45-solver.getHubLaunchAngleSetpoint().getDegrees()) * 14.5/45; // might be wrong
@@ -307,7 +308,7 @@ public class LauncherSubsystem extends SubsystemBase {
             }
             else {
                 launcherAngleDrive.set(0.0);
-            }
+            }*/
         }).until(() -> Math.abs((45-solver.getHubLaunchAngleSetpoint().getDegrees()) * 14.5/45 + launcherEncoder.getPosition()) < 0.2);
 
 

@@ -9,6 +9,7 @@ import com.team4687.frc2026.subsystems.body.ClimberSubsystem;
 import com.team4687.frc2026.subsystems.body.IntakeSubsystem;
 import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -53,14 +54,16 @@ public class AutoSubsystem {
             swerveDrive::resetPose,
             swerveDrive::getRobotRelativeSpeeds,
             (speeds, feedforwards) -> {
-                if (DriverStation.getAlliance().get() == Alliance.Red) speeds = speeds.times(-1);
+                //if (DriverStation.getAlliance().get() == Alliance.Red) speeds = speeds.times(-1);
 
                 if (enableFeedForward) {
+                    speeds=new ChassisSpeeds(-speeds.vxMetersPerSecond, -speeds.vyMetersPerSecond, speeds.omegaRadiansPerSecond);
                     swerveDrive.swerveDrive.drive(speeds,
                     swerveDrive.swerveDrive.kinematics.toSwerveModuleStates(speeds),
                     feedforwards.linearForces());
                 }
                 else {
+                    speeds=new ChassisSpeeds(-speeds.vxMetersPerSecond, -speeds.vyMetersPerSecond, speeds.omegaRadiansPerSecond);
                     swerveDrive.swerveDrive.setChassisSpeeds(speeds);
                 }
             },
