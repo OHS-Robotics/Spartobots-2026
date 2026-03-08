@@ -26,6 +26,7 @@ import org.littletonrobotics.urcl.URCL;
  */
 public class Robot extends LoggedRobot {
   private Command autonomousCommand;
+  private final MatchStateProvider matchStateProvider = new MatchStateProvider();
   private RobotContainer robotContainer;
 
   public Robot() {
@@ -80,6 +81,16 @@ public class Robot extends LoggedRobot {
   /** This function is called periodically during all modes. */
   @Override
   public void robotPeriodic() {
+    MatchStateProvider.MatchState matchState = matchStateProvider.getMatchState();
+    Logger.recordOutput(
+        "MatchState/Alliance", matchState.alliance().map(Enum::name).orElse("UNKNOWN"));
+    Logger.recordOutput("MatchState/TowerLetter", matchState.towerLetter().displayValue());
+    Logger.recordOutput("MatchState/StartHub", matchState.startHub().name());
+    Logger.recordOutput("MatchState/EndHub", matchState.endHub().name());
+    Logger.recordOutput("MatchState/CurrentActiveHub", matchState.currentActiveHub().name());
+    Logger.recordOutput("MatchState/ScoringContext", matchState.scoringContext().name());
+    Logger.recordOutput("MatchState/AllianceHubActive", matchState.isAllianceHubActive());
+
     // Optionally switch the thread to high priority to improve loop
     // timing (see the template project documentation for details)
     // Threads.setCurrentThreadPriority(true, 99);
