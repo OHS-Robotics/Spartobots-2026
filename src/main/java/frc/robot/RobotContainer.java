@@ -16,6 +16,7 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -42,6 +43,7 @@ import frc.robot.subsystems.shooter.ShooterBallistics;
 import frc.robot.subsystems.shooter.SimpleShooter;
 import frc.robot.subsystems.superstructure.Superstructure;
 import frc.robot.subsystems.superstructure.SuperstructureGoal;
+import frc.robot.subsystems.superstructure.SuperstructureStatus;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
@@ -61,6 +63,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
+  private static final double INTENT_TRIGGER_THRESHOLD = 0.5;
   private static final Pose2d SIM_START_POSE = FieldTargets.AUTO_START_CENTER.bluePose();
   private static final double HUB_TOP_LENGTH_Y_METERS = Units.inchesToMeters(47.0);
   private static final double HUB_RAMP_LENGTH_Y_METERS = Units.inchesToMeters(73.0);
@@ -212,6 +215,25 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // return autoChooser.get();
     return drive.getAutonomousCommand();
+  }
+
+  public void logOperatorFeedback(
+      MatchStateProvider.MatchState matchState, Command autonomousCommand) {
+    SuperstructureStatus superstructureStatus = superstructure.getStatus();
+    boolean poseTrusted = drive.isPoseTrusted();
+    OperatorMode selectedMode = getSelectedMode(autonomousCommand);
+    boolean shotReady = isShotReady(superstructureStatus, poseTrusted);
+
+    Logger.recordOutput("OperatorFeedback/ActiveHub", matchState.currentActiveHub().name());
+    Logger.recordOutput("OperatorFeedback/SelectedMode", selectedMode.name());
+    Logger.recordOutput("OperatorFeedback/MagazineCount", getMagazineCount(superstructureStatus));
+    Logger.recordOutput("OperatorFeedback/ShotReady", shotReady);
+    Logger.recordOutput(
+        "OperatorFeedback/ShotReadyReason", getShotReadyReason(superstructureStatus, poseTrusted));
+    Logger.recordOutput("OperatorFeedback/PoseTrusted", poseTrusted);
+    Logger.recordOutput("OperatorFeedback/PoseConfidence", getPoseConfidenceLabel(poseTrusted));
+    Logger.recordOutput(
+        "OperatorFeedback/CurrentAutoAction", getCurrentAutoAction(autonomousCommand));
   }
 
   private Command rawDriveCommand() {
@@ -368,6 +390,98 @@ public class RobotContainer {
     return -controller.getLeftY();
   }
 
+  private OperatorMode getSelectedMode(Command autonomousCommand) {
+    if (DriverStation.isAutonomousEnabled()
+        || (autonomousCommand != null && autonomousCommand.isScheduled())) {
+      return OperatorMode.AUTONOMOUS;
+    }
+
+    XboxController hid = controller.getHID();
+    if (hid.getXButton()) {
+      return OperatorMode.MANUAL_OVERRIDE;
+    }
+    if (hid.getYButton()) {
+      return OperatorMode.QUICK_PARK;
+    }
+    if (hid.getLeftBumperButton()) {
+      return OperatorMode.OUTPOST_FEED;
+    }
+    if (hid.getRightTriggerAxis() > INTENT_TRIGGER_THRESHOLD) {
+      return OperatorMode.AUTO_FACE_AND_SCORE;
+    }
+    if (hid.getLeftTriggerAxis() > INTENT_TRIGGER_THRESHOLD) {
+      return OperatorMode.ACQUIRE;
+    }
+    return OperatorMode.MANUAL_DRIVE;
+  }
+
+  private int getMagazineCount(SuperstructureStatus superstructureStatus) {
+    return getMagazineCount(superstructureStatus.hasGamePiece());
+  }
+
+  static int getMagazineCount(boolean hasGamePiece) {
+    return hasGamePiece ? 1 : 0;
+  }
+
+  private String getCurrentAutoAction(Command autonomousCommand) {
+    if (autonomousCommand != null && autonomousCommand.isScheduled()) {
+      return autonomousCommand.getName();
+    }
+    return getCurrentAutoAction(superstructure.getStatus().activeGoal());
+  }
+
+  static String getCurrentAutoAction(SuperstructureGoal activeGoal) {
+    if (activeGoal instanceof SuperstructureGoal.IntakeDepot intakeDepot) {
+      return "ACQUIRE_DEPOT_" + intakeDepot.phase().name();
+    }
+    if (activeGoal instanceof SuperstructureGoal.IntakeFloor intakeFloor) {
+      return "ACQUIRE_FLOOR_" + intakeFloor.phase().name();
+    }
+    if (activeGoal instanceof SuperstructureGoal.HubShot hubShot) {
+      return "AUTO_FACE_AND_SCORE_" + hubShot.phase().name();
+    }
+    if (activeGoal instanceof SuperstructureGoal.OutpostAlign) {
+      return "OUTPOST_FEED_ALIGN";
+    }
+    if (activeGoal instanceof SuperstructureGoal.Eject eject) {
+      return "RECOVER_" + eject.phase().name();
+    }
+    if (activeGoal instanceof SuperstructureGoal.Endgame endgameGoal) {
+      return "QUICK_PARK_" + endgameGoal.phase().name();
+    }
+    return "IDLE";
+  }
+
+  static boolean isShotReady(SuperstructureStatus superstructureStatus, boolean poseTrusted) {
+    return "READY".equals(getShotReadyReason(superstructureStatus, poseTrusted));
+  }
+
+  static String getShotReadyReason(SuperstructureStatus superstructureStatus, boolean poseTrusted) {
+    if (!(superstructureStatus.activeGoal() instanceof SuperstructureGoal.HubShot)) {
+      return "MODE_NOT_SCORING";
+    }
+    if (!superstructureStatus.hasGamePiece()) {
+      return "NO_GAME_PIECE";
+    }
+    if (!poseTrusted) {
+      return "POSE_UNTRUSTED";
+    }
+    if (!superstructureStatus.shooterReady()) {
+      return "SHOOTER_NOT_READY";
+    }
+    if (!superstructureStatus.driveAligned()) {
+      return "DRIVE_NOT_ALIGNED";
+    }
+    if (!superstructureStatus.atGoal()) {
+      return "WAITING_FOR_FIRE_WINDOW";
+    }
+    return "READY";
+  }
+
+  static String getPoseConfidenceLabel(boolean poseTrusted) {
+    return poseTrusted ? "TRUSTED" : "UNTRUSTED";
+  }
+
   public void resetSimulationField() {
     if (Constants.currentMode != Constants.Mode.SIM || driveSimulation == null) {
       return;
@@ -470,4 +584,14 @@ public class RobotContainer {
   }
 
   private record HumpPoseSample(double heightMeters, double rollRadians) {}
+
+  private static enum OperatorMode {
+    MANUAL_DRIVE,
+    ACQUIRE,
+    AUTO_FACE_AND_SCORE,
+    OUTPOST_FEED,
+    QUICK_PARK,
+    MANUAL_OVERRIDE,
+    AUTONOMOUS
+  }
 }
