@@ -23,6 +23,8 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.subsystems.endgame.Endgame;
+import frc.robot.subsystems.endgame.SimpleEndgame;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
@@ -31,7 +33,14 @@ import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.indexer.Indexer;
+import frc.robot.subsystems.indexer.SimpleIndexer;
+import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.SimpleIntake;
 import frc.robot.subsystems.shooter.Shooter;
+import frc.robot.subsystems.shooter.ShooterBallistics;
+import frc.robot.subsystems.shooter.SimpleShooter;
+import frc.robot.subsystems.superstructure.Superstructure;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
@@ -61,7 +70,12 @@ public class RobotContainer {
 
   // Subsystems
   private final Drive drive;
-  private final Shooter shooter = new Shooter();
+  private final Intake intake = new SimpleIntake();
+  private final Indexer indexer = new SimpleIndexer();
+  private final Shooter shooter = new SimpleShooter();
+  private final Endgame endgame = new SimpleEndgame();
+  private final ShooterBallistics shooterBallistics = new ShooterBallistics();
+  private final Superstructure superstructure;
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
@@ -138,6 +152,9 @@ public class RobotContainer {
                     VisionConstants.camera1Name, VisionConstants.robotToCamera1));
         break;
     }
+
+    superstructure =
+        new Superstructure(drive, intake, indexer, shooter, endgame, shooterBallistics);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -229,16 +246,13 @@ public class RobotContainer {
   }
 
   public Command alignToHub() {
-    return drive.alignToHub(
-        () -> -controller.getLeftY(),
-        () -> -controller.getLeftX(),
-        () ->
-            shooter.estimateHubShotAirtimeSeconds(
-                drive.getPose(), TargetSelector.getHubPose3d(TargetSelector.HubSelection.ACTIVE)));
+    return superstructure.teleopHubShotCommand(
+        () -> -controller.getLeftY(), () -> -controller.getLeftX());
   }
 
   public Command alignToOutpost() {
-    return drive.alignToOutpost(() -> -controller.getLeftX(), () -> -controller.getLeftY());
+    return superstructure.teleopOutpostAlignCommand(
+        () -> -controller.getLeftX(), () -> -controller.getLeftY());
   }
 
   public void resetSimulationField() {

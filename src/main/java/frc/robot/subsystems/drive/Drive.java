@@ -40,29 +40,26 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
-import frc.robot.TargetSelector;
 import frc.robot.commands.DriveCommands;
 import frc.robot.util.LocalADStarAK;
+import frc.robot.subsystems.superstructure.SuperstructureDrive;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 
-public class Drive extends SubsystemBase {
+public class Drive extends SubsystemBase implements SuperstructureDrive {
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final Module[] modules = new Module[4]; // FL, FR, BL, BR
   private final SysIdRoutine sysId;
   private final Consumer<Pose2d> setSimulationPoseCallback;
-  private final LoggedNetworkBoolean logHubAimVector =
-      new LoggedNetworkBoolean("/SmartDashboard/Drive/LogHubAimVector", false);
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
-  private boolean wasHubAimVectorLoggingEnabled = false;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -146,8 +143,6 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
-    logHubAimVector.periodic();
-
     odometryLock.lock(); // Prevents odometry updates while reading data
     gyroIO.updateInputs(gyroInputs);
     Logger.processInputs("Drive/Gyro", gyroInputs);
@@ -204,10 +199,6 @@ public class Drive extends SubsystemBase {
 
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
-
-    if (!logHubAimVector.get() && wasHubAimVectorLoggingEnabled) {
-      clearHubAimLogs();
-    }
   }
 
   /**
@@ -366,97 +357,22 @@ public class Drive extends SubsystemBase {
     return testPath;
   }
 
-  public Pose2d getScoringHubPose() {
-    return TargetSelector.getHubPose(TargetSelector.HubSelection.ACTIVE);
-  }
-
-  public Pose2d getAllianceOutpostPose() {
-    return TargetSelector.getOutpostPose(TargetSelector.OutpostSelection.ALLIANCE);
-  }
-
-  private Translation2d getFieldRelativeVelocity() {
+  @Override
+  public Translation2d getFieldRelativeVelocity() {
     ChassisSpeeds fieldRelativeSpeeds =
         ChassisSpeeds.fromRobotRelativeSpeeds(getChassisSpeeds(), getRotation());
     return new Translation2d(
         fieldRelativeSpeeds.vxMetersPerSecond, fieldRelativeSpeeds.vyMetersPerSecond);
   }
 
-  private Pose2d getCompensatedHub(Pose2d targetHub, double shotAirtimeSeconds) {
-    double clampedAirtimeSeconds = Math.max(0.0, shotAirtimeSeconds);
-
-    // Aim opposite the current robot velocity so shot travel time is compensated in flight.
-    Translation2d compensationOffset = getFieldRelativeVelocity().times(-clampedAirtimeSeconds);
-    return new Pose2d(targetHub.getTranslation().plus(compensationOffset), targetHub.getRotation());
-  }
-
-  private Rotation2d getRotationToHub(Pose2d hub) {
-    Translation2d toTarget = hub.getTranslation().minus(getPose().getTranslation());
-    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
-  }
-
-  public Command alignToHub() {
-    return alignToHub(() -> 0.0, () -> 0.0, () -> 0.0);
-  }
-
-  public Command alignToHub(
-      DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
+  @Override
+  public Command aimWhileDriving(
+      DoubleSupplier x, DoubleSupplier y, Supplier<Rotation2d> targetHeadingSupplier) {
     return DriveCommands.joystickDriveAtAngle(
         this,
         x,
         y,
-        () -> {
-          double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
-          Pose2d baseHub = getScoringHubPose();
-          Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
-          logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
-          return getRotationToHub(compensatedHub);
-        });
-  }
-
-  private void logHubAimTarget(Pose2d baseHub, Pose2d compensatedHub, double airtimeSeconds) {
-    if (!logHubAimVector.get()) {
-      return;
-    }
-
-    Pose2d robotPose = getPose();
-    Translation2d compensationOffset =
-        compensatedHub.getTranslation().minus(baseHub.getTranslation());
-    Translation2d vectorToTarget =
-        compensatedHub.getTranslation().minus(robotPose.getTranslation());
-
-    Logger.recordOutput("Drive/HubAim/RobotPose", robotPose);
-    Logger.recordOutput("Drive/HubAim/BaseTargetPose", baseHub);
-    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", compensatedHub);
-    Logger.recordOutput(
-        "Drive/HubAim/TargetVectorEndpoints",
-        new Pose2d[] {
-          new Pose2d(robotPose.getTranslation(), Rotation2d.kZero),
-          new Pose2d(compensatedHub.getTranslation(), Rotation2d.kZero)
-        });
-    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", airtimeSeconds);
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", compensationOffset.getX());
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", compensationOffset.getY());
-    Logger.recordOutput("Drive/HubAim/VectorToTargetX", vectorToTarget.getX());
-    Logger.recordOutput("Drive/HubAim/VectorToTargetY", vectorToTarget.getY());
-    wasHubAimVectorLoggingEnabled = true;
-  }
-
-  private void clearHubAimLogs() {
-    Logger.recordOutput("Drive/HubAim/RobotPose", Pose2d.kZero);
-    Logger.recordOutput("Drive/HubAim/BaseTargetPose", Pose2d.kZero);
-    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", Pose2d.kZero);
-    Logger.recordOutput("Drive/HubAim/TargetVectorEndpoints", new Pose2d[] {});
-    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", 0.0);
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", 0.0);
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", 0.0);
-    Logger.recordOutput("Drive/HubAim/VectorToTargetX", 0.0);
-    Logger.recordOutput("Drive/HubAim/VectorToTargetY", 0.0);
-    wasHubAimVectorLoggingEnabled = false;
-  }
-
-  public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {
-    return DriveCommands.joystickDriveAtAngle(
-        this, x, y, () -> getAllianceOutpostPose().getRotation());
+        targetHeadingSupplier);
   }
 
   public void alignTo(Pose2d target) {}
