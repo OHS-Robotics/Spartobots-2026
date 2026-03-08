@@ -4,6 +4,10 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.TargetSelector.HubSelection;
+import frc.robot.subsystems.superstructure.Superstructure.PieceState;
 
 public class ShooterBallistics {
   private double launchSpeedMetersPerSec = ShooterConstants.defaultLaunchSpeedMetersPerSec;
@@ -20,12 +24,33 @@ public class ShooterBallistics {
     this.launchHeightMeters = launchHeightMeters;
   }
 
-  public ShotSolution solveHubShot(Pose2d robotPose, Pose3d hubPose) {
+  public ShotSolution solveHubShot(
+      Pose2d robotPose,
+      ChassisSpeeds chassisVelocity,
+      HubSelection selectedHub,
+      PieceState pieceState,
+      Pose3d hubPose) {
+    double airtimeSeconds = estimateHubShotAirtimeSeconds(robotPose, hubPose);
+    Translation2d compensationOffset =
+        getFieldRelativeVelocity(robotPose, chassisVelocity).times(-Math.max(0.0, airtimeSeconds));
+    Pose2d targetPose =
+        new Pose2d(
+            hubPose.toPose2d().getTranslation().plus(compensationOffset),
+            hubPose.toPose2d().getRotation());
     return new ShotSolution(
+        robotPose,
+        new ChassisSpeeds(
+            chassisVelocity.vxMetersPerSecond,
+            chassisVelocity.vyMetersPerSecond,
+            chassisVelocity.omegaRadiansPerSecond),
+        selectedHub,
+        pieceState,
+        targetPose,
+        computeHeadingToTarget(robotPose, targetPose.getTranslation()),
         launchSpeedMetersPerSec,
         launchAngle,
         launchHeightMeters,
-        estimateHubShotAirtimeSeconds(robotPose, hubPose));
+        airtimeSeconds);
   }
 
   public double estimateHubShotAirtimeSeconds(Pose2d robotPose, Pose3d hubPose) {
@@ -94,5 +119,19 @@ public class ShooterBallistics {
   private static double clampAirtime(double airtimeSeconds) {
     return MathUtil.clamp(
         airtimeSeconds, ShooterConstants.minAirtimeSeconds, ShooterConstants.maxAirtimeSeconds);
+  }
+
+  private static Translation2d getFieldRelativeVelocity(
+      Pose2d robotPose, ChassisSpeeds chassisVelocity) {
+    ChassisSpeeds fieldRelativeVelocity =
+        ChassisSpeeds.fromRobotRelativeSpeeds(chassisVelocity, robotPose.getRotation());
+    return new Translation2d(
+        fieldRelativeVelocity.vxMetersPerSecond, fieldRelativeVelocity.vyMetersPerSecond);
+  }
+
+  private static Rotation2d computeHeadingToTarget(
+      Pose2d robotPose, Translation2d targetTranslation) {
+    Translation2d toTarget = targetTranslation.minus(robotPose.getTranslation());
+    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
   }
 }

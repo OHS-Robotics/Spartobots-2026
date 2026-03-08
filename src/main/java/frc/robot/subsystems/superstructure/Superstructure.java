@@ -3,7 +3,6 @@ package frc.robot.subsystems.superstructure;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -16,18 +15,16 @@ import frc.robot.subsystems.indexer.IndexerGoal;
 import frc.robot.subsystems.indexer.IndexerStatus;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeGoal;
-import frc.robot.subsystems.shooter.ShotSolution;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterBallistics;
 import frc.robot.subsystems.shooter.ShooterGoal;
 import frc.robot.subsystems.shooter.ShooterStatus;
+import frc.robot.subsystems.shooter.ShotSolution;
 import java.util.Optional;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 public class Superstructure extends SubsystemBase {
-  private static final Rotation2d DRIVE_AIM_TOLERANCE = Rotation2d.fromDegrees(3.0);
-
   private final SuperstructureDrive drive;
   private final Intake intake;
   private final Indexer indexer;
@@ -62,8 +59,13 @@ public class Superstructure extends SubsystemBase {
         shooterBallistics,
         new Targeting() {
           @Override
-          public Pose3d getActiveHubPose() {
-            return TargetSelector.getHubPose3d(TargetSelector.HubSelection.ACTIVE);
+          public TargetSelector.HubSelection getSelectedHub() {
+            return TargetSelector.HubSelection.ACTIVE;
+          }
+
+          @Override
+          public Pose3d getHubPose(TargetSelector.HubSelection selection) {
+            return TargetSelector.getHubPose3d(selection);
           }
 
           @Override
@@ -140,11 +142,13 @@ public class Superstructure extends SubsystemBase {
     }
 
     if (activeGoal instanceof SuperstructureGoal.IntakeDepot intakeDepot) {
-      return intakeDepot.phase() != SuperstructureGoal.IntakePhase.SETTLE || pieceState == PieceState.HELD;
+      return intakeDepot.phase() != SuperstructureGoal.IntakePhase.SETTLE
+          || pieceState == PieceState.HELD;
     }
 
     if (activeGoal instanceof SuperstructureGoal.IntakeFloor intakeFloor) {
-      return intakeFloor.phase() != SuperstructureGoal.IntakePhase.SETTLE || pieceState == PieceState.HELD;
+      return intakeFloor.phase() != SuperstructureGoal.IntakePhase.SETTLE
+          || pieceState == PieceState.HELD;
     }
 
     if (activeGoal instanceof SuperstructureGoal.Eject eject) {
@@ -156,23 +160,24 @@ public class Superstructure extends SubsystemBase {
 
   public Command teleopHubShotCommand(DoubleSupplier xSupplier, DoubleSupplier ySupplier) {
     return Commands.parallel(
-            Commands.startEnd(
-                () -> setGoal(new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.AIM)),
-                this::clearGoal,
-                this),
-            drive.aimWhileDriving(xSupplier, ySupplier, this::getActiveTargetHeading));
+        Commands.startEnd(
+            () -> setGoal(new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.AIM)),
+            this::clearGoal,
+            this),
+        drive.faceTarget(xSupplier, ySupplier, this::getActiveTargetHeading));
   }
 
   public Command teleopOutpostAlignCommand(DoubleSupplier xSupplier, DoubleSupplier ySupplier) {
     return Commands.parallel(
-            Commands.startEnd(
-                () -> setGoal(new SuperstructureGoal.OutpostAlign()), this::clearGoal, this),
-            drive.aimWhileDriving(xSupplier, ySupplier, this::getActiveTargetHeading));
+        Commands.startEnd(
+            () -> setGoal(new SuperstructureGoal.OutpostAlign()), this::clearGoal, this),
+        drive.faceTarget(xSupplier, ySupplier, this::getActiveTargetHeading));
   }
 
   @Override
   public void periodic() {
-    SuperstructureGoal desiredGoal = requestedGoal == null ? new SuperstructureGoal.Stow() : requestedGoal;
+    SuperstructureGoal desiredGoal =
+        requestedGoal == null ? new SuperstructureGoal.Stow() : requestedGoal;
     activeGoal = resolveActiveGoal(desiredGoal);
 
     updateTargeting(activeGoal);
@@ -319,13 +324,9 @@ public class Superstructure extends SubsystemBase {
     activeTargetHeading = Rotation2d.kZero;
 
     if (goal instanceof SuperstructureGoal.HubShot) {
-      Pose3d hubPose = targeting.getActiveHubPose();
-      activeShotSolution = shooterBallistics.solveHubShot(drive.getPose(), hubPose);
-      Translation2d compensationOffset =
-          drive.getFieldRelativeVelocity().times(-Math.max(0.0, activeShotSolution.airtimeSeconds()));
-      activeTargetPose =
-          new Pose2d(hubPose.toPose2d().getTranslation().plus(compensationOffset), hubPose.toPose2d().getRotation());
-      activeTargetHeading = computeHeadingToTarget(activeTargetPose.getTranslation());
+      activeShotSolution = buildHubShotSolution();
+      activeTargetPose = activeShotSolution.targetPose();
+      activeTargetHeading = activeShotSolution.targetHeading();
       return;
     }
 
@@ -336,7 +337,8 @@ public class Superstructure extends SubsystemBase {
   }
 
   private void applyChildGoals(SuperstructureGoal goal) {
-    if (goal instanceof SuperstructureGoal.Stow || goal instanceof SuperstructureGoal.OutpostAlign) {
+    if (goal instanceof SuperstructureGoal.Stow
+        || goal instanceof SuperstructureGoal.OutpostAlign) {
       intake.setGoal(IntakeGoal.STOW);
       indexer.setGoal(IndexerGoal.HOLD);
       shooter.setGoal(new ShooterGoal.Stow());
@@ -388,7 +390,9 @@ public class Superstructure extends SubsystemBase {
       intake.setGoal(IntakeGoal.STOW);
       endgame.setGoal(EndgameGoal.STOWED);
       if (activeShotSolution == null) {
-        activeShotSolution = shooterBallistics.solveHubShot(drive.getPose(), targeting.getActiveHubPose());
+        activeShotSolution = buildHubShotSolution();
+        activeTargetPose = activeShotSolution.targetPose();
+        activeTargetHeading = activeShotSolution.targetHeading();
       }
       switch (hubShot.phase()) {
         case PREP:
@@ -446,10 +450,9 @@ public class Superstructure extends SubsystemBase {
     ShooterStatus shooterStatus = shooter.getStatus();
     shooterReady = shooterStatus.readyToShoot();
 
-    if (activeGoal instanceof SuperstructureGoal.HubShot || activeGoal instanceof SuperstructureGoal.OutpostAlign) {
-      driveAligned =
-          Math.abs(drive.getPose().getRotation().minus(activeTargetHeading).getRadians())
-              <= DRIVE_AIM_TOLERANCE.getRadians();
+    if (activeGoal instanceof SuperstructureGoal.HubShot
+        || activeGoal instanceof SuperstructureGoal.OutpostAlign) {
+      driveAligned = drive.isPoseTrusted() && drive.isAimed(this::getActiveTargetHeading);
     } else {
       driveAligned = false;
     }
@@ -504,9 +507,14 @@ public class Superstructure extends SubsystemBase {
     return activeTargetHeading;
   }
 
-  private Rotation2d computeHeadingToTarget(Translation2d targetTranslation) {
-    Translation2d toTarget = targetTranslation.minus(drive.getPose().getTranslation());
-    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+  private ShotSolution buildHubShotSolution() {
+    TargetSelector.HubSelection selectedHub = targeting.getSelectedHub();
+    return shooterBallistics.solveHubShot(
+        drive.getPose(),
+        drive.getChassisSpeeds(),
+        selectedHub,
+        pieceState,
+        targeting.getHubPose(selectedHub));
   }
 
   private void logState() {
@@ -517,10 +525,12 @@ public class Superstructure extends SubsystemBase {
     Logger.recordOutput("Superstructure/HasGamePiece", hasGamePiece());
     Logger.recordOutput("Superstructure/ShooterReady", shooterReady);
     Logger.recordOutput("Superstructure/DriveAligned", driveAligned);
+    Logger.recordOutput("Superstructure/PoseTrusted", drive.isPoseTrusted());
     Logger.recordOutput("Superstructure/AtGoal", atGoal());
     Logger.recordOutput("Superstructure/TargetPose", activeTargetPose);
     Logger.recordOutput(
-        "Superstructure/TargetHeadingDegrees", Units.radiansToDegrees(activeTargetHeading.getRadians()));
+        "Superstructure/TargetHeadingDegrees",
+        Units.radiansToDegrees(activeTargetHeading.getRadians()));
     Logger.recordOutput("Superstructure/IntakeGoal", intake.getGoal().name());
     Logger.recordOutput("Superstructure/IndexerGoal", indexer.getGoal().name());
     Logger.recordOutput("Superstructure/EndgameGoal", endgame.getGoal().name());
@@ -530,12 +540,18 @@ public class Superstructure extends SubsystemBase {
     double launchAngleDegrees = 0.0;
     double launchHeight = 0.0;
     double airtime = 0.0;
+    String selectedHub = "NONE";
+    String solutionPieceState = "NONE";
     if (activeShotSolution != null) {
+      selectedHub = activeShotSolution.selectedHub().name();
+      solutionPieceState = activeShotSolution.pieceState().name();
       launchSpeed = activeShotSolution.launchSpeedMetersPerSec();
       launchAngleDegrees = activeShotSolution.launchAngle().getDegrees();
       launchHeight = activeShotSolution.launchHeightMeters();
       airtime = activeShotSolution.airtimeSeconds();
     }
+    Logger.recordOutput("Superstructure/Shot/SelectedHub", selectedHub);
+    Logger.recordOutput("Superstructure/Shot/PieceState", solutionPieceState);
     Logger.recordOutput("Superstructure/Shot/LaunchSpeedMetersPerSec", launchSpeed);
     Logger.recordOutput("Superstructure/Shot/LaunchAngleDegrees", launchAngleDegrees);
     Logger.recordOutput("Superstructure/Shot/LaunchHeightMeters", launchHeight);
@@ -553,7 +569,9 @@ public class Superstructure extends SubsystemBase {
   }
 
   interface Targeting {
-    public Pose3d getActiveHubPose();
+    public TargetSelector.HubSelection getSelectedHub();
+
+    public Pose3d getHubPose(TargetSelector.HubSelection selection);
 
     public Pose2d getAllianceOutpostPose();
   }

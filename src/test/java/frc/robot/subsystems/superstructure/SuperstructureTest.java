@@ -9,7 +9,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.TargetSelector;
@@ -26,6 +26,7 @@ import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterBallistics;
 import frc.robot.subsystems.shooter.ShooterGoal;
 import frc.robot.subsystems.shooter.ShooterStatus;
+import frc.robot.subsystems.shooter.ShotSolution;
 import org.junit.jupiter.api.Test;
 
 class SuperstructureTest {
@@ -36,9 +37,11 @@ class SuperstructureTest {
     FakeDrive drive = new FakeDrive();
     FakeIntake intake = new FakeIntake();
     FakeIndexer indexer = new FakeIndexer();
-    Superstructure superstructure = createSuperstructure(drive, intake, indexer, new FakeShooter(), new FakeEndgame());
+    Superstructure superstructure =
+        createSuperstructure(drive, intake, indexer, new FakeShooter(), new FakeEndgame());
 
-    superstructure.setGoal(new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
+    superstructure.setGoal(
+        new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
     superstructure.periodic();
     assertEquals(
         new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.PREP),
@@ -65,9 +68,11 @@ class SuperstructureTest {
     FakeDrive drive = new FakeDrive();
     FakeIntake intake = new FakeIntake();
     FakeIndexer indexer = new FakeIndexer();
-    Superstructure superstructure = createSuperstructure(drive, intake, indexer, new FakeShooter(), new FakeEndgame());
+    Superstructure superstructure =
+        createSuperstructure(drive, intake, indexer, new FakeShooter(), new FakeEndgame());
 
-    superstructure.setGoal(new SuperstructureGoal.IntakeFloor(SuperstructureGoal.IntakePhase.SETTLE));
+    superstructure.setGoal(
+        new SuperstructureGoal.IntakeFloor(SuperstructureGoal.IntakePhase.SETTLE));
     superstructure.periodic();
     superstructure.periodic();
     indexer.holdingPiece = true;
@@ -88,7 +93,8 @@ class SuperstructureTest {
     FakeIntake intake = new FakeIntake();
     FakeIndexer indexer = new FakeIndexer();
     FakeShooter shooter = new FakeShooter();
-    Superstructure superstructure = createSuperstructure(drive, intake, indexer, shooter, new FakeEndgame());
+    Superstructure superstructure =
+        createSuperstructure(drive, intake, indexer, shooter, new FakeEndgame());
 
     superstructure.setGoal(new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE));
     superstructure.periodic();
@@ -98,7 +104,8 @@ class SuperstructureTest {
         superstructure.getStatus().activeGoal());
 
     indexer.holdingPiece = true;
-    superstructure.setGoal(new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
+    superstructure.setGoal(
+        new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
     superstructure.periodic();
     superstructure.periodic();
     superstructure.periodic();
@@ -127,20 +134,57 @@ class SuperstructureTest {
   @Test
   void hubShotCompensatesTargetHeadingUsingFieldVelocity() {
     FakeDrive drive = new FakeDrive();
-    drive.velocity = new Translation2d(0.0, 1.0);
+    drive.chassisSpeeds = new ChassisSpeeds(0.0, 1.0, 0.0);
     Superstructure superstructure =
-        createSuperstructure(drive, new FakeIntake(), new FakeIndexer(), new FakeShooter(), new FakeEndgame());
+        createSuperstructure(
+            drive, new FakeIntake(), new FakeIndexer(), new FakeShooter(), new FakeEndgame());
 
     superstructure.setGoal(new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.PREP));
     superstructure.periodic();
 
     SuperstructureStatus status = superstructure.getStatus();
     assertNotNull(status.shotSolution());
+    assertEquals(TargetSelector.HubSelection.ACTIVE, status.shotSolution().selectedHub());
+    assertEquals(Superstructure.PieceState.EMPTY, status.shotSolution().pieceState());
     assertTrue(status.targetHeading().getRadians() < 0.0);
     assertEquals(
         Math.atan2(-status.shotSolution().airtimeSeconds(), 5.0),
         status.targetHeading().getRadians(),
         1e-6);
+  }
+
+  @Test
+  void hubShotRequiresTrustedPoseBeforeFiring() {
+    FakeDrive drive = new FakeDrive();
+    drive.poseTrusted = false;
+    FakeIndexer indexer = new FakeIndexer();
+    Superstructure superstructure =
+        createSuperstructure(
+            drive, new FakeIntake(), indexer, new FakeShooter(), new FakeEndgame());
+
+    indexer.holdingPiece = true;
+    superstructure.setGoal(
+        new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
+    superstructure.periodic();
+    superstructure.periodic();
+    superstructure.periodic();
+
+    superstructure.setGoal(new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE));
+    superstructure.periodic();
+    superstructure.periodic();
+
+    assertEquals(
+        new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.AIM),
+        superstructure.getStatus().activeGoal());
+    assertTrue(!superstructure.getStatus().driveAligned());
+
+    drive.poseTrusted = true;
+    superstructure.periodic();
+    superstructure.periodic();
+
+    assertEquals(
+        new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE),
+        superstructure.getStatus().activeGoal());
   }
 
   @Test
@@ -160,7 +204,10 @@ class SuperstructureTest {
     assertEquals(IndexerGoal.HOLD, indexer.goal);
     assertInstanceOf(ShooterGoal.Stow.class, shooter.goal);
     assertEquals(EndgameGoal.STOWED, endgame.goal);
-    assertEquals(Rotation2d.fromDegrees(180.0).getRadians(), superstructure.getStatus().targetHeading().getRadians(), EPSILON);
+    assertEquals(
+        Rotation2d.fromDegrees(180.0).getRadians(),
+        superstructure.getStatus().targetHeading().getRadians(),
+        EPSILON);
   }
 
   @Test
@@ -174,7 +221,8 @@ class SuperstructureTest {
 
     superstructure.setGoal(
         new SuperstructureGoal.Endgame(
-            SuperstructureGoal.EndgamePhase.LEVEL, TargetSelector.ParkZoneSelection.ALLIANCE_LOWER));
+            SuperstructureGoal.EndgamePhase.LEVEL,
+            TargetSelector.ParkZoneSelection.ALLIANCE_LOWER));
     superstructure.periodic();
     superstructure.periodic();
     superstructure.periodic();
@@ -194,10 +242,12 @@ class SuperstructureTest {
     FakeDrive drive = new FakeDrive();
     FakeIndexer indexer = new FakeIndexer();
     Superstructure superstructure =
-        createSuperstructure(drive, new FakeIntake(), indexer, new FakeShooter(), new FakeEndgame());
+        createSuperstructure(
+            drive, new FakeIntake(), indexer, new FakeShooter(), new FakeEndgame());
 
     indexer.holdingPiece = true;
-    superstructure.setGoal(new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
+    superstructure.setGoal(
+        new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
     superstructure.periodic();
     superstructure.periodic();
     superstructure.periodic();
@@ -216,7 +266,11 @@ class SuperstructureTest {
   }
 
   private static Superstructure createSuperstructure(
-      FakeDrive drive, FakeIntake intake, FakeIndexer indexer, FakeShooter shooter, FakeEndgame endgame) {
+      FakeDrive drive,
+      FakeIntake intake,
+      FakeIndexer indexer,
+      FakeShooter shooter,
+      FakeEndgame endgame) {
     return new Superstructure(
         drive,
         intake,
@@ -226,7 +280,12 @@ class SuperstructureTest {
         new ShooterBallistics(),
         new Superstructure.Targeting() {
           @Override
-          public Pose3d getActiveHubPose() {
+          public TargetSelector.HubSelection getSelectedHub() {
+            return TargetSelector.HubSelection.ACTIVE;
+          }
+
+          @Override
+          public Pose3d getHubPose(TargetSelector.HubSelection selection) {
             return new Pose3d(5.0, 0.0, 1.8, new Rotation3d());
           }
 
@@ -239,7 +298,8 @@ class SuperstructureTest {
 
   private static final class FakeDrive implements SuperstructureDrive {
     private Pose2d pose = new Pose2d();
-    private Translation2d velocity = new Translation2d();
+    private ChassisSpeeds chassisSpeeds = new ChassisSpeeds();
+    private boolean poseTrusted = true;
 
     @Override
     public Pose2d getPose() {
@@ -247,15 +307,32 @@ class SuperstructureTest {
     }
 
     @Override
-    public Translation2d getFieldRelativeVelocity() {
-      return velocity;
+    public ChassisSpeeds getChassisSpeeds() {
+      return chassisSpeeds;
     }
 
     @Override
-    public Command aimWhileDriving(
+    public Command faceTarget(
         java.util.function.DoubleSupplier xSupplier,
         java.util.function.DoubleSupplier ySupplier,
         java.util.function.Supplier<Rotation2d> targetHeading) {
+      return Commands.none();
+    }
+
+    @Override
+    public boolean isAimed(java.util.function.Supplier<Rotation2d> targetHeadingSupplier) {
+      Rotation2d targetHeading = targetHeadingSupplier.get();
+      return Math.abs(pose.getRotation().minus(targetHeading).getRadians())
+          <= Rotation2d.fromDegrees(3.0).getRadians();
+    }
+
+    @Override
+    public boolean isPoseTrusted() {
+      return poseTrusted;
+    }
+
+    @Override
+    public Command holdShotPose(java.util.function.Supplier<ShotSolution> shotSolutionSupplier) {
       return Commands.none();
     }
   }
@@ -308,11 +385,7 @@ class SuperstructureTest {
     @Override
     public IndexerStatus getStatus() {
       return new IndexerStatus(
-          goal,
-          atGoal,
-          holdingPiece,
-          goal == IndexerGoal.FEED_SHOOTER,
-          goal == IndexerGoal.PURGE);
+          goal, atGoal, holdingPiece, goal == IndexerGoal.FEED_SHOOTER, goal == IndexerGoal.PURGE);
     }
 
     @Override
@@ -342,8 +415,7 @@ class SuperstructureTest {
 
     @Override
     public ShooterStatus getStatus() {
-      boolean ready =
-          goal instanceof ShooterGoal.Ready || goal instanceof ShooterGoal.Fire;
+      boolean ready = goal instanceof ShooterGoal.Ready || goal instanceof ShooterGoal.Fire;
       frc.robot.subsystems.shooter.ShotSolution solution = null;
       if (goal instanceof ShooterGoal.Track track) {
         solution = track.shotSolution();

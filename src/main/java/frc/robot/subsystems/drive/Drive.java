@@ -23,7 +23,6 @@ import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -41,17 +40,19 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
-import frc.robot.util.LocalADStarAK;
+import frc.robot.subsystems.shooter.ShotSolution;
 import frc.robot.subsystems.superstructure.SuperstructureDrive;
+import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
-import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase implements SuperstructureDrive {
+  private static final Rotation2d AIM_TOLERANCE = Rotation2d.fromDegrees(3.0);
+
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
@@ -74,6 +75,7 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
   private PathPlannerAuto testPath;
+  private boolean poseTrusted = Constants.currentMode != Mode.REAL;
 
   public Drive(
       GyroIO gyroIO,
@@ -199,6 +201,7 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
 
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
+    Logger.recordOutput("Drive/PoseTrusted", isPoseTrusted());
   }
 
   /**
@@ -295,7 +298,8 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
 
   /** Returns the measured chassis speeds of the robot. */
   @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
-  private ChassisSpeeds getChassisSpeeds() {
+  @Override
+  public ChassisSpeeds getChassisSpeeds() {
     return kinematics.toChassisSpeeds(getModuleStates());
   }
 
@@ -332,6 +336,7 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
   public void setPose(Pose2d pose) {
     setSimulationPoseCallback.accept(pose);
     poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+    poseTrusted = true;
   }
 
   /** Adds a new timestamped vision measurement. */
@@ -341,6 +346,7 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
       Matrix<N3, N1> visionMeasurementStdDevs) {
     poseEstimator.addVisionMeasurement(
         visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
+    poseTrusted = true;
   }
 
   /** Returns the maximum linear speed in meters per sec. */
@@ -358,21 +364,30 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
   }
 
   @Override
-  public Translation2d getFieldRelativeVelocity() {
-    ChassisSpeeds fieldRelativeSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(getChassisSpeeds(), getRotation());
-    return new Translation2d(
-        fieldRelativeSpeeds.vxMetersPerSecond, fieldRelativeSpeeds.vyMetersPerSecond);
+  public Command faceTarget(
+      java.util.function.DoubleSupplier x,
+      java.util.function.DoubleSupplier y,
+      Supplier<Rotation2d> targetHeadingSupplier) {
+    return DriveCommands.joystickDriveAtAngle(this, x, y, targetHeadingSupplier);
   }
 
   @Override
-  public Command aimWhileDriving(
-      DoubleSupplier x, DoubleSupplier y, Supplier<Rotation2d> targetHeadingSupplier) {
-    return DriveCommands.joystickDriveAtAngle(
-        this,
-        x,
-        y,
-        targetHeadingSupplier);
+  public boolean isAimed(Supplier<Rotation2d> targetHeadingSupplier) {
+    Rotation2d targetHeading = targetHeadingSupplier.get();
+    if (targetHeading == null) {
+      return false;
+    }
+    return Math.abs(getRotation().minus(targetHeading).getRadians()) <= AIM_TOLERANCE.getRadians();
+  }
+
+  @Override
+  public boolean isPoseTrusted() {
+    return poseTrusted && (Constants.currentMode != Mode.REAL || gyroInputs.connected);
+  }
+
+  @Override
+  public Command holdShotPose(Supplier<ShotSolution> shotSolutionSupplier) {
+    return DriveCommands.holdShotPose(this, shotSolutionSupplier);
   }
 
   public void alignTo(Pose2d target) {}

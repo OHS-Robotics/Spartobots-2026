@@ -8,6 +8,7 @@
 package frc.robot.commands;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -24,6 +25,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
+import frc.robot.subsystems.shooter.ShotSolution;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.LinkedList;
@@ -37,6 +39,7 @@ public class DriveCommands {
   private static final double ANGLE_KD = 0.1;
   private static final double ANGLE_MAX_VELOCITY = 45.0;
   private static final double ANGLE_MAX_ACCELERATION = 90.0;
+  private static final double POSE_HOLD_TRANSLATION_KP = 2.5;
   private static final double FF_START_DELAY = 2.0; // Secs
   private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
   private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
@@ -148,6 +151,57 @@ public class DriveCommands {
 
         // Reset PID controller when command starts
         .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
+  }
+
+  /** Holds a solved shooting pose while maintaining the shot heading. */
+  public static Command holdShotPose(Drive drive, Supplier<ShotSolution> shotSolutionSupplier) {
+    PIDController xController = new PIDController(POSE_HOLD_TRANSLATION_KP, 0.0, 0.0);
+    PIDController yController = new PIDController(POSE_HOLD_TRANSLATION_KP, 0.0, 0.0);
+    ProfiledPIDController angleController =
+        new ProfiledPIDController(
+            ANGLE_KP,
+            0.0,
+            ANGLE_KD,
+            new TrapezoidProfile.Constraints(ANGLE_MAX_VELOCITY, ANGLE_MAX_ACCELERATION));
+    angleController.enableContinuousInput(-Math.PI, Math.PI);
+
+    return Commands.run(
+            () -> {
+              ShotSolution shotSolution = shotSolutionSupplier.get();
+              if (shotSolution == null) {
+                drive.stop();
+                return;
+              }
+
+              Pose2d currentPose = drive.getPose();
+              Pose2d desiredPose = shotSolution.robotPose();
+              double xVelocity =
+                  MathUtil.clamp(
+                      xController.calculate(currentPose.getX(), desiredPose.getX()),
+                      -drive.getMaxLinearSpeedMetersPerSec(),
+                      drive.getMaxLinearSpeedMetersPerSec());
+              double yVelocity =
+                  MathUtil.clamp(
+                      yController.calculate(currentPose.getY(), desiredPose.getY()),
+                      -drive.getMaxLinearSpeedMetersPerSec(),
+                      drive.getMaxLinearSpeedMetersPerSec());
+              double omega =
+                  angleController.calculate(
+                      currentPose.getRotation().getRadians(),
+                      shotSolution.targetHeading().getRadians());
+
+              drive.runVelocity(
+                  ChassisSpeeds.fromFieldRelativeSpeeds(
+                      xVelocity, yVelocity, omega, currentPose.getRotation()));
+            },
+            drive)
+        .beforeStarting(
+            () -> {
+              Pose2d pose = drive.getPose();
+              xController.reset();
+              yController.reset();
+              angleController.reset(pose.getRotation().getRadians());
+            });
   }
 
   /**
