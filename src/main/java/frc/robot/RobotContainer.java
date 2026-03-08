@@ -16,14 +16,12 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import frc.robot.FieldConstants.FieldTarget;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
@@ -51,7 +49,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
-  private static final Pose2d SIM_START_POSE = new Pose2d(3.0, 3.0, Rotation2d.kZero);
+  private static final Pose2d SIM_START_POSE = FieldTargets.AUTO_START_CENTER.bluePose();
   private static final double HUB_TOP_LENGTH_Y_METERS = Units.inchesToMeters(47.0);
   private static final double HUB_RAMP_LENGTH_Y_METERS = Units.inchesToMeters(73.0);
   private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
@@ -236,7 +234,7 @@ public class RobotContainer {
         () -> -controller.getLeftX(),
         () ->
             shooter.estimateHubShotAirtimeSeconds(
-                drive.getPose(), FieldConstants.getTargetPose3d(FieldTarget.HUB_CENTER)));
+                drive.getPose(), TargetSelector.getHubPose3d(TargetSelector.HubSelection.ACTIVE)));
   }
 
   public Command alignToOutpost() {
@@ -310,12 +308,8 @@ public class RobotContainer {
   }
 
   private HumpPoseSample sampleHumpPose(Pose2d robotPose) {
-    HumpPoseSample blueSample =
-        sampleSingleHump(
-            FieldConstants.getTargetPose(FieldTarget.HUB_CENTER, Alliance.Blue), robotPose);
-    HumpPoseSample redSample =
-        sampleSingleHump(
-            FieldConstants.getTargetPose(FieldTarget.HUB_CENTER, Alliance.Red), robotPose);
+    HumpPoseSample blueSample = sampleSingleHump(FieldTargets.HUB.bluePose().toPose2d(), robotPose);
+    HumpPoseSample redSample = sampleSingleHump(FieldTargets.HUB.redPose().toPose2d(), robotPose);
     return blueSample.heightMeters() >= redSample.heightMeters() ? blueSample : redSample;
   }
 

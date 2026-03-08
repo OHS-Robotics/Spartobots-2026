@@ -40,8 +40,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
-import frc.robot.FieldConstants;
-import frc.robot.FieldConstants.FieldTarget;
+import frc.robot.TargetSelector;
 import frc.robot.commands.DriveCommands;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
@@ -367,12 +366,12 @@ public class Drive extends SubsystemBase {
     return testPath;
   }
 
-  public Pose2d getAllianceHubPose() {
-    return FieldConstants.getTargetPose(FieldTarget.HUB_CENTER);
+  public Pose2d getScoringHubPose() {
+    return TargetSelector.getHubPose(TargetSelector.HubSelection.ACTIVE);
   }
 
   public Pose2d getAllianceOutpostPose() {
-    return FieldConstants.getTargetPose(FieldTarget.OUTPOST);
+    return TargetSelector.getOutpostPose(TargetSelector.OutpostSelection.ALLIANCE);
   }
 
   private Translation2d getFieldRelativeVelocity() {
@@ -407,7 +406,7 @@ public class Drive extends SubsystemBase {
         y,
         () -> {
           double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
-          Pose2d baseHub = getAllianceHubPose();
+          Pose2d baseHub = getScoringHubPose();
           Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
           logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
           return getRotationToHub(compensatedHub);
