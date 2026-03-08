@@ -23,8 +23,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
-import frc.robot.subsystems.endgame.Endgame;
-import frc.robot.subsystems.endgame.SimpleEndgame;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
@@ -33,6 +31,8 @@ import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.endgame.Endgame;
+import frc.robot.subsystems.endgame.SimpleEndgame;
 import frc.robot.subsystems.indexer.Indexer;
 import frc.robot.subsystems.indexer.SimpleIndexer;
 import frc.robot.subsystems.intake.Intake;
@@ -41,10 +41,13 @@ import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterBallistics;
 import frc.robot.subsystems.shooter.SimpleShooter;
 import frc.robot.subsystems.superstructure.Superstructure;
+import frc.robot.subsystems.superstructure.SuperstructureGoal;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
@@ -186,52 +189,18 @@ public class RobotContainer {
    * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
    */
   private void configureButtonBindings() {
-    // Default command, normal field-relative drive
-    drive.setDefaultCommand(
-        DriveCommands.joystickDrive(
-            drive,
-            () -> controller.getLeftY(),
-            () -> controller.getLeftX(),
-            () -> -controller.getRightX()));
+    drive.setDefaultCommand(rawDriveCommand());
 
-    // Lock to 0° when A button is held
-    controller
-        .a()
-        .whileTrue(
-            DriveCommands.joystickDriveAtAngle(
-                drive,
-                () -> controller.getLeftY(),
-                () -> controller.getLeftX(),
-                () -> Rotation2d.kZero));
-
-    // Switch to X pattern when X button is pressed
-    controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
-
-    // Reset gyro to 0° when B button is pressed
-    controller
-        .b()
-        .onTrue(
-            Commands.runOnce(
-                    () ->
-                        drive.setPose(
-                            new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
-                    drive)
-                .ignoringDisable(true));
-
-    controller.y().onTrue(drive.getAutonomousCommand());
-
-    controller.povUp().whileTrue(alignToHub());
-
-    controller.povLeft().onTrue(alignToOutpost());
-
-    controller.povRight().toggleOnTrue(alignToHub());
-
-    controller.povDown().onTrue(drive.getDefaultCommand());
+    // Driver intent bindings
+    controller.leftTrigger().whileTrue(acquireIntent());
+    controller.rightTrigger().whileTrue(autoFaceAndScoreIntent());
+    controller.leftBumper().whileTrue(outpostFeedIntent());
+    controller.b().onTrue(cancelRecoverIntent());
+    controller.y().whileTrue(quickParkIntent());
+    controller.x().whileTrue(manualOverrideIntent());
 
     if (Constants.currentMode == Constants.Mode.SIM) {
-      controller
-          .leftBumper()
-          .onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
+      controller.start().onTrue(Commands.runOnce(this::resetSimulationField).ignoringDisable(true));
     }
   }
 
@@ -245,14 +214,158 @@ public class RobotContainer {
     return drive.getAutonomousCommand();
   }
 
-  public Command alignToHub() {
-    return superstructure.teleopHubShotCommand(
-        () -> -controller.getLeftY(), () -> -controller.getLeftX());
+  private Command rawDriveCommand() {
+    return DriveCommands.joystickDrive(
+        drive,
+        () -> controller.getLeftY(),
+        () -> controller.getLeftX(),
+        () -> -controller.getRightX());
   }
 
-  public Command alignToOutpost() {
-    return superstructure.teleopOutpostAlignCommand(
-        () -> -controller.getLeftX(), () -> -controller.getLeftY());
+  private Command acquireIntent() {
+    return maintainGoal(this::selectAcquireGoal);
+  }
+
+  private Command autoFaceAndScoreIntent() {
+    return driverAssistIntent(
+        this::selectAutoFaceAndScoreGoal,
+        this::getAssistDriveX,
+        this::getAssistDriveY,
+        this::getSuperstructureTargetHeading);
+  }
+
+  private Command outpostFeedIntent() {
+    return driverAssistIntent(
+        () -> new SuperstructureGoal.OutpostAlign(),
+        this::getOutpostAssistDriveX,
+        this::getOutpostAssistDriveY,
+        this::getSuperstructureTargetHeading);
+  }
+
+  private Command quickParkIntent() {
+    return driverAssistIntent(
+        () ->
+            new SuperstructureGoal.Endgame(
+                SuperstructureGoal.EndgamePhase.PREP, selectQuickParkZone()),
+        this::getAssistDriveX,
+        this::getAssistDriveY,
+        this::getQuickParkHeading);
+  }
+
+  private Command cancelRecoverIntent() {
+    return Commands.parallel(
+        Commands.runOnce(superstructure::clearGoal, superstructure),
+        Commands.runOnce(drive::stop, drive));
+  }
+
+  private Command manualOverrideIntent() {
+    return Commands.parallel(
+        Commands.run(superstructure::clearGoal, superstructure), rawDriveCommand());
+  }
+
+  private Command driverAssistIntent(
+      Supplier<SuperstructureGoal> goalSupplier,
+      DoubleSupplier xSupplier,
+      DoubleSupplier ySupplier,
+      Supplier<Rotation2d> targetHeadingSupplier) {
+    return Commands.parallel(
+        maintainGoal(goalSupplier), drive.faceTarget(xSupplier, ySupplier, targetHeadingSupplier));
+  }
+
+  private Command maintainGoal(Supplier<SuperstructureGoal> goalSupplier) {
+    return Commands.run(() -> superstructure.setGoal(goalSupplier.get()), superstructure)
+        .finallyDo((interrupted) -> superstructure.clearGoal());
+  }
+
+  private SuperstructureGoal selectAcquireGoal() {
+    return selectAcquireGoal(
+        drive.getPose(),
+        superstructure.hasGamePiece(),
+        TargetSelector.getIntakeZone(TargetSelector.IntakeZoneSelection.ALLIANCE_DEPOT),
+        TargetSelector.getIntakeZone(TargetSelector.IntakeZoneSelection.NEUTRAL_FLOOR));
+  }
+
+  static SuperstructureGoal selectAcquireGoal(
+      Pose2d robotPose,
+      boolean hasGamePiece,
+      FieldTargets.FieldZone depotZone,
+      FieldTargets.FieldZone floorZone) {
+    if (hasGamePiece) {
+      return new SuperstructureGoal.Stow();
+    }
+    if (depotZone.contains(robotPose.getTranslation())) {
+      return new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE);
+    }
+    if (floorZone.contains(robotPose.getTranslation())) {
+      return new SuperstructureGoal.IntakeFloor(SuperstructureGoal.IntakePhase.SETTLE);
+    }
+    return distanceToZoneCenter(robotPose, depotZone) <= distanceToZoneCenter(robotPose, floorZone)
+        ? new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE)
+        : new SuperstructureGoal.IntakeFloor(SuperstructureGoal.IntakePhase.SETTLE);
+  }
+
+  private SuperstructureGoal selectAutoFaceAndScoreGoal() {
+    return new SuperstructureGoal.HubShot(
+        superstructure.hasGamePiece()
+            ? SuperstructureGoal.HubShotPhase.FIRE
+            : SuperstructureGoal.HubShotPhase.AIM);
+  }
+
+  private TargetSelector.ParkZoneSelection selectQuickParkZone() {
+    return selectQuickParkZone(
+        drive.getPose(),
+        TargetSelector.getParkZone(TargetSelector.ParkZoneSelection.ALLIANCE_LOWER),
+        TargetSelector.getParkZone(TargetSelector.ParkZoneSelection.ALLIANCE_UPPER));
+  }
+
+  static TargetSelector.ParkZoneSelection selectQuickParkZone(
+      Pose2d robotPose, FieldTargets.FieldZone lowerZone, FieldTargets.FieldZone upperZone) {
+    if (lowerZone.contains(robotPose.getTranslation())) {
+      return TargetSelector.ParkZoneSelection.ALLIANCE_LOWER;
+    }
+    if (upperZone.contains(robotPose.getTranslation())) {
+      return TargetSelector.ParkZoneSelection.ALLIANCE_UPPER;
+    }
+    return distanceToZoneCenter(robotPose, lowerZone) <= distanceToZoneCenter(robotPose, upperZone)
+        ? TargetSelector.ParkZoneSelection.ALLIANCE_LOWER
+        : TargetSelector.ParkZoneSelection.ALLIANCE_UPPER;
+  }
+
+  private Rotation2d getSuperstructureTargetHeading() {
+    return superstructure.getStatus().targetHeading();
+  }
+
+  private Rotation2d getQuickParkHeading() {
+    return computeHeadingToZoneCenter(
+        drive.getPose(), TargetSelector.getParkZone(selectQuickParkZone()));
+  }
+
+  static Rotation2d computeHeadingToZoneCenter(Pose2d robotPose, FieldTargets.FieldZone zone) {
+    Translation2d toZoneCenter = zone.center().minus(robotPose.getTranslation());
+    if (toZoneCenter.getNorm() <= 1e-9) {
+      return robotPose.getRotation();
+    }
+    return new Rotation2d(Math.atan2(toZoneCenter.getY(), toZoneCenter.getX()));
+  }
+
+  private static double distanceToZoneCenter(Pose2d robotPose, FieldTargets.FieldZone zone) {
+    return robotPose.getTranslation().getDistance(zone.center());
+  }
+
+  private double getAssistDriveX() {
+    return -controller.getLeftY();
+  }
+
+  private double getAssistDriveY() {
+    return -controller.getLeftX();
+  }
+
+  private double getOutpostAssistDriveX() {
+    return -controller.getLeftX();
+  }
+
+  private double getOutpostAssistDriveY() {
+    return -controller.getLeftY();
   }
 
   public void resetSimulationField() {
