@@ -44,15 +44,11 @@ class SuperstructureTest {
         new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
     superstructure.periodic();
     assertEquals(
-        new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.PREP),
-        superstructure.getStatus().activeGoal());
-    assertEquals(IntakeGoal.DEPLOY_DEPOT, intake.goal);
-    assertEquals(IndexerGoal.RECEIVE, indexer.goal);
-
-    superstructure.periodic();
-    assertEquals(
         new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.CAPTURE),
         superstructure.getStatus().activeGoal());
+    assertEquals(IntakeGoal.COLLECT_DEPOT, intake.goal);
+    assertEquals(IndexerGoal.RECEIVE, indexer.goal);
+
     indexer.holdingPiece = true;
 
     superstructure.periodic();

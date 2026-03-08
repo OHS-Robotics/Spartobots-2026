@@ -7,7 +7,6 @@
 
 package frc.robot;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -23,6 +22,11 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.auto.AdStarAutoNavigator;
+import frc.robot.auto.AutoFieldUtil;
+import frc.robot.auto.AutoOption;
+import frc.robot.auto.AutoRoutineFactory;
+import frc.robot.auto.AutoSpec;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
@@ -64,7 +68,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  */
 public class RobotContainer {
   private static final double INTENT_TRIGGER_THRESHOLD = 0.5;
-  private static final Pose2d SIM_START_POSE = FieldTargets.AUTO_START_CENTER.bluePose();
+  private static final Pose2d DEFAULT_SIM_START_POSE = FieldTargets.AUTO_START_CENTER.bluePose();
   private static final double HUB_TOP_LENGTH_Y_METERS = Units.inchesToMeters(47.0);
   private static final double HUB_RAMP_LENGTH_Y_METERS = Units.inchesToMeters(73.0);
   private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
@@ -87,7 +91,9 @@ public class RobotContainer {
   public final CommandXboxController controller = new CommandXboxController(0);
 
   // Dashboard inputs
-  private final LoggedDashboardChooser<Command> autoChooser;
+  private final LoggedDashboardChooser<AutoOption> autoChooser;
+  private final AutoRoutineFactory autoRoutineFactory;
+  private final AutoOption defaultAutoOption;
 
   private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
@@ -116,7 +122,8 @@ public class RobotContainer {
       case SIM:
         // Sim robot, instantiate MapleSim physics implementations
         SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
-        driveSimulation = new SwerveDriveSimulation(DriveConstants.mapleSimConfig, SIM_START_POSE);
+        driveSimulation =
+            new SwerveDriveSimulation(DriveConstants.mapleSimConfig, DEFAULT_SIM_START_POSE);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
         drive =
             new Drive(
@@ -137,7 +144,6 @@ public class RobotContainer {
                     VisionConstants.camera1Name,
                     VisionConstants.robotToCamera1,
                     driveSimulation::getSimulatedDriveTrainPose));
-        resetSimulationField();
         break;
 
       default:
@@ -161,28 +167,58 @@ public class RobotContainer {
 
     superstructure =
         new Superstructure(drive, intake, indexer, shooter, endgame, shooterBallistics);
+    autoRoutineFactory =
+        new AutoRoutineFactory(drive, superstructure, new AdStarAutoNavigator(drive));
+    defaultAutoOption = autoRoutineFactory.defaultAutoOption();
 
     // Set up auto routines
-    autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+    autoChooser = new LoggedDashboardChooser<>("Auto Choices");
+    autoChooser.addOption("Do Nothing", AutoOption.forCommand("Do Nothing", Commands::none));
+    autoChooser.addDefaultOption(defaultAutoOption.name(), defaultAutoOption);
+    for (AutoOption option : autoRoutineFactory.presetAutoOptions()) {
+      if (!option.name().equals(defaultAutoOption.name())) {
+        autoChooser.addOption(option.name(), option);
+      }
+    }
 
     // Set up SysId routines
     autoChooser.addOption(
-        "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
+        "Drive Wheel Radius Characterization",
+        AutoOption.forCommand(
+            "Drive Wheel Radius Characterization",
+            () -> DriveCommands.wheelRadiusCharacterization(drive)));
     autoChooser.addOption(
-        "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+        "Drive Simple FF Characterization",
+        AutoOption.forCommand(
+            "Drive Simple FF Characterization",
+            () -> DriveCommands.feedforwardCharacterization(drive)));
     autoChooser.addOption(
         "Drive SysId (Quasistatic Forward)",
-        drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+        AutoOption.forCommand(
+            "Drive SysId (Quasistatic Forward)",
+            () -> drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward)));
     autoChooser.addOption(
         "Drive SysId (Quasistatic Reverse)",
-        drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+        AutoOption.forCommand(
+            "Drive SysId (Quasistatic Reverse)",
+            () -> drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse)));
     autoChooser.addOption(
-        "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+        "Drive SysId (Dynamic Forward)",
+        AutoOption.forCommand(
+            "Drive SysId (Dynamic Forward)",
+            () -> drive.sysIdDynamic(SysIdRoutine.Direction.kForward)));
     autoChooser.addOption(
-        "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+        "Drive SysId (Dynamic Reverse)",
+        AutoOption.forCommand(
+            "Drive SysId (Dynamic Reverse)",
+            () -> drive.sysIdDynamic(SysIdRoutine.Direction.kReverse)));
 
     // Configure the button bindings
     configureButtonBindings();
+
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      resetSimulationField();
+    }
   }
 
   /**
@@ -213,8 +249,7 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // return autoChooser.get();
-    return drive.getAutonomousCommand();
+    return getSelectedAutoOption().buildCommand();
   }
 
   public void logOperatorFeedback(
@@ -342,15 +377,7 @@ public class RobotContainer {
 
   static TargetSelector.ParkZoneSelection selectQuickParkZone(
       Pose2d robotPose, FieldTargets.FieldZone lowerZone, FieldTargets.FieldZone upperZone) {
-    if (lowerZone.contains(robotPose.getTranslation())) {
-      return TargetSelector.ParkZoneSelection.ALLIANCE_LOWER;
-    }
-    if (upperZone.contains(robotPose.getTranslation())) {
-      return TargetSelector.ParkZoneSelection.ALLIANCE_UPPER;
-    }
-    return distanceToZoneCenter(robotPose, lowerZone) <= distanceToZoneCenter(robotPose, upperZone)
-        ? TargetSelector.ParkZoneSelection.ALLIANCE_LOWER
-        : TargetSelector.ParkZoneSelection.ALLIANCE_UPPER;
+    return AutoFieldUtil.selectNearestParkZone(robotPose, lowerZone, upperZone);
   }
 
   private Rotation2d getSuperstructureTargetHeading() {
@@ -363,11 +390,7 @@ public class RobotContainer {
   }
 
   static Rotation2d computeHeadingToZoneCenter(Pose2d robotPose, FieldTargets.FieldZone zone) {
-    Translation2d toZoneCenter = zone.center().minus(robotPose.getTranslation());
-    if (toZoneCenter.getNorm() <= 1e-9) {
-      return robotPose.getRotation();
-    }
-    return new Rotation2d(Math.atan2(toZoneCenter.getY(), toZoneCenter.getX()));
+    return AutoFieldUtil.computeHeadingToZoneCenter(robotPose, zone);
   }
 
   private static double distanceToZoneCenter(Pose2d robotPose, FieldTargets.FieldZone zone) {
@@ -487,8 +510,8 @@ public class RobotContainer {
       return;
     }
 
-    drive.setPose(SIM_START_POSE);
-    SimulatedArena.getInstance().resetFieldForAuto();
+    AutoSpec autoSpec = AutoRoutineFactory.resetSpecFor(getSelectedAutoOption());
+    autoRoutineFactory.resetFor(autoSpec);
   }
 
   public void updateSimulation() {
@@ -584,6 +607,11 @@ public class RobotContainer {
   }
 
   private record HumpPoseSample(double heightMeters, double rollRadians) {}
+
+  private AutoOption getSelectedAutoOption() {
+    AutoOption selectedOption = autoChooser.get();
+    return selectedOption != null ? selectedOption : defaultAutoOption;
+  }
 
   private static enum OperatorMode {
     MANUAL_DRIVE,

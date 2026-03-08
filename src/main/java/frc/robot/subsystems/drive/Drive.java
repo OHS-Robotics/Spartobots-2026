@@ -11,7 +11,6 @@ import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
@@ -74,7 +73,6 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
-  private PathPlannerAuto testPath;
   private boolean poseTrusted = Constants.currentMode != Mode.REAL;
 
   public Drive(
@@ -128,8 +126,6 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
         (targetPose) -> {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
-
-    testPath = new PathPlannerAuto("Example Auto");
 
     // Configure SysId
     sysId =
@@ -357,10 +353,6 @@ public class Drive extends SubsystemBase implements SuperstructureDrive {
   /** Returns the maximum angular speed in radians per sec. */
   public double getMaxAngularSpeedRadPerSec() {
     return maxSpeedMetersPerSec / driveBaseRadius;
-  }
-
-  public Command getAutonomousCommand() {
-    return testPath;
   }
 
   @Override
