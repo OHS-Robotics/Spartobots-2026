@@ -28,6 +28,9 @@ import frc.robot.auto.AutoOption;
 import frc.robot.auto.AutoRoutineFactory;
 import frc.robot.auto.AutoSpec;
 import frc.robot.commands.DriveCommands;
+import frc.robot.sim.MatchSimulation;
+import frc.robot.sim.SimMatchStateUtil;
+import frc.robot.sim.SpartobotsArena2026Rebuilt;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
@@ -36,13 +39,9 @@ import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
-import frc.robot.subsystems.endgame.Endgame;
 import frc.robot.subsystems.endgame.SimpleEndgame;
-import frc.robot.subsystems.indexer.Indexer;
 import frc.robot.subsystems.indexer.SimpleIndexer;
-import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.SimpleIntake;
-import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterBallistics;
 import frc.robot.subsystems.shooter.SimpleShooter;
 import frc.robot.subsystems.superstructure.Superstructure;
@@ -56,7 +55,6 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -80,11 +78,12 @@ public class RobotContainer {
 
   // Subsystems
   private final Drive drive;
-  private final Intake intake = new SimpleIntake();
-  private final Indexer indexer = new SimpleIndexer();
-  private final Shooter shooter = new SimpleShooter();
-  private final Endgame endgame = new SimpleEndgame();
+  private final SimpleIntake intake = new SimpleIntake();
+  private final SimpleIndexer indexer = new SimpleIndexer();
+  private final SimpleShooter shooter = new SimpleShooter();
+  private final SimpleEndgame endgame = new SimpleEndgame();
   private final ShooterBallistics shooterBallistics = new ShooterBallistics();
+  private final MatchStateProvider matchStateProvider = new MatchStateProvider();
   private final Superstructure superstructure;
 
   // Controller
@@ -97,6 +96,8 @@ public class RobotContainer {
 
   private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
+  private SpartobotsArena2026Rebuilt simulatedArena = null;
+  private MatchSimulation matchSimulation = null;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -121,7 +122,8 @@ public class RobotContainer {
 
       case SIM:
         // Sim robot, instantiate MapleSim physics implementations
-        SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
+        simulatedArena = new SpartobotsArena2026Rebuilt(false);
+        SimulatedArena.overrideInstance(simulatedArena);
         driveSimulation =
             new SwerveDriveSimulation(DriveConstants.mapleSimConfig, DEFAULT_SIM_START_POSE);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
@@ -166,7 +168,37 @@ public class RobotContainer {
     }
 
     superstructure =
-        new Superstructure(drive, intake, indexer, shooter, endgame, shooterBallistics);
+        new Superstructure(
+            drive,
+            intake,
+            indexer,
+            shooter,
+            endgame,
+            shooterBallistics,
+            new Superstructure.Targeting() {
+              @Override
+              public TargetSelector.HubSelection getSelectedHub() {
+                return TargetSelector.HubSelection.ACTIVE;
+              }
+
+              @Override
+              public Pose3d getHubPose(TargetSelector.HubSelection selection) {
+                return SimMatchStateUtil.getHubPose(
+                    selection,
+                    DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue),
+                    matchStateProvider.getMatchState());
+              }
+
+              @Override
+              public Pose2d getAllianceOutpostPose() {
+                return TargetSelector.getOutpostPose(TargetSelector.OutpostSelection.ALLIANCE);
+              }
+            });
+    if (Constants.currentMode == Constants.Mode.SIM && simulatedArena != null) {
+      matchSimulation =
+          new MatchSimulation(
+              simulatedArena, drive, superstructure, intake, indexer, shooter, endgame);
+    }
     autoRoutineFactory =
         new AutoRoutineFactory(drive, superstructure, new AdStarAutoNavigator(drive));
     defaultAutoOption = autoRoutineFactory.defaultAutoOption();
@@ -512,6 +544,9 @@ public class RobotContainer {
 
     AutoSpec autoSpec = AutoRoutineFactory.resetSpecFor(getSelectedAutoOption());
     autoRoutineFactory.resetFor(autoSpec);
+    if (matchSimulation != null) {
+      matchSimulation.reset(true);
+    }
   }
 
   public void updateSimulation() {
@@ -519,12 +554,19 @@ public class RobotContainer {
       return;
     }
 
+    MatchStateProvider.MatchState matchState = matchStateProvider.getMatchState();
+    if (matchSimulation != null) {
+      matchSimulation.beforeArenaStep(matchState, DriverStation.getMatchTime(), drive.getPose());
+    }
     SimulatedArena.getInstance().simulationPeriodic();
     Pose2d robotPose = driveSimulation.getSimulatedDriveTrainPose();
     HumpPoseSample humpPoseSample = sampleHumpPose(robotPose);
+    Pose3d robotPose3d = getSimulatedRobotPose3d(robotPose, humpPoseSample);
+    if (matchSimulation != null) {
+      matchSimulation.logOutputs(matchState, robotPose3d);
+    }
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
-    Logger.recordOutput(
-        "FieldSimulation/RobotPose3d", getSimulatedRobotPose3d(robotPose, humpPoseSample));
+    Logger.recordOutput("FieldSimulation/RobotPose3d", robotPose3d);
     Logger.recordOutput(
         "FieldSimulation/RobotParts/SwerveModules",
         getSimulatedModulePoses(robotPose, humpPoseSample));

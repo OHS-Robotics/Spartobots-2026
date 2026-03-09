@@ -75,7 +75,7 @@ public class Superstructure extends SubsystemBase {
         });
   }
 
-  Superstructure(
+  public Superstructure(
       SuperstructureDrive drive,
       Intake intake,
       Indexer indexer,
@@ -459,6 +459,16 @@ public class Superstructure extends SubsystemBase {
   }
 
   private void updatePieceState(SuperstructureGoal goal) {
+    IndexerStatus indexerStatus = indexer.getStatus();
+    if (goal instanceof SuperstructureGoal.Stow
+        || goal instanceof SuperstructureGoal.OutpostAlign
+        || goal instanceof SuperstructureGoal.Endgame) {
+      if (indexerStatus.holdingPiece()) {
+        pieceState = PieceState.HELD;
+      }
+      return;
+    }
+
     if (goal instanceof SuperstructureGoal.IntakeDepot intakeDepot) {
       pieceState =
           switch (intakeDepot.phase()) {
@@ -568,7 +578,7 @@ public class Superstructure extends SubsystemBase {
     EJECTING
   }
 
-  interface Targeting {
+  public interface Targeting {
     public TargetSelector.HubSelection getSelectedHub();
 
     public Pose3d getHubPose(TargetSelector.HubSelection selection);
