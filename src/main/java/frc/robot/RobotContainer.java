@@ -175,7 +175,7 @@ public class RobotContainer {
     autoChooser = new LoggedDashboardChooser<>("Auto Choices");
     autoChooser.addOption("Do Nothing", AutoOption.forCommand("Do Nothing", Commands::none));
     autoChooser.addDefaultOption(defaultAutoOption.name(), defaultAutoOption);
-    for (AutoOption option : autoRoutineFactory.presetAutoOptions()) {
+    for (AutoOption option : autoRoutineFactory.initialAutoOptions()) {
       if (!option.name().equals(defaultAutoOption.name())) {
         autoChooser.addOption(option.name(), option);
       }
