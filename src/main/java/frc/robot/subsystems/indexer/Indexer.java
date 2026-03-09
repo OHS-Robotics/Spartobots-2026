@@ -9,7 +9,7 @@ public interface Indexer extends Subsystem {
 
   public IndexerStatus getStatus();
 
-  public boolean atGoal();
+  public boolean isAtGoal();
 
   public void stop();
 }

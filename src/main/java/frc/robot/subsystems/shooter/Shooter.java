@@ -9,7 +9,7 @@ public interface Shooter extends Subsystem {
 
   public ShooterStatus getStatus();
 
-  public boolean atGoal();
+  public boolean isAtGoal();
 
   public void stop();
 }

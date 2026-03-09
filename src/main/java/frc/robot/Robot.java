@@ -26,7 +26,7 @@ import org.littletonrobotics.urcl.URCL;
  */
 public class Robot extends LoggedRobot {
   private Command autonomousCommand;
-  private final MatchStateProvider matchStateProvider = new MatchStateProvider();
+  private final MatchStateProvider matchStateProvider = new DriverStationMatchStateProvider();
   private RobotContainer robotContainer;
 
   public Robot() {

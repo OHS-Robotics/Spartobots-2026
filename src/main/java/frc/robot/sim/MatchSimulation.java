@@ -54,7 +54,7 @@ public class MatchSimulation {
   private final SimpleShooter shooter;
   private final SimpleEndgame endgame;
 
-  private boolean previousHasGamePiece = false;
+  private boolean previousHasPiece = false;
   private int shotAttempts = 0;
   private double outpostRefillTimerSeconds = 0.0;
 
@@ -77,7 +77,7 @@ public class MatchSimulation {
 
   public void reset(boolean preloadRobot) {
     indexer.setHoldingPiece(preloadRobot);
-    previousHasGamePiece = preloadRobot;
+    previousHasPiece = preloadRobot;
     shotAttempts = 0;
     outpostRefillTimerSeconds = 0.0;
   }
@@ -87,13 +87,13 @@ public class MatchSimulation {
     arena.updateMatchContext(matchState, matchTimeSeconds);
 
     SuperstructureStatus status = superstructure.getStatus();
-    if (previousHasGamePiece && !status.hasGamePiece()) {
+    if (previousHasPiece && !status.hasPiece()) {
       handlePieceRelease(status, matchState);
     }
 
     tryAcquireFieldFuel(status, robotPose);
     tryRefillFromOutpost(status, matchState, robotPose);
-    previousHasGamePiece = superstructure.getStatus().hasGamePiece();
+    previousHasPiece = superstructure.getStatus().hasPiece();
   }
 
   public void logOutputs(MatchStateProvider.MatchState matchState, Pose3d robotPose3d) {
@@ -132,13 +132,13 @@ public class MatchSimulation {
         });
     Logger.recordOutput(
         "FieldSimulation/RobotParts/HeldFuel",
-        status.hasGamePiece()
+        status.hasPiece()
             ? new Pose3d[] {
               poseFromRobot(robotPose3d, MAGAZINE_OFFSET_METERS, MAGAZINE_HEIGHT_METERS, 0.0)
             }
             : new Pose3d[] {});
 
-    Logger.recordOutput("FieldSimulation/Inventory/RobotFuelCount", status.hasGamePiece() ? 1 : 0);
+    Logger.recordOutput("FieldSimulation/Inventory/RobotFuelCount", status.hasPiece() ? 1 : 0);
     Logger.recordOutput(
         "FieldSimulation/Inventory/AllianceOutpostFuel", arena.getOutpostFuelCount(alliance));
     Logger.recordOutput(
@@ -220,7 +220,7 @@ public class MatchSimulation {
   private void tryAcquireFieldFuel(SuperstructureStatus status, Pose2d robotPose) {
     if (indexer.getStatus().holdingPiece()
         || !isCollecting()
-        || (status.hasGamePiece() && status.pieceState() != Superstructure.PieceState.ACQUIRING)) {
+        || (status.hasPiece() && status.pieceState() != Superstructure.PieceState.ACQUIRING)) {
       return;
     }
 
@@ -245,7 +245,7 @@ public class MatchSimulation {
   private void tryRefillFromOutpost(
       SuperstructureStatus status, MatchStateProvider.MatchState matchState, Pose2d robotPose) {
     if (!(status.activeGoal() instanceof SuperstructureGoal.OutpostAlign)
-        || status.hasGamePiece()
+        || status.hasPiece()
         || indexer.getStatus().holdingPiece()
         || !status.driveAligned()) {
       outpostRefillTimerSeconds = 0.0;

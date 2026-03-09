@@ -15,13 +15,13 @@ public class AdStarAutoNavigator implements AutoNavigator {
   }
 
   @Override
-  public Command navigateTo(Pose2d targetPose, AutoSpec.RiskTier riskTier) {
-    return AutoBuilder.pathfindToPose(targetPose, constraintsFor(riskTier))
-        .withName("AUTO_NAVIGATE_" + riskTier.name());
+  public Command navigateTo(Pose2d targetPose, AutoRisk risk) {
+    return AutoBuilder.pathfindToPose(targetPose, constraintsFor(risk))
+        .withName("AUTO_NAVIGATE_" + risk.name());
   }
 
-  private PathConstraints constraintsFor(AutoSpec.RiskTier riskTier) {
-    double scale = AutoRuntimePolicy.speedScale(riskTier);
+  private PathConstraints constraintsFor(AutoRisk risk) {
+    double scale = AutoRuntimePolicy.speedScale(risk);
     return new PathConstraints(
         drive.getMaxLinearSpeedMetersPerSec() * scale,
         DriveConstants.maxAccelerationMeterPerSecSquared * scale,

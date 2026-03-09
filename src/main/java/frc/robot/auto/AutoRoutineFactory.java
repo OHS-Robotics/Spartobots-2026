@@ -6,12 +6,14 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
 import frc.robot.FieldTargets;
+import frc.robot.RobotAction;
 import frc.robot.TargetSelector;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.superstructure.Superstructure;
 import frc.robot.subsystems.superstructure.SuperstructureGoal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.ironmaple.simulation.SimulatedArena;
 
@@ -22,12 +24,12 @@ public class AutoRoutineFactory {
   private static final double EJECT_TIMEOUT_SECONDS = 1.0;
 
   private static final AutoSpec DEFAULT_SPEC =
-      new AutoSpec(
+      AutoSpec.of(
           AutoSpec.StartZone.CENTER,
           AutoSpec.PreloadPolicy.SCORE,
           AutoSpec.AcquisitionSource.NEUTRAL_FLOOR,
           1,
-          AutoSpec.RiskTier.BALANCED,
+          AutoRisk.BALANCED,
           AutoSpec.ParkOption.NEAREST);
 
   private final Drive drive;
@@ -44,117 +46,145 @@ public class AutoRoutineFactory {
     return DEFAULT_SPEC;
   }
 
-  public static AutoSpec resetSpecFor(AutoOption autoOption) {
-    return autoOption.spec().orElse(defaultSpec());
+  public static AutoSpec resetSpecFor(AutoChoice autoChoice) {
+    return autoChoice.spec().orElse(defaultSpec());
   }
 
-  public AutoOption defaultAutoOption() {
-    return floorCycleOption(defaultSpec(), "8-12", "neutral floor open, nearest park clear");
+  public AutoChoice defaultAutoChoice() {
+    return standardChoice(
+        "Floor Cycle",
+        defaultSpec(),
+        RobotAction.AUTO_FACE_AND_SCORE,
+        AutoExpectation.SINGLE_CYCLE,
+        "neutral floor open, nearest park clear");
   }
 
-  public List<AutoOption> initialAutoOptions() {
-    List<AutoOption> options = new ArrayList<>();
-    options.add(
-        preloadSafeOption(
-            new AutoSpec(
+  public List<AutoChoice> initialAutoChoices() {
+    List<AutoChoice> choices = new ArrayList<>();
+    choices.add(
+        standardChoice(
+            "Preload Safe",
+            AutoSpec.of(
                 AutoSpec.StartZone.LOWER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.NONE,
                 0,
-                AutoSpec.RiskTier.SAFE,
+                AutoRisk.SAFE,
                 AutoSpec.ParkOption.LOWER),
-            "4-8",
+            RobotAction.AUTO_FACE_AND_SCORE,
+            AutoExpectation.PRELOAD_ONLY,
             "clean preload shot, lower park clear"));
-    options.add(
-        preloadSafeOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "Preload Safe",
+            AutoSpec.of(
                 AutoSpec.StartZone.CENTER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.NONE,
                 0,
-                AutoSpec.RiskTier.SAFE,
+                AutoRisk.SAFE,
                 AutoSpec.ParkOption.NEAREST),
-            "4-8",
+            RobotAction.AUTO_FACE_AND_SCORE,
+            AutoExpectation.PRELOAD_ONLY,
             "center shot lane clear, nearest park clear"));
-    options.add(
-        preloadSafeOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "Preload Safe",
+            AutoSpec.of(
                 AutoSpec.StartZone.UPPER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.NONE,
                 0,
-                AutoSpec.RiskTier.SAFE,
+                AutoRisk.SAFE,
                 AutoSpec.ParkOption.UPPER),
-            "4-8",
+            RobotAction.AUTO_FACE_AND_SCORE,
+            AutoExpectation.PRELOAD_ONLY,
             "clean preload shot, upper park clear"));
-    options.add(defaultAutoOption());
-    options.add(
-        floorCycleOption(
-            new AutoSpec(
+    choices.add(defaultAutoChoice());
+    choices.add(
+        standardChoice(
+            "Floor Cycle",
+            AutoSpec.of(
                 AutoSpec.StartZone.CENTER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.NEUTRAL_FLOOR,
                 2,
-                AutoSpec.RiskTier.AGGRESSIVE,
+                AutoRisk.AGGRESSIVE,
                 AutoSpec.ParkOption.NEAREST),
-            "10-14",
+            RobotAction.AUTO_FACE_AND_SCORE,
+            AutoExpectation.DOUBLE_CYCLE,
             "neutral floor open, center lane stays clear"));
-    options.add(
-        aggressiveDepotOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "2-Cycle Depot",
+            AutoSpec.of(
                 AutoSpec.StartZone.LOWER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.DEPOT,
                 2,
-                AutoSpec.RiskTier.AGGRESSIVE,
+                AutoRisk.AGGRESSIVE,
                 AutoSpec.ParkOption.LOWER),
-            "10-14",
+            RobotAction.ACQUIRE_DEPOT,
+            AutoExpectation.DOUBLE_CYCLE,
             "alliance depot clear, lower lane stays open"));
-    options.add(
-        aggressiveDepotOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "2-Cycle Depot",
+            AutoSpec.of(
                 AutoSpec.StartZone.UPPER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.DEPOT,
                 2,
-                AutoSpec.RiskTier.AGGRESSIVE,
+                AutoRisk.AGGRESSIVE,
                 AutoSpec.ParkOption.UPPER),
-            "10-14",
+            RobotAction.ACQUIRE_DEPOT,
+            AutoExpectation.DOUBLE_CYCLE,
             "alliance depot clear, upper lane stays open"));
-    options.add(
-        outpostFeedOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "Outpost Feed",
+            AutoSpec.of(
                 AutoSpec.StartZone.LOWER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.NONE,
                 0,
-                AutoSpec.RiskTier.BALANCED,
+                AutoRisk.BALANCED,
                 AutoSpec.ParkOption.NONE),
-            "4-8",
+            RobotAction.OUTPOST_FEED,
+            AutoExpectation.PRELOAD_ONLY,
             "outpost lane clear, partner feed available"));
-    options.add(
-        outpostFeedOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "Outpost Feed",
+            AutoSpec.of(
                 AutoSpec.StartZone.UPPER,
                 AutoSpec.PreloadPolicy.SCORE,
                 AutoSpec.AcquisitionSource.NONE,
                 0,
-                AutoSpec.RiskTier.BALANCED,
+                AutoRisk.BALANCED,
                 AutoSpec.ParkOption.NONE),
-            "4-8",
+            RobotAction.OUTPOST_FEED,
+            AutoExpectation.PRELOAD_ONLY,
             "outpost lane clear, partner feed available"));
-    options.add(
-        parkFirstFallbackOption(
-            new AutoSpec(
+    choices.add(
+        standardChoice(
+            "Park First Fallback",
+            AutoSpec.of(
                 AutoSpec.StartZone.CENTER,
                 AutoSpec.PreloadPolicy.HOLD,
                 AutoSpec.AcquisitionSource.NONE,
                 0,
-                AutoSpec.RiskTier.SAFE,
+                AutoRisk.SAFE,
                 AutoSpec.ParkOption.NEAREST),
-            "0-4",
+            RobotAction.QUICK_PARK,
+            AutoExpectation.PARK_FIRST,
             "nearest park reachable immediately"));
-    return options;
+    return choices;
+  }
+
+  public AutoCommand compose(AutoSpec spec, AutoMetadata metadata) {
+    Command command = buildForMetadata(spec, metadata).withName(metadata.labelFor(spec));
+    return new AutoCommand(command, Optional.of(spec), Optional.of(metadata));
   }
 
   public void resetFor(AutoSpec spec) {
@@ -191,39 +221,22 @@ public class AutoRoutineFactory {
         .withName(spec.displayName());
   }
 
-  private AutoOption preloadSafeOption(AutoSpec spec, String pointsBand, String assumptions) {
-    return describedAutoOption("Preload Safe", spec, pointsBand, assumptions, () -> build(spec));
-  }
-
-  private AutoOption floorCycleOption(AutoSpec spec, String pointsBand, String assumptions) {
-    return describedAutoOption("Floor Cycle", spec, pointsBand, assumptions, () -> build(spec));
-  }
-
-  private AutoOption aggressiveDepotOption(AutoSpec spec, String pointsBand, String assumptions) {
-    return describedAutoOption("2-Cycle Depot", spec, pointsBand, assumptions, () -> build(spec));
-  }
-
-  private AutoOption outpostFeedOption(AutoSpec spec, String pointsBand, String assumptions) {
-    return describedAutoOption(
-        "Outpost Feed", spec, pointsBand, assumptions, () -> buildOutpostFeedAuto(spec));
-  }
-
-  private AutoOption parkFirstFallbackOption(AutoSpec spec, String pointsBand, String assumptions) {
-    return describedAutoOption(
-        "Park First Fallback", spec, pointsBand, assumptions, () -> buildParkFirstFallback(spec));
-  }
-
-  private AutoOption describedAutoOption(
+  private AutoChoice standardChoice(
       String family,
       AutoSpec spec,
-      String pointsBand,
-      String assumptions,
-      java.util.function.Supplier<Command> commandFactory) {
-    String label =
-        String.format(
-            "%s | Start %s | Band %s | Risk %s | Assume %s",
-            family, spec.startZone().label(), pointsBand, spec.riskTier().label(), assumptions);
-    return AutoOption.forAuto(label, spec, commandFactory);
+      RobotAction primaryAction,
+      AutoExpectation expectation,
+      String assumptions) {
+    return AutoChoice.forAuto(
+        spec, new AutoMetadata(family, primaryAction, expectation, assumptions));
+  }
+
+  private Command buildForMetadata(AutoSpec spec, AutoMetadata metadata) {
+    return switch (metadata.primaryAction()) {
+      case OUTPOST_FEED -> buildOutpostFeedAuto(spec);
+      case QUICK_PARK -> buildParkFirstFallback(spec);
+      case IDLE, ACQUIRE_DEPOT, ACQUIRE_FLOOR, AUTO_FACE_AND_SCORE, RECOVER -> build(spec);
+    };
   }
 
   private Command guardedCycle(AutoSpec spec, AutoExecutionState state, int cycleIndex) {
@@ -245,16 +258,16 @@ public class AutoRoutineFactory {
       case HOLD -> Commands.none();
       case SCORE -> runGoalWithDrive(
               new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE),
-              superstructure::atGoal,
+              superstructure::isAtGoal,
               PRELOAD_SCORE_TIMEOUT_SECONDS,
               drive.holdShotPose(() -> superstructure.getStatus().shotSolution()))
-          .andThen(markAbortIf(() -> superstructure.hasGamePiece(), state));
+          .andThen(markAbortIf(superstructure::hasPiece, state));
       case EJECT -> runGoalWithDrive(
               new SuperstructureGoal.Eject(SuperstructureGoal.EjectPhase.FIRE),
-              () -> !superstructure.hasGamePiece(),
+              () -> !superstructure.hasPiece(),
               EJECT_TIMEOUT_SECONDS,
               holdStoppedDrive())
-          .andThen(markAbortIf(superstructure::hasGamePiece, state));
+          .andThen(markAbortIf(superstructure::hasPiece, state));
     };
   }
 
@@ -269,11 +282,11 @@ public class AutoRoutineFactory {
 
           Pose2d targetPose = resolveAcquisitionPose(spec.acquisitionSource());
           Command driveCommand =
-              navigator.navigateTo(targetPose, spec.riskTier()).andThen(holdStoppedDrive());
+              navigator.navigateTo(targetPose, spec.risk()).andThen(holdStoppedDrive());
 
           return runGoalWithDrive(
-                  goal, superstructure::atGoal, ACQUIRE_TIMEOUT_SECONDS, driveCommand)
-              .andThen(markAbortIf(() -> !superstructure.hasGamePiece(), state));
+                  goal, superstructure::isAtGoal, ACQUIRE_TIMEOUT_SECONDS, driveCommand)
+              .andThen(markAbortIf(() -> !superstructure.hasPiece(), state));
         },
         Set.of(drive, superstructure));
   }
@@ -287,10 +300,10 @@ public class AutoRoutineFactory {
 
           return runGoalWithDrive(
                   new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE),
-                  superstructure::atGoal,
+                  superstructure::isAtGoal,
                   SCORE_TIMEOUT_SECONDS,
                   drive.holdShotPose(() -> superstructure.getStatus().shotSolution()))
-              .andThen(markAbortIf(superstructure::hasGamePiece, state));
+              .andThen(markAbortIf(superstructure::hasPiece, state));
         },
         Set.of(drive, superstructure));
   }
@@ -298,21 +311,21 @@ public class AutoRoutineFactory {
   private Command parkIfNeeded(AutoSpec spec, AutoExecutionState state) {
     return Commands.defer(
         () -> {
-          if (!AutoRuntimePolicy.shouldAttemptPark(spec, state.elapsedSeconds())) {
+          if (!AutoRuntimePolicy.canParkNow(spec, state.elapsedSeconds())) {
             return Commands.none();
           }
 
           TargetSelector.ParkZoneSelection parkZoneSelection = resolveParkZoneSelection(spec);
           FieldTargets.FieldZone parkZone = TargetSelector.getParkZone(parkZoneSelection);
           Pose2d parkPose = AutoFieldUtil.computeZoneApproachPose(drive.getPose(), parkZone);
-          double timeoutSeconds = AutoRuntimePolicy.parkReservationSeconds(spec.riskTier());
+          double timeoutSeconds = AutoRuntimePolicy.parkReservationSeconds(spec.risk());
 
           return runGoalWithDrive(
               new SuperstructureGoal.Endgame(
                   SuperstructureGoal.EndgamePhase.LEVEL, parkZoneSelection),
-              superstructure::atGoal,
+              superstructure::isAtGoal,
               timeoutSeconds,
-              navigator.navigateTo(parkPose, spec.riskTier()).andThen(holdStoppedDrive()));
+              navigator.navigateTo(parkPose, spec.risk()).andThen(holdStoppedDrive()));
         },
         Set.of(drive, superstructure));
   }
@@ -333,9 +346,9 @@ public class AutoRoutineFactory {
             preloadStep(spec, state),
             runGoalWithDrive(
                 new SuperstructureGoal.OutpostAlign(),
-                superstructure::atGoal,
+                superstructure::isAtGoal,
                 ACQUIRE_TIMEOUT_SECONDS,
-                navigator.navigateTo(outpostPose, spec.riskTier()).andThen(holdStoppedDrive())),
+                navigator.navigateTo(outpostPose, spec.risk()).andThen(holdStoppedDrive())),
             cleanupCommand())
         .finallyDo(
             interrupted -> {
@@ -358,9 +371,9 @@ public class AutoRoutineFactory {
                   return runGoalWithDrive(
                       new SuperstructureGoal.Endgame(
                           SuperstructureGoal.EndgamePhase.LEVEL, parkZoneSelection),
-                      superstructure::atGoal,
-                      AutoRuntimePolicy.parkReservationSeconds(spec.riskTier()),
-                      navigator.navigateTo(parkPose, spec.riskTier()).andThen(holdStoppedDrive()));
+                      superstructure::isAtGoal,
+                      AutoRuntimePolicy.parkReservationSeconds(spec.risk()),
+                      navigator.navigateTo(parkPose, spec.risk()).andThen(holdStoppedDrive()));
                 },
                 Set.of(drive, superstructure)),
             cleanupCommand())

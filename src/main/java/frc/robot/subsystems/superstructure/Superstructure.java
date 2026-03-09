@@ -105,25 +105,25 @@ public class Superstructure extends SubsystemBase {
         Optional.ofNullable(requestedGoal),
         activeGoal,
         pieceState,
-        hasGamePiece(),
+        hasPiece(),
         shooterReady,
         driveAligned,
         activeTargetPose,
         activeTargetHeading,
         activeShotSolution,
-        atGoal());
+        isAtGoal());
   }
 
-  public boolean hasGamePiece() {
+  public boolean hasPiece() {
     return switch (pieceState) {
       case EMPTY, EJECTING -> false;
       case ACQUIRING, HELD, SHOOT_PREPPING, READY_TO_FIRE, FIRING -> true;
     };
   }
 
-  public boolean atGoal() {
+  public boolean isAtGoal() {
     boolean childGoalsSatisfied =
-        intake.atGoal() && indexer.atGoal() && shooter.atGoal() && endgame.atGoal();
+        intake.isAtGoal() && indexer.isAtGoal() && shooter.isAtGoal() && endgame.isAtGoal();
 
     if (!childGoalsSatisfied) {
       return false;
@@ -133,7 +133,7 @@ public class Superstructure extends SubsystemBase {
       return switch (hubShot.phase()) {
         case PREP -> true;
         case AIM -> shooterReady && driveAligned;
-        case FIRE -> !hasGamePiece();
+        case FIRE -> !hasPiece();
       };
     }
 
@@ -152,10 +152,14 @@ public class Superstructure extends SubsystemBase {
     }
 
     if (activeGoal instanceof SuperstructureGoal.Eject eject) {
-      return eject.phase() != SuperstructureGoal.EjectPhase.FIRE || !hasGamePiece();
+      return eject.phase() != SuperstructureGoal.EjectPhase.FIRE || !hasPiece();
     }
 
     return true;
+  }
+
+  public boolean canShootNow() {
+    return getStatus().canShootNow(drive.isPoseTrusted());
   }
 
   public Command teleopHubShotCommand(DoubleSupplier xSupplier, DoubleSupplier ySupplier) {
@@ -207,8 +211,8 @@ public class Superstructure extends SubsystemBase {
       }
       if (currentPhase == SuperstructureGoal.IntakePhase.PREP
           && intakeDepot.phase().ordinal() > currentPhase.ordinal()
-          && intake.atGoal()
-          && indexer.atGoal()) {
+          && intake.isAtGoal()
+          && indexer.isAtGoal()) {
         currentPhase = SuperstructureGoal.IntakePhase.CAPTURE;
       }
       if (currentPhase == SuperstructureGoal.IntakePhase.CAPTURE
@@ -230,8 +234,8 @@ public class Superstructure extends SubsystemBase {
       }
       if (currentPhase == SuperstructureGoal.IntakePhase.PREP
           && intakeFloor.phase().ordinal() > currentPhase.ordinal()
-          && intake.atGoal()
-          && indexer.atGoal()) {
+          && intake.isAtGoal()
+          && indexer.isAtGoal()) {
         currentPhase = SuperstructureGoal.IntakePhase.CAPTURE;
       }
       if (currentPhase == SuperstructureGoal.IntakePhase.CAPTURE
@@ -253,14 +257,14 @@ public class Superstructure extends SubsystemBase {
       }
       if (currentPhase == SuperstructureGoal.HubShotPhase.PREP
           && hubShot.phase().ordinal() > currentPhase.ordinal()
-          && shooter.atGoal()) {
+          && shooter.isAtGoal()) {
         currentPhase = SuperstructureGoal.HubShotPhase.AIM;
       }
       if (currentPhase == SuperstructureGoal.HubShotPhase.AIM
           && hubShot.phase().ordinal() > currentPhase.ordinal()
           && shooterReady
           && driveAligned
-          && hasGamePiece()) {
+          && hasPiece()) {
         currentPhase = SuperstructureGoal.HubShotPhase.FIRE;
       }
       return new SuperstructureGoal.HubShot(currentPhase);
@@ -277,8 +281,8 @@ public class Superstructure extends SubsystemBase {
       }
       if (currentPhase == SuperstructureGoal.EjectPhase.PREP
           && eject.phase().ordinal() > currentPhase.ordinal()
-          && intake.atGoal()
-          && indexer.atGoal()) {
+          && intake.isAtGoal()
+          && indexer.isAtGoal()) {
         currentPhase = SuperstructureGoal.EjectPhase.FIRE;
       }
       return new SuperstructureGoal.Eject(currentPhase);
@@ -295,12 +299,12 @@ public class Superstructure extends SubsystemBase {
       }
       if (currentPhase == SuperstructureGoal.EndgamePhase.PREP
           && endgameGoal.phase().ordinal() > currentPhase.ordinal()
-          && endgame.atGoal()) {
+          && endgame.isAtGoal()) {
         currentPhase = SuperstructureGoal.EndgamePhase.CONTACT;
       }
       if (currentPhase == SuperstructureGoal.EndgamePhase.CONTACT
           && endgameGoal.phase().ordinal() > currentPhase.ordinal()
-          && endgame.atGoal()) {
+          && endgame.isAtGoal()) {
         currentPhase = SuperstructureGoal.EndgamePhase.LEVEL;
       }
       return new SuperstructureGoal.Endgame(currentPhase, endgameGoal.zone());
@@ -488,7 +492,7 @@ public class Superstructure extends SubsystemBase {
     }
 
     if (goal instanceof SuperstructureGoal.HubShot hubShot) {
-      if (!hasGamePiece() && pieceState != PieceState.FIRING) {
+      if (!hasPiece() && pieceState != PieceState.FIRING) {
         return;
       }
       switch (hubShot.phase()) {
@@ -499,7 +503,7 @@ public class Superstructure extends SubsystemBase {
           pieceState = PieceState.READY_TO_FIRE;
           break;
         case FIRE:
-          pieceState = indexer.getStatus().atGoal() ? PieceState.EMPTY : PieceState.FIRING;
+          pieceState = indexer.getStatus().isAtGoal() ? PieceState.EMPTY : PieceState.FIRING;
           break;
       }
       return;
@@ -507,7 +511,7 @@ public class Superstructure extends SubsystemBase {
 
     if (goal instanceof SuperstructureGoal.Eject eject) {
       if (eject.phase() == SuperstructureGoal.EjectPhase.FIRE) {
-        pieceState = indexer.getStatus().atGoal() ? PieceState.EMPTY : PieceState.EJECTING;
+        pieceState = indexer.getStatus().isAtGoal() ? PieceState.EMPTY : PieceState.EJECTING;
       }
       return;
     }
@@ -532,11 +536,12 @@ public class Superstructure extends SubsystemBase {
         "Superstructure/RequestedGoal", requestedGoal == null ? "NONE" : requestedGoal.toString());
     Logger.recordOutput("Superstructure/ActiveGoal", activeGoal.toString());
     Logger.recordOutput("Superstructure/PieceState", pieceState.name());
-    Logger.recordOutput("Superstructure/HasGamePiece", hasGamePiece());
+    Logger.recordOutput("Superstructure/HasPiece", hasPiece());
     Logger.recordOutput("Superstructure/ShooterReady", shooterReady);
     Logger.recordOutput("Superstructure/DriveAligned", driveAligned);
     Logger.recordOutput("Superstructure/PoseTrusted", drive.isPoseTrusted());
-    Logger.recordOutput("Superstructure/AtGoal", atGoal());
+    Logger.recordOutput("Superstructure/CanShootNow", canShootNow());
+    Logger.recordOutput("Superstructure/IsAtGoal", isAtGoal());
     Logger.recordOutput("Superstructure/TargetPose", activeTargetPose);
     Logger.recordOutput(
         "Superstructure/TargetHeadingDegrees",

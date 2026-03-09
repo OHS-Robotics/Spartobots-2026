@@ -29,7 +29,7 @@ public class SimpleIntake extends SubsystemBase implements Intake {
   }
 
   @Override
-  public boolean atGoal() {
+  public boolean isAtGoal() {
     return atGoal;
   }
 

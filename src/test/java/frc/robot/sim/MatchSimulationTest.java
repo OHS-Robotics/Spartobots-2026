@@ -73,7 +73,7 @@ class MatchSimulationTest {
     superstructure.periodic();
 
     assertTrue(indexer.getStatus().holdingPiece());
-    assertTrue(superstructure.hasGamePiece());
+    assertTrue(superstructure.hasPiece());
     assertEquals(23, arena.getOutpostFuelCount(Alliance.Blue));
   }
 

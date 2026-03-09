@@ -26,7 +26,7 @@ public class SimpleEndgame extends SubsystemBase implements Endgame {
   }
 
   @Override
-  public boolean atGoal() {
+  public boolean isAtGoal() {
     return atGoal;
   }
 

@@ -37,7 +37,7 @@ public class ShooterBallistics {
         new Pose2d(
             hubPose.toPose2d().getTranslation().plus(compensationOffset),
             hubPose.toPose2d().getRotation());
-    return new ShotSolution(
+    return ShotSolution.of(
         robotPose,
         new ChassisSpeeds(
             chassisVelocity.vxMetersPerSecond,

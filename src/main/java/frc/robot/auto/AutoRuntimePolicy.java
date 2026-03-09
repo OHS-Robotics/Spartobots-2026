@@ -6,27 +6,27 @@ public final class AutoRuntimePolicy {
   private AutoRuntimePolicy() {}
 
   public static int effectiveCycleCount(AutoSpec spec) {
-    return Math.min(spec.cycleCount(), cycleCap(spec.riskTier()));
+    return Math.min(spec.cycleCount(), cycleCap(spec.risk()));
   }
 
-  public static double speedScale(AutoSpec.RiskTier riskTier) {
-    return switch (riskTier) {
+  public static double speedScale(AutoRisk risk) {
+    return switch (risk) {
       case SAFE -> 0.55;
       case BALANCED -> 0.75;
       case AGGRESSIVE -> 1.0;
     };
   }
 
-  public static double minimumCycleStartRemainingSeconds(AutoSpec.RiskTier riskTier) {
-    return switch (riskTier) {
+  public static double minimumCycleStartRemainingSeconds(AutoRisk risk) {
+    return switch (risk) {
       case SAFE -> 8.0;
       case BALANCED -> 6.0;
       case AGGRESSIVE -> 4.0;
     };
   }
 
-  public static double parkReservationSeconds(AutoSpec.RiskTier riskTier) {
-    return switch (riskTier) {
+  public static double parkReservationSeconds(AutoRisk risk) {
+    return switch (risk) {
       case SAFE -> 5.0;
       case BALANCED -> 3.0;
       case AGGRESSIVE -> 1.5;
@@ -37,22 +37,22 @@ public final class AutoRuntimePolicy {
     if (cycleIndex >= effectiveCycleCount(spec)) {
       return false;
     }
-    return remainingSeconds(elapsedSeconds) >= minimumCycleStartRemainingSeconds(spec.riskTier());
+    return remainingSeconds(elapsedSeconds) >= minimumCycleStartRemainingSeconds(spec.risk());
   }
 
-  public static boolean shouldAttemptPark(AutoSpec spec, double elapsedSeconds) {
+  public static boolean canParkNow(AutoSpec spec, double elapsedSeconds) {
     if (spec.parkOption() == AutoSpec.ParkOption.NONE) {
       return false;
     }
-    return remainingSeconds(elapsedSeconds) >= parkReservationSeconds(spec.riskTier());
+    return remainingSeconds(elapsedSeconds) >= parkReservationSeconds(spec.risk());
   }
 
   public static double remainingSeconds(double elapsedSeconds) {
     return Math.max(0.0, AUTO_PERIOD_SECONDS - elapsedSeconds);
   }
 
-  private static int cycleCap(AutoSpec.RiskTier riskTier) {
-    return switch (riskTier) {
+  private static int cycleCap(AutoRisk risk) {
+    return switch (risk) {
       case SAFE -> 1;
       case BALANCED, AGGRESSIVE -> 2;
     };

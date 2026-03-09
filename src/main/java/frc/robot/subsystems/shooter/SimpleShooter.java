@@ -45,7 +45,7 @@ public class SimpleShooter extends SubsystemBase implements Shooter {
   }
 
   @Override
-  public boolean atGoal() {
+  public boolean isAtGoal() {
     return atGoal;
   }
 

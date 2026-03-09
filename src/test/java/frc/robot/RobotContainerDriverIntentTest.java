@@ -73,8 +73,8 @@ class RobotContainerDriverIntentTest {
             null,
             false);
 
-    assertEquals("POSE_UNTRUSTED", RobotContainer.getShotReadyReason(status, false));
-    assertFalse(RobotContainer.isShotReady(status, false));
+    assertEquals("POSE_UNTRUSTED", status.shootReadinessReason(false));
+    assertFalse(status.canShootNow(false));
   }
 
   @Test
@@ -92,23 +92,23 @@ class RobotContainerDriverIntentTest {
             null,
             true);
 
-    assertEquals("READY", RobotContainer.getShotReadyReason(status, true));
-    assertTrue(RobotContainer.isShotReady(status, true));
+    assertEquals("READY", status.shootReadinessReason(true));
+    assertTrue(status.canShootNow(true));
   }
 
   @Test
-  void currentAutoActionReflectsHubShotPhase() {
+  void currentRobotActionReflectsHubShotGoal() {
     assertEquals(
-        "AUTO_FACE_AND_SCORE_FIRE",
-        RobotContainer.getCurrentAutoAction(
+        RobotAction.AUTO_FACE_AND_SCORE,
+        RobotContainer.getCurrentRobotAction(
             new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE)));
   }
 
   @Test
-  void currentAutoActionReflectsQuickParkPhase() {
+  void currentRobotActionReflectsQuickParkGoal() {
     assertEquals(
-        "QUICK_PARK_LEVEL",
-        RobotContainer.getCurrentAutoAction(
+        RobotAction.QUICK_PARK,
+        RobotContainer.getCurrentRobotAction(
             new SuperstructureGoal.Endgame(
                 SuperstructureGoal.EndgamePhase.LEVEL,
                 TargetSelector.ParkZoneSelection.ALLIANCE_LOWER)));

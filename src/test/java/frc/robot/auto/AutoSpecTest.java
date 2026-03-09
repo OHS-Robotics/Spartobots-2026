@@ -9,12 +9,12 @@ class AutoSpecTest {
   @Test
   void holdPreloadForcesCycleCountToZero() {
     AutoSpec spec =
-        new AutoSpec(
+        AutoSpec.of(
             AutoSpec.StartZone.CENTER,
             AutoSpec.PreloadPolicy.HOLD,
             AutoSpec.AcquisitionSource.DEPOT,
             2,
-            AutoSpec.RiskTier.BALANCED,
+            AutoRisk.BALANCED,
             AutoSpec.ParkOption.NEAREST);
 
     assertEquals(0, spec.cycleCount());
@@ -23,12 +23,12 @@ class AutoSpecTest {
   @Test
   void noAcquisitionForcesCycleCountToZero() {
     AutoSpec spec =
-        new AutoSpec(
+        AutoSpec.of(
             AutoSpec.StartZone.CENTER,
             AutoSpec.PreloadPolicy.SCORE,
             AutoSpec.AcquisitionSource.NONE,
             2,
-            AutoSpec.RiskTier.BALANCED,
+            AutoRisk.BALANCED,
             AutoSpec.ParkOption.NEAREST);
 
     assertEquals(0, spec.cycleCount());
@@ -37,12 +37,12 @@ class AutoSpecTest {
   @Test
   void cycleCountClampsToV1Maximum() {
     AutoSpec spec =
-        new AutoSpec(
+        AutoSpec.of(
             AutoSpec.StartZone.UPPER,
             AutoSpec.PreloadPolicy.SCORE,
             AutoSpec.AcquisitionSource.DEPOT,
             99,
-            AutoSpec.RiskTier.AGGRESSIVE,
+            AutoRisk.AGGRESSIVE,
             AutoSpec.ParkOption.UPPER);
 
     assertEquals(2, spec.cycleCount());
@@ -51,12 +51,12 @@ class AutoSpecTest {
   @Test
   void startZoneMapsToAllianceAutoStartSelection() {
     AutoSpec spec =
-        new AutoSpec(
+        AutoSpec.of(
             AutoSpec.StartZone.LOWER,
             AutoSpec.PreloadPolicy.SCORE,
             AutoSpec.AcquisitionSource.DEPOT,
             1,
-            AutoSpec.RiskTier.SAFE,
+            AutoRisk.SAFE,
             AutoSpec.ParkOption.LOWER);
 
     assertEquals(TargetSelector.AutoStartSelection.ALLIANCE_LOWER, spec.autoStartSelection());

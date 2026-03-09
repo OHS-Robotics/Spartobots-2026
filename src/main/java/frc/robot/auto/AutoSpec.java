@@ -4,50 +4,76 @@ import frc.robot.TargetSelector;
 import java.util.Locale;
 import java.util.Objects;
 
-public record AutoSpec(
-    StartZone startZone,
-    PreloadPolicy preloadPolicy,
-    AcquisitionSource acquisitionSource,
-    int cycleCount,
-    RiskTier riskTier,
-    ParkOption parkOption) {
-  private static final int MAX_CYCLE_COUNT = 2;
+public sealed interface AutoSpec permits AutoSpec.ConfiguredAutoSpec {
+  int MAX_CYCLE_COUNT = 2;
 
-  public AutoSpec {
-    Objects.requireNonNull(startZone, "startZone");
-    Objects.requireNonNull(preloadPolicy, "preloadPolicy");
-    Objects.requireNonNull(acquisitionSource, "acquisitionSource");
-    Objects.requireNonNull(riskTier, "riskTier");
-    Objects.requireNonNull(parkOption, "parkOption");
+  StartZone startZone();
 
-    cycleCount = Math.max(0, Math.min(MAX_CYCLE_COUNT, cycleCount));
-    if (acquisitionSource == AcquisitionSource.NONE || preloadPolicy == PreloadPolicy.HOLD) {
-      cycleCount = 0;
-    }
+  PreloadPolicy preloadPolicy();
+
+  AcquisitionSource acquisitionSource();
+
+  int cycleCount();
+
+  AutoRisk risk();
+
+  ParkOption parkOption();
+
+  static AutoSpec of(
+      StartZone startZone,
+      PreloadPolicy preloadPolicy,
+      AcquisitionSource acquisitionSource,
+      int cycleCount,
+      AutoRisk risk,
+      ParkOption parkOption) {
+    return new ConfiguredAutoSpec(
+        startZone, preloadPolicy, acquisitionSource, cycleCount, risk, parkOption);
   }
 
-  public TargetSelector.AutoStartSelection autoStartSelection() {
-    return switch (startZone) {
+  default TargetSelector.AutoStartSelection autoStartSelection() {
+    return switch (startZone()) {
       case LOWER -> TargetSelector.AutoStartSelection.ALLIANCE_LOWER;
       case CENTER -> TargetSelector.AutoStartSelection.ALLIANCE_CENTER;
       case UPPER -> TargetSelector.AutoStartSelection.ALLIANCE_UPPER;
     };
   }
 
-  public String displayName() {
+  default String displayName() {
     String cycleLabel =
-        cycleCount == 0 ? "No Cycles" : cycleCount + " Cycle" + (cycleCount == 1 ? "" : "s");
+        cycleCount() == 0 ? "No Cycles" : cycleCount() + " Cycle" + (cycleCount() == 1 ? "" : "s");
     return String.join(
         " / ",
-        startZone.label(),
-        preloadPolicy.label(),
-        acquisitionSource.label(),
+        startZone().label(),
+        preloadPolicy().label(),
+        acquisitionSource().label(),
         cycleLabel,
-        riskTier.label(),
-        parkOption.label());
+        risk().label(),
+        parkOption().label());
   }
 
-  public enum StartZone {
+  record ConfiguredAutoSpec(
+      StartZone startZone,
+      PreloadPolicy preloadPolicy,
+      AcquisitionSource acquisitionSource,
+      int cycleCount,
+      AutoRisk risk,
+      ParkOption parkOption)
+      implements AutoSpec {
+    public ConfiguredAutoSpec {
+      Objects.requireNonNull(startZone, "startZone");
+      Objects.requireNonNull(preloadPolicy, "preloadPolicy");
+      Objects.requireNonNull(acquisitionSource, "acquisitionSource");
+      Objects.requireNonNull(risk, "risk");
+      Objects.requireNonNull(parkOption, "parkOption");
+
+      cycleCount = Math.max(0, Math.min(MAX_CYCLE_COUNT, cycleCount));
+      if (acquisitionSource == AcquisitionSource.NONE || preloadPolicy == PreloadPolicy.HOLD) {
+        cycleCount = 0;
+      }
+    }
+  }
+
+  enum StartZone {
     LOWER,
     CENTER,
     UPPER;
@@ -57,7 +83,7 @@ public record AutoSpec(
     }
   }
 
-  public enum PreloadPolicy {
+  enum PreloadPolicy {
     SCORE,
     HOLD,
     EJECT;
@@ -67,7 +93,7 @@ public record AutoSpec(
     }
   }
 
-  public enum AcquisitionSource {
+  enum AcquisitionSource {
     DEPOT,
     NEUTRAL_FLOOR,
     NONE;
@@ -81,17 +107,7 @@ public record AutoSpec(
     }
   }
 
-  public enum RiskTier {
-    SAFE,
-    BALANCED,
-    AGGRESSIVE;
-
-    public String label() {
-      return titleCase(name());
-    }
-  }
-
-  public enum ParkOption {
+  enum ParkOption {
     NONE,
     NEAREST,
     LOWER,

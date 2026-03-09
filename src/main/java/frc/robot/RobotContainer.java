@@ -23,8 +23,11 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.auto.AdStarAutoNavigator;
+import frc.robot.auto.AutoChoice;
+import frc.robot.auto.AutoChooser;
+import frc.robot.auto.AutoCommand;
 import frc.robot.auto.AutoFieldUtil;
-import frc.robot.auto.AutoOption;
+import frc.robot.auto.AutoMetadata;
 import frc.robot.auto.AutoRoutineFactory;
 import frc.robot.auto.AutoSpec;
 import frc.robot.commands.DriveCommands;
@@ -56,7 +59,6 @@ import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -83,16 +85,17 @@ public class RobotContainer {
   private final SimpleShooter shooter = new SimpleShooter();
   private final SimpleEndgame endgame = new SimpleEndgame();
   private final ShooterBallistics shooterBallistics = new ShooterBallistics();
-  private final MatchStateProvider matchStateProvider = new MatchStateProvider();
+  private final MatchStateProvider matchStateProvider = new DriverStationMatchStateProvider();
   private final Superstructure superstructure;
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
 
   // Dashboard inputs
-  private final LoggedDashboardChooser<AutoOption> autoChooser;
+  private final AutoChooser autoChooser;
   private final AutoRoutineFactory autoRoutineFactory;
-  private final AutoOption defaultAutoOption;
+  private final AutoChoice defaultAutoChoice;
+  private AutoCommand selectedAutoCommand = null;
 
   private final Vision vision;
   private SwerveDriveSimulation driveSimulation = null;
@@ -201,47 +204,38 @@ public class RobotContainer {
     }
     autoRoutineFactory =
         new AutoRoutineFactory(drive, superstructure, new AdStarAutoNavigator(drive));
-    defaultAutoOption = autoRoutineFactory.defaultAutoOption();
+    defaultAutoChoice = autoRoutineFactory.defaultAutoChoice();
 
     // Set up auto routines
-    autoChooser = new LoggedDashboardChooser<>("Auto Choices");
-    autoChooser.addOption("Do Nothing", AutoOption.forCommand("Do Nothing", Commands::none));
-    autoChooser.addDefaultOption(defaultAutoOption.name(), defaultAutoOption);
-    for (AutoOption option : autoRoutineFactory.initialAutoOptions()) {
-      if (!option.name().equals(defaultAutoOption.name())) {
-        autoChooser.addOption(option.name(), option);
-      }
+    autoChooser = new AutoChooser("Auto Choices", defaultAutoChoice);
+    autoChooser.addChoice(AutoChoice.forCommand("Do Nothing", Commands::none));
+    for (AutoChoice choice : autoRoutineFactory.initialAutoChoices()) {
+      autoChooser.addChoice(choice);
     }
 
     // Set up SysId routines
-    autoChooser.addOption(
-        "Drive Wheel Radius Characterization",
-        AutoOption.forCommand(
+    autoChooser.addChoice(
+        AutoChoice.forCommand(
             "Drive Wheel Radius Characterization",
             () -> DriveCommands.wheelRadiusCharacterization(drive)));
-    autoChooser.addOption(
-        "Drive Simple FF Characterization",
-        AutoOption.forCommand(
+    autoChooser.addChoice(
+        AutoChoice.forCommand(
             "Drive Simple FF Characterization",
             () -> DriveCommands.feedforwardCharacterization(drive)));
-    autoChooser.addOption(
-        "Drive SysId (Quasistatic Forward)",
-        AutoOption.forCommand(
+    autoChooser.addChoice(
+        AutoChoice.forCommand(
             "Drive SysId (Quasistatic Forward)",
             () -> drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward)));
-    autoChooser.addOption(
-        "Drive SysId (Quasistatic Reverse)",
-        AutoOption.forCommand(
+    autoChooser.addChoice(
+        AutoChoice.forCommand(
             "Drive SysId (Quasistatic Reverse)",
             () -> drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse)));
-    autoChooser.addOption(
-        "Drive SysId (Dynamic Forward)",
-        AutoOption.forCommand(
+    autoChooser.addChoice(
+        AutoChoice.forCommand(
             "Drive SysId (Dynamic Forward)",
             () -> drive.sysIdDynamic(SysIdRoutine.Direction.kForward)));
-    autoChooser.addOption(
-        "Drive SysId (Dynamic Reverse)",
-        AutoOption.forCommand(
+    autoChooser.addChoice(
+        AutoChoice.forCommand(
             "Drive SysId (Dynamic Reverse)",
             () -> drive.sysIdDynamic(SysIdRoutine.Direction.kReverse)));
 
@@ -281,7 +275,8 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    return getSelectedAutoOption().buildCommand();
+    selectedAutoCommand = autoChooser.getSelected(autoRoutineFactory);
+    return selectedAutoCommand.command();
   }
 
   public void logOperatorFeedback(
@@ -289,18 +284,18 @@ public class RobotContainer {
     SuperstructureStatus superstructureStatus = superstructure.getStatus();
     boolean poseTrusted = drive.isPoseTrusted();
     OperatorMode selectedMode = getSelectedMode(autonomousCommand);
-    boolean shotReady = isShotReady(superstructureStatus, poseTrusted);
+    boolean shotReady = superstructureStatus.canShootNow(poseTrusted);
 
     Logger.recordOutput("OperatorFeedback/ActiveHub", matchState.currentActiveHub().name());
     Logger.recordOutput("OperatorFeedback/SelectedMode", selectedMode.name());
     Logger.recordOutput("OperatorFeedback/MagazineCount", getMagazineCount(superstructureStatus));
     Logger.recordOutput("OperatorFeedback/ShotReady", shotReady);
     Logger.recordOutput(
-        "OperatorFeedback/ShotReadyReason", getShotReadyReason(superstructureStatus, poseTrusted));
+        "OperatorFeedback/ShotReadyReason", superstructureStatus.shootReadinessReason(poseTrusted));
     Logger.recordOutput("OperatorFeedback/PoseTrusted", poseTrusted);
     Logger.recordOutput("OperatorFeedback/PoseConfidence", getPoseConfidenceLabel(poseTrusted));
     Logger.recordOutput(
-        "OperatorFeedback/CurrentAutoAction", getCurrentAutoAction(autonomousCommand));
+        "OperatorFeedback/CurrentRobotAction", getCurrentRobotAction(autonomousCommand).name());
   }
 
   private Command rawDriveCommand() {
@@ -369,17 +364,17 @@ public class RobotContainer {
   private SuperstructureGoal selectAcquireGoal() {
     return selectAcquireGoal(
         drive.getPose(),
-        superstructure.hasGamePiece(),
+        superstructure.hasPiece(),
         TargetSelector.getIntakeZone(TargetSelector.IntakeZoneSelection.ALLIANCE_DEPOT),
         TargetSelector.getIntakeZone(TargetSelector.IntakeZoneSelection.NEUTRAL_FLOOR));
   }
 
   static SuperstructureGoal selectAcquireGoal(
       Pose2d robotPose,
-      boolean hasGamePiece,
+      boolean hasPiece,
       FieldTargets.FieldZone depotZone,
       FieldTargets.FieldZone floorZone) {
-    if (hasGamePiece) {
+    if (hasPiece) {
       return new SuperstructureGoal.Stow();
     }
     if (depotZone.contains(robotPose.getTranslation())) {
@@ -395,7 +390,7 @@ public class RobotContainer {
 
   private SuperstructureGoal selectAutoFaceAndScoreGoal() {
     return new SuperstructureGoal.HubShot(
-        superstructure.hasGamePiece()
+        superstructure.hasPiece()
             ? SuperstructureGoal.HubShotPhase.FIRE
             : SuperstructureGoal.HubShotPhase.AIM);
   }
@@ -471,66 +466,27 @@ public class RobotContainer {
   }
 
   private int getMagazineCount(SuperstructureStatus superstructureStatus) {
-    return getMagazineCount(superstructureStatus.hasGamePiece());
+    return getMagazineCount(superstructureStatus.hasPiece());
   }
 
-  static int getMagazineCount(boolean hasGamePiece) {
-    return hasGamePiece ? 1 : 0;
+  static int getMagazineCount(boolean hasPiece) {
+    return hasPiece ? 1 : 0;
   }
 
-  private String getCurrentAutoAction(Command autonomousCommand) {
-    if (autonomousCommand != null && autonomousCommand.isScheduled()) {
-      return autonomousCommand.getName();
+  private RobotAction getCurrentRobotAction(Command autonomousCommand) {
+    if (autonomousCommand != null
+        && autonomousCommand.isScheduled()
+        && selectedAutoCommand != null) {
+      return selectedAutoCommand
+          .metadata()
+          .map(AutoMetadata::primaryAction)
+          .orElse(RobotAction.IDLE);
     }
-    return getCurrentAutoAction(superstructure.getStatus().activeGoal());
+    return getCurrentRobotAction(superstructure.getStatus().activeGoal());
   }
 
-  static String getCurrentAutoAction(SuperstructureGoal activeGoal) {
-    if (activeGoal instanceof SuperstructureGoal.IntakeDepot intakeDepot) {
-      return "ACQUIRE_DEPOT_" + intakeDepot.phase().name();
-    }
-    if (activeGoal instanceof SuperstructureGoal.IntakeFloor intakeFloor) {
-      return "ACQUIRE_FLOOR_" + intakeFloor.phase().name();
-    }
-    if (activeGoal instanceof SuperstructureGoal.HubShot hubShot) {
-      return "AUTO_FACE_AND_SCORE_" + hubShot.phase().name();
-    }
-    if (activeGoal instanceof SuperstructureGoal.OutpostAlign) {
-      return "OUTPOST_FEED_ALIGN";
-    }
-    if (activeGoal instanceof SuperstructureGoal.Eject eject) {
-      return "RECOVER_" + eject.phase().name();
-    }
-    if (activeGoal instanceof SuperstructureGoal.Endgame endgameGoal) {
-      return "QUICK_PARK_" + endgameGoal.phase().name();
-    }
-    return "IDLE";
-  }
-
-  static boolean isShotReady(SuperstructureStatus superstructureStatus, boolean poseTrusted) {
-    return "READY".equals(getShotReadyReason(superstructureStatus, poseTrusted));
-  }
-
-  static String getShotReadyReason(SuperstructureStatus superstructureStatus, boolean poseTrusted) {
-    if (!(superstructureStatus.activeGoal() instanceof SuperstructureGoal.HubShot)) {
-      return "MODE_NOT_SCORING";
-    }
-    if (!superstructureStatus.hasGamePiece()) {
-      return "NO_GAME_PIECE";
-    }
-    if (!poseTrusted) {
-      return "POSE_UNTRUSTED";
-    }
-    if (!superstructureStatus.shooterReady()) {
-      return "SHOOTER_NOT_READY";
-    }
-    if (!superstructureStatus.driveAligned()) {
-      return "DRIVE_NOT_ALIGNED";
-    }
-    if (!superstructureStatus.atGoal()) {
-      return "WAITING_FOR_FIRE_WINDOW";
-    }
-    return "READY";
+  static RobotAction getCurrentRobotAction(SuperstructureGoal activeGoal) {
+    return activeGoal.action();
   }
 
   static String getPoseConfidenceLabel(boolean poseTrusted) {
@@ -542,7 +498,7 @@ public class RobotContainer {
       return;
     }
 
-    AutoSpec autoSpec = AutoRoutineFactory.resetSpecFor(getSelectedAutoOption());
+    AutoSpec autoSpec = AutoRoutineFactory.resetSpecFor(autoChooser.getSelectedChoice());
     autoRoutineFactory.resetFor(autoSpec);
     if (matchSimulation != null) {
       matchSimulation.reset(true);
@@ -649,11 +605,6 @@ public class RobotContainer {
   }
 
   private record HumpPoseSample(double heightMeters, double rollRadians) {}
-
-  private AutoOption getSelectedAutoOption() {
-    AutoOption selectedOption = autoChooser.get();
-    return selectedOption != null ? selectedOption : defaultAutoOption;
-  }
 
   private static enum OperatorMode {
     MANUAL_DRIVE,

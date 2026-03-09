@@ -1,9 +1,7 @@
 package frc.robot;
 
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * Builds a typed REBUILT match-state view from Driver Station data.
@@ -12,29 +10,18 @@ import java.util.function.Supplier;
  * alliance whose hub goes inactive first. The rest of the state is derived from that selector, the
  * current alliance, the robot mode, and the Driver Station match clock.
  */
-public final class MatchStateProvider {
-  private static final double TRANSITION_SHIFT_END_SECONDS = 130.0;
-  private static final double SHIFT_1_END_SECONDS = 105.0;
-  private static final double SHIFT_2_END_SECONDS = 80.0;
-  private static final double SHIFT_3_END_SECONDS = 55.0;
-  private static final double SHIFT_4_END_SECONDS = 30.0;
+public interface MatchStateProvider {
+  double TRANSITION_SHIFT_END_SECONDS = 130.0;
+  double SHIFT_1_END_SECONDS = 105.0;
+  double SHIFT_2_END_SECONDS = 80.0;
+  double SHIFT_3_END_SECONDS = 55.0;
+  double SHIFT_4_END_SECONDS = 30.0;
 
-  private final Supplier<DriverStationSnapshot> snapshotSupplier;
-
-  public MatchStateProvider() {
-    this(MatchStateProvider::readDriverStationSnapshot);
-  }
-
-  MatchStateProvider(Supplier<DriverStationSnapshot> snapshotSupplier) {
-    this.snapshotSupplier = snapshotSupplier;
-  }
-
-  public MatchState getMatchState() {
-    return fromSnapshot(snapshotSupplier.get());
-  }
+  MatchState getMatchState();
 
   static MatchState fromSnapshot(DriverStationSnapshot snapshot) {
-    Hub inactiveFirstHub = parseInactiveFirstHub(snapshot.gameSpecificMessage());
+    GameSpecificData gameSpecificData = GameSpecificData.parse(snapshot.gameSpecificMessage());
+    Hub inactiveFirstHub = gameSpecificData.inactiveFirstHub();
     Hub startHub = getStartHub(inactiveFirstHub);
     Hub endHub = getEndHub(inactiveFirstHub);
     MatchPhaseScoringContext scoringContext = getScoringContext(snapshot);
@@ -43,32 +30,6 @@ public final class MatchStateProvider {
 
     return new MatchState(
         snapshot.alliance(), towerLetter, startHub, endHub, currentActiveHub, scoringContext);
-  }
-
-  private static DriverStationSnapshot readDriverStationSnapshot() {
-    return new DriverStationSnapshot(
-        DriverStation.getAlliance(),
-        DriverStation.getGameSpecificMessage(),
-        DriverStation.getMatchTime(),
-        DriverStation.isAutonomousEnabled(),
-        DriverStation.isTeleopEnabled());
-  }
-
-  private static Hub parseInactiveFirstHub(String gameSpecificMessage) {
-    if (gameSpecificMessage == null) {
-      return Hub.UNKNOWN;
-    }
-
-    String trimmedMessage = gameSpecificMessage.trim();
-    if (trimmedMessage.isEmpty()) {
-      return Hub.UNKNOWN;
-    }
-
-    return switch (Character.toUpperCase(trimmedMessage.charAt(0))) {
-      case 'R' -> Hub.RED;
-      case 'B' -> Hub.BLUE;
-      default -> Hub.UNKNOWN;
-    };
   }
 
   private static Hub getStartHub(Hub inactiveFirstHub) {
@@ -145,14 +106,14 @@ public final class MatchStateProvider {
     };
   }
 
-  static record DriverStationSnapshot(
+  record DriverStationSnapshot(
       Optional<Alliance> alliance,
       String gameSpecificMessage,
       double matchTimeSeconds,
       boolean autonomousEnabled,
       boolean teleopEnabled) {}
 
-  public record MatchState(
+  record MatchState(
       Optional<Alliance> alliance,
       TowerLetter towerLetter,
       Hub startHub,
@@ -164,7 +125,7 @@ public final class MatchStateProvider {
     }
   }
 
-  public static enum Hub {
+  enum Hub {
     RED,
     BLUE,
     BOTH,
@@ -186,7 +147,7 @@ public final class MatchStateProvider {
    *
    * <p>{@code A/T/R/B/E} correspond to Auto, Transition, Red-active, Blue-active, and End Game.
    */
-  public static enum TowerLetter {
+  enum TowerLetter {
     A("A"),
     T("T"),
     R("R"),
@@ -197,7 +158,7 @@ public final class MatchStateProvider {
 
     private final String displayValue;
 
-    private TowerLetter(String displayValue) {
+    TowerLetter(String displayValue) {
       this.displayValue = displayValue;
     }
 
@@ -206,7 +167,7 @@ public final class MatchStateProvider {
     }
   }
 
-  public static enum MatchPhaseScoringContext {
+  enum MatchPhaseScoringContext {
     DISABLED,
     AUTO,
     TRANSITION_SHIFT,

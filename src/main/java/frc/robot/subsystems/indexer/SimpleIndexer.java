@@ -33,7 +33,7 @@ public class SimpleIndexer extends SubsystemBase implements Indexer {
   }
 
   @Override
-  public boolean atGoal() {
+  public boolean isAtGoal() {
     return atGoal;
   }
 

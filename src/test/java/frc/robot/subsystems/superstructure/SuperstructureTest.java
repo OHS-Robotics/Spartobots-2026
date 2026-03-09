@@ -56,7 +56,7 @@ class SuperstructureTest {
         new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE),
         superstructure.getStatus().activeGoal());
     assertEquals(Superstructure.PieceState.HELD, superstructure.getStatus().pieceState());
-    assertTrue(superstructure.hasGamePiece());
+    assertTrue(superstructure.hasPiece());
   }
 
   @Test
@@ -124,7 +124,7 @@ class SuperstructureTest {
     assertInstanceOf(ShooterGoal.Fire.class, shooter.goal);
     assertEquals(IndexerGoal.FEED_SHOOTER, indexer.goal);
     assertEquals(Superstructure.PieceState.EMPTY, superstructure.getStatus().pieceState());
-    assertTrue(superstructure.atGoal());
+    assertTrue(superstructure.isAtGoal());
   }
 
   @Test
@@ -247,7 +247,7 @@ class SuperstructureTest {
     superstructure.periodic();
     superstructure.periodic();
     superstructure.periodic();
-    assertTrue(superstructure.hasGamePiece());
+    assertTrue(superstructure.hasPiece());
 
     superstructure.setGoal(new SuperstructureGoal.Eject(SuperstructureGoal.EjectPhase.FIRE));
     superstructure.periodic();
@@ -258,7 +258,7 @@ class SuperstructureTest {
         superstructure.getStatus().activeGoal());
     assertEquals(IndexerGoal.PURGE, indexer.goal);
     assertEquals(Superstructure.PieceState.EMPTY, superstructure.getStatus().pieceState());
-    assertTrue(!superstructure.hasGamePiece());
+    assertTrue(!superstructure.hasPiece());
   }
 
   private static Superstructure createSuperstructure(
@@ -353,7 +353,7 @@ class SuperstructureTest {
     }
 
     @Override
-    public boolean atGoal() {
+    public boolean isAtGoal() {
       return atGoal;
     }
 
@@ -385,7 +385,7 @@ class SuperstructureTest {
     }
 
     @Override
-    public boolean atGoal() {
+    public boolean isAtGoal() {
       return atGoal;
     }
 
@@ -424,7 +424,7 @@ class SuperstructureTest {
     }
 
     @Override
-    public boolean atGoal() {
+    public boolean isAtGoal() {
       return atGoal;
     }
 
@@ -454,7 +454,7 @@ class SuperstructureTest {
     }
 
     @Override
-    public boolean atGoal() {
+    public boolean isAtGoal() {
       return atGoal;
     }
 

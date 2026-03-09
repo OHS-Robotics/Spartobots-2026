@@ -1,5 +1,6 @@
 package frc.robot.subsystems.superstructure;
 
+import frc.robot.RobotAction;
 import frc.robot.TargetSelector;
 
 public sealed interface SuperstructureGoal
@@ -10,20 +11,57 @@ public sealed interface SuperstructureGoal
         SuperstructureGoal.OutpostAlign,
         SuperstructureGoal.Eject,
         SuperstructureGoal.Endgame {
-  public record Stow() implements SuperstructureGoal {}
+  RobotAction action();
 
-  public record IntakeDepot(IntakePhase phase) implements SuperstructureGoal {}
+  public record Stow() implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.IDLE;
+    }
+  }
 
-  public record IntakeFloor(IntakePhase phase) implements SuperstructureGoal {}
+  public record IntakeDepot(IntakePhase phase) implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.ACQUIRE_DEPOT;
+    }
+  }
 
-  public record HubShot(HubShotPhase phase) implements SuperstructureGoal {}
+  public record IntakeFloor(IntakePhase phase) implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.ACQUIRE_FLOOR;
+    }
+  }
 
-  public record OutpostAlign() implements SuperstructureGoal {}
+  public record HubShot(HubShotPhase phase) implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.AUTO_FACE_AND_SCORE;
+    }
+  }
 
-  public record Eject(EjectPhase phase) implements SuperstructureGoal {}
+  public record OutpostAlign() implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.OUTPOST_FEED;
+    }
+  }
+
+  public record Eject(EjectPhase phase) implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.RECOVER;
+    }
+  }
 
   public record Endgame(EndgamePhase phase, TargetSelector.ParkZoneSelection zone)
-      implements SuperstructureGoal {}
+      implements SuperstructureGoal {
+    @Override
+    public RobotAction action() {
+      return RobotAction.QUICK_PARK;
+    }
+  }
 
   public static enum IntakePhase {
     PREP,

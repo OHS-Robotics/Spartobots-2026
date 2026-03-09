@@ -6,7 +6,8 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 
 public final class TargetSelector {
-  private static final MatchStateProvider MATCH_STATE_PROVIDER = new MatchStateProvider();
+  private static final MatchStateProvider MATCH_STATE_PROVIDER =
+      new DriverStationMatchStateProvider();
 
   private TargetSelector() {}
 

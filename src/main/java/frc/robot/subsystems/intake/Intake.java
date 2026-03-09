@@ -9,7 +9,7 @@ public interface Intake extends Subsystem {
 
   public IntakeStatus getStatus();
 
-  public boolean atGoal();
+  public boolean isAtGoal();
 
   public void stop();
 }

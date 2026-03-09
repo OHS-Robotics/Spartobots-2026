@@ -127,7 +127,8 @@ public final class FieldTargets {
         FieldConstants.toAllianceTranslation(blueZone.maxCorner(), Alliance.Red));
   }
 
-  public record FieldZone(String name, Translation2d minCorner, Translation2d maxCorner) {
+  public record FieldZone(String name, Translation2d minCorner, Translation2d maxCorner)
+      implements FieldTarget {
     public FieldZone {
       double normalizedMinX = Math.min(minCorner.getX(), maxCorner.getX());
       double normalizedMinY = Math.min(minCorner.getY(), maxCorner.getY());
@@ -154,7 +155,8 @@ public final class FieldTargets {
     }
   }
 
-  public record AlliancePoseTarget2d(String name, Pose2d bluePose, Pose2d redPose) {
+  public record AlliancePoseTarget2d(String name, Pose2d bluePose, Pose2d redPose)
+      implements FieldTarget {
     public Pose2d forAlliance(Alliance alliance) {
       return alliance == Alliance.Red ? redPose : bluePose;
     }
@@ -164,7 +166,8 @@ public final class FieldTargets {
     }
   }
 
-  public record AlliancePoseTarget3d(String name, Pose3d bluePose, Pose3d redPose) {
+  public record AlliancePoseTarget3d(String name, Pose3d bluePose, Pose3d redPose)
+      implements FieldTarget {
     public Pose3d forAlliance(Alliance alliance) {
       return alliance == Alliance.Red ? redPose : bluePose;
     }
@@ -174,7 +177,8 @@ public final class FieldTargets {
     }
   }
 
-  public record AllianceZoneTarget(String name, FieldZone blueZone, FieldZone redZone) {
+  public record AllianceZoneTarget(String name, FieldZone blueZone, FieldZone redZone)
+      implements FieldTarget {
     public FieldZone forAlliance(Alliance alliance) {
       return alliance == Alliance.Red ? redZone : blueZone;
     }

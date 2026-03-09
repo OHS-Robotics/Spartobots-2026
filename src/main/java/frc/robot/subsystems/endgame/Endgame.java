@@ -9,7 +9,7 @@ public interface Endgame extends Subsystem {
 
   public EndgameStatus getStatus();
 
-  public boolean atGoal();
+  public boolean isAtGoal();
 
   public void stop();
 }
