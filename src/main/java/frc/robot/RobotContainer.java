@@ -15,6 +15,8 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
@@ -38,13 +40,18 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIONavX;
+import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.endgame.Endgame;
 import frc.robot.subsystems.endgame.SimpleEndgame;
+import frc.robot.subsystems.indexer.Indexer;
 import frc.robot.subsystems.indexer.SimpleIndexer;
+import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.SimpleIntake;
+import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterBallistics;
 import frc.robot.subsystems.shooter.SimpleShooter;
 import frc.robot.subsystems.superstructure.Superstructure;
@@ -54,6 +61,8 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena;
@@ -67,26 +76,31 @@ import org.littletonrobotics.junction.Logger;
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
-  private static final double INTENT_TRIGGER_THRESHOLD = 0.5;
+  private static final double INTENT_TRIGGER_THRESHOLD =
+      RobotSettings.Controls.intentTriggerThreshold;
   private static final Pose2d DEFAULT_SIM_START_POSE = FieldTargets.AUTO_START_CENTER.bluePose();
   private static final double HUB_TOP_LENGTH_Y_METERS = Units.inchesToMeters(47.0);
   private static final double HUB_RAMP_LENGTH_Y_METERS = Units.inchesToMeters(73.0);
   private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
   private static final double HUMP_PEAK_HEIGHT_METERS = Units.inchesToMeters(7.0);
   private static final double HUMP_X_CLEARANCE_MARGIN_METERS = 0.15;
-  private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.12;
-  private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
+  private static final double ROBOT_BODY_BASE_HEIGHT_METERS =
+      RobotSettings.Simulation.robotBodyBaseHeightMeters;
+  private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS =
+      RobotSettings.Simulation.moduleHeightAboveGroundMeters;
   private static final HumpPoseSample FLAT_GROUND_SAMPLE = new HumpPoseSample(0.0, 0.0);
 
   // Subsystems
   private final Drive drive;
-  private final SimpleIntake intake = new SimpleIntake();
-  private final SimpleIndexer indexer = new SimpleIndexer();
-  private final SimpleShooter shooter = new SimpleShooter();
-  private final SimpleEndgame endgame = new SimpleEndgame();
+  private final Intake intake;
+  private final Indexer indexer;
+  private final Shooter shooter;
+  private final Endgame endgame;
   private final ShooterBallistics shooterBallistics = new ShooterBallistics();
   private final MatchStateProvider matchStateProvider = new DriverStationMatchStateProvider();
   private final Superstructure superstructure;
+  private final RobotCapabilities capabilities;
+  private final Alert unsupportedCapabilitiesAlert;
 
   // Controller
   public final CommandXboxController controller = new CommandXboxController(0);
@@ -104,12 +118,20 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    intake = new SimpleIntake();
+    indexer = new SimpleIndexer();
+    shooter = new SimpleShooter();
+    endgame = new SimpleEndgame();
+
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
         drive =
             new Drive(
-                new GyroIONavX(),
+                switch (RobotSettings.Drive.realGyroType) {
+                  case NAVX -> new GyroIONavX();
+                  case PIGEON2 -> new GyroIOPigeon2();
+                },
                 new ModuleIOSpark(0),
                 new ModuleIOSpark(1),
                 new ModuleIOSpark(2),
@@ -170,6 +192,13 @@ public class RobotContainer {
         break;
     }
 
+    capabilities =
+        RobotCapabilities.create(Constants.currentMode, intake, indexer, shooter, endgame);
+    unsupportedCapabilitiesAlert =
+        new Alert(buildUnsupportedCapabilitiesMessage(capabilities), AlertType.kError);
+    unsupportedCapabilitiesAlert.set(
+        Constants.currentMode == Constants.Mode.REAL && !capabilities.supportsMatchAutos());
+
     superstructure =
         new Superstructure(
             drive,
@@ -197,20 +226,33 @@ public class RobotContainer {
                 return TargetSelector.getOutpostPose(TargetSelector.OutpostSelection.ALLIANCE);
               }
             });
-    if (Constants.currentMode == Constants.Mode.SIM && simulatedArena != null) {
+    if (Constants.currentMode == Constants.Mode.SIM
+        && simulatedArena != null
+        && intake instanceof SimpleIntake
+        && indexer instanceof SimpleIndexer
+        && shooter instanceof SimpleShooter
+        && endgame instanceof SimpleEndgame) {
       matchSimulation =
           new MatchSimulation(
-              simulatedArena, drive, superstructure, intake, indexer, shooter, endgame);
+              simulatedArena,
+              drive,
+              superstructure,
+              (SimpleIntake) intake,
+              (SimpleIndexer) indexer,
+              (SimpleShooter) shooter,
+              (SimpleEndgame) endgame);
     }
     autoRoutineFactory =
         new AutoRoutineFactory(drive, superstructure, new AdStarAutoNavigator(drive));
-    defaultAutoChoice = autoRoutineFactory.defaultAutoChoice();
+    defaultAutoChoice = defaultAutoChoiceFor(capabilities, autoRoutineFactory);
 
     // Set up auto routines
     autoChooser = new AutoChooser("Auto Choices", defaultAutoChoice);
     autoChooser.addChoice(AutoChoice.forCommand("Do Nothing", Commands::none));
-    for (AutoChoice choice : autoRoutineFactory.initialAutoChoices()) {
-      autoChooser.addChoice(choice);
+    if (capabilities.supportsMatchAutos()) {
+      for (AutoChoice choice : autoRoutineFactory.initialAutoChoices()) {
+        autoChooser.addChoice(choice);
+      }
     }
 
     // Set up SysId routines
@@ -257,11 +299,19 @@ public class RobotContainer {
     drive.setDefaultCommand(rawDriveCommand());
 
     // Driver intent bindings
-    controller.leftTrigger().whileTrue(acquireIntent());
-    controller.rightTrigger().whileTrue(autoFaceAndScoreIntent());
-    controller.leftBumper().whileTrue(outpostFeedIntent());
+    if (capabilities.supportsAcquire()) {
+      controller.leftTrigger().whileTrue(acquireIntent());
+    }
+    if (capabilities.supportsHubShot()) {
+      controller.rightTrigger().whileTrue(autoFaceAndScoreIntent());
+    }
+    if (capabilities.supportsOutpostFeed()) {
+      controller.leftBumper().whileTrue(outpostFeedIntent());
+    }
     controller.b().onTrue(cancelRecoverIntent());
-    controller.y().whileTrue(quickParkIntent());
+    if (capabilities.supportsQuickPark()) {
+      controller.y().whileTrue(quickParkIntent());
+    }
     controller.x().whileTrue(manualOverrideIntent());
 
     if (Constants.currentMode == Constants.Mode.SIM) {
@@ -296,6 +346,17 @@ public class RobotContainer {
     Logger.recordOutput("OperatorFeedback/PoseConfidence", getPoseConfidenceLabel(poseTrusted));
     Logger.recordOutput(
         "OperatorFeedback/CurrentRobotAction", getCurrentRobotAction(autonomousCommand).name());
+    Logger.recordOutput("RobotCapabilities/Drive", capabilities.drive());
+    Logger.recordOutput("RobotCapabilities/Vision", capabilities.vision());
+    Logger.recordOutput("RobotCapabilities/Intake", capabilities.intake());
+    Logger.recordOutput("RobotCapabilities/Indexer", capabilities.indexer());
+    Logger.recordOutput("RobotCapabilities/Shooter", capabilities.shooter());
+    Logger.recordOutput("RobotCapabilities/Endgame", capabilities.endgame());
+    Logger.recordOutput("RobotCapabilities/Acquire", capabilities.supportsAcquire());
+    Logger.recordOutput("RobotCapabilities/HubShot", capabilities.supportsHubShot());
+    Logger.recordOutput("RobotCapabilities/OutpostFeed", capabilities.supportsOutpostFeed());
+    Logger.recordOutput("RobotCapabilities/QuickPark", capabilities.supportsQuickPark());
+    Logger.recordOutput("RobotCapabilities/MatchAutos", capabilities.supportsMatchAutos());
   }
 
   private Command rawDriveCommand() {
@@ -337,14 +398,11 @@ public class RobotContainer {
   }
 
   private Command cancelRecoverIntent() {
-    return Commands.parallel(
-        Commands.runOnce(superstructure::clearGoal, superstructure),
-        Commands.runOnce(drive::stop, drive));
+    return cancelRecoverIntent(superstructure, drive);
   }
 
   private Command manualOverrideIntent() {
-    return Commands.parallel(
-        Commands.run(superstructure::clearGoal, superstructure), rawDriveCommand());
+    return manualOverrideIntent(superstructure, rawDriveCommand());
   }
 
   private Command driverAssistIntent(
@@ -357,7 +415,16 @@ public class RobotContainer {
   }
 
   private Command maintainGoal(Supplier<SuperstructureGoal> goalSupplier) {
-    return Commands.run(() -> superstructure.setGoal(goalSupplier.get()), superstructure)
+    return Commands.run(
+            () -> {
+              SuperstructureGoal goal = goalSupplier.get();
+              if (capabilities.supportsGoal(goal)) {
+                superstructure.setGoal(goal);
+              } else {
+                superstructure.clearGoal();
+              }
+            },
+            superstructure)
         .finallyDo((interrupted) -> superstructure.clearGoal());
   }
 
@@ -450,16 +517,16 @@ public class RobotContainer {
     if (hid.getXButton()) {
       return OperatorMode.MANUAL_OVERRIDE;
     }
-    if (hid.getYButton()) {
+    if (capabilities.supportsQuickPark() && hid.getYButton()) {
       return OperatorMode.QUICK_PARK;
     }
-    if (hid.getLeftBumperButton()) {
+    if (capabilities.supportsOutpostFeed() && hid.getLeftBumperButton()) {
       return OperatorMode.OUTPOST_FEED;
     }
-    if (hid.getRightTriggerAxis() > INTENT_TRIGGER_THRESHOLD) {
+    if (capabilities.supportsHubShot() && hid.getRightTriggerAxis() > INTENT_TRIGGER_THRESHOLD) {
       return OperatorMode.AUTO_FACE_AND_SCORE;
     }
-    if (hid.getLeftTriggerAxis() > INTENT_TRIGGER_THRESHOLD) {
+    if (capabilities.supportsAcquire() && hid.getLeftTriggerAxis() > INTENT_TRIGGER_THRESHOLD) {
       return OperatorMode.ACQUIRE;
     }
     return OperatorMode.MANUAL_DRIVE;
@@ -491,6 +558,67 @@ public class RobotContainer {
 
   static String getPoseConfidenceLabel(boolean poseTrusted) {
     return poseTrusted ? "TRUSTED" : "UNTRUSTED";
+  }
+
+  static AutoChoice defaultAutoChoiceFor(
+      RobotCapabilities capabilities, AutoRoutineFactory autoRoutineFactory) {
+    return capabilities.supportsMatchAutos()
+        ? autoRoutineFactory.defaultAutoChoice()
+        : AutoChoice.forCommand("Do Nothing | Match mechanisms unavailable", Commands::none);
+  }
+
+  static Command cancelRecoverIntent(Superstructure superstructure, Drive drive) {
+    return Commands.parallel(
+        Commands.runOnce(superstructure::clearGoal, superstructure),
+        Commands.runOnce(drive::stop, drive));
+  }
+
+  static Command manualOverrideIntent(Superstructure superstructure, Command rawDriveCommand) {
+    return Commands.parallel(
+        Commands.run(superstructure::clearGoal, superstructure), rawDriveCommand);
+  }
+
+  static String buildUnsupportedCapabilitiesMessage(RobotCapabilities capabilities) {
+    List<String> missingMechanisms = new ArrayList<>();
+    if (!capabilities.intake()) {
+      missingMechanisms.add("intake");
+    }
+    if (!capabilities.indexer()) {
+      missingMechanisms.add("indexer");
+    }
+    if (!capabilities.shooter()) {
+      missingMechanisms.add("shooter");
+    }
+    if (!capabilities.endgame()) {
+      missingMechanisms.add("endgame");
+    }
+
+    List<String> disabledFeatures = new ArrayList<>();
+    if (!capabilities.supportsAcquire()) {
+      disabledFeatures.add("acquire");
+    }
+    if (!capabilities.supportsHubShot()) {
+      disabledFeatures.add("hub shot");
+    }
+    if (!capabilities.supportsOutpostFeed()) {
+      disabledFeatures.add("outpost feed");
+    }
+    if (!capabilities.supportsQuickPark()) {
+      disabledFeatures.add("quick park");
+    }
+    if (!capabilities.supportsMatchAutos()) {
+      disabledFeatures.add("match autos");
+    }
+
+    if (missingMechanisms.isEmpty()) {
+      return "All configured robot mechanisms are hardware-backed.";
+    }
+
+    return "Real robot is using placeholder mechanisms for "
+        + String.join(", ", missingMechanisms)
+        + ". Disabled features: "
+        + String.join(", ", disabledFeatures)
+        + ".";
   }
 
   public void resetSimulationField() {

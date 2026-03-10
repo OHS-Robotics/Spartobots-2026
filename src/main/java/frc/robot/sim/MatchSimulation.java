@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.TimedRobot;
 import frc.robot.FieldTargets;
 import frc.robot.MatchStateProvider;
+import frc.robot.RobotSettings;
 import frc.robot.subsystems.endgame.SimpleEndgame;
 import frc.robot.subsystems.indexer.IndexerGoal;
 import frc.robot.subsystems.indexer.SimpleIndexer;
@@ -32,19 +33,30 @@ import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 import org.littletonrobotics.junction.Logger;
 
 public class MatchSimulation {
-  private static final double INTAKE_CAPTURE_RADIUS_METERS = 0.45;
-  private static final double OUTPOST_REFILL_DISTANCE_METERS = 0.7;
-  private static final double OUTPOST_REFILL_SECONDS = 0.35;
-  private static final Translation2d INTAKE_OFFSET_METERS = new Translation2d(0.42, 0.0);
-  private static final Translation2d SHOOTER_OFFSET_METERS = new Translation2d(0.08, 0.0);
-  private static final Translation2d MAGAZINE_OFFSET_METERS = new Translation2d(0.05, 0.0);
-  private static final Translation2d ENDGAME_LEFT_OFFSET_METERS = new Translation2d(-0.18, 0.22);
-  private static final Translation2d ENDGAME_RIGHT_OFFSET_METERS = new Translation2d(-0.18, -0.22);
-  private static final double INTAKE_HEIGHT_METERS = 0.18;
-  private static final double SHOOTER_HEIGHT_METERS = 0.56;
-  private static final double MAGAZINE_HEIGHT_METERS = 0.35;
-  private static final double ENDGAME_BASE_HEIGHT_METERS = 0.78;
-  private static final double EJECT_SPEED_METERS_PER_SEC = 1.8;
+  private static final double INTAKE_CAPTURE_RADIUS_METERS =
+      RobotSettings.Simulation.intakeCaptureRadiusMeters;
+  private static final double OUTPOST_REFILL_DISTANCE_METERS =
+      RobotSettings.Simulation.outpostRefillDistanceMeters;
+  private static final double OUTPOST_REFILL_SECONDS =
+      RobotSettings.Simulation.outpostRefillSeconds;
+  private static final Translation2d INTAKE_OFFSET_METERS =
+      RobotSettings.Simulation.intakeOffsetMeters;
+  private static final Translation2d SHOOTER_OFFSET_METERS =
+      RobotSettings.Simulation.shooterOffsetMeters;
+  private static final Translation2d MAGAZINE_OFFSET_METERS =
+      RobotSettings.Simulation.magazineOffsetMeters;
+  private static final Translation2d ENDGAME_LEFT_OFFSET_METERS =
+      RobotSettings.Simulation.endgameLeftOffsetMeters;
+  private static final Translation2d ENDGAME_RIGHT_OFFSET_METERS =
+      RobotSettings.Simulation.endgameRightOffsetMeters;
+  private static final double INTAKE_HEIGHT_METERS = RobotSettings.Simulation.intakeHeightMeters;
+  private static final double SHOOTER_HEIGHT_METERS = RobotSettings.Simulation.shooterHeightMeters;
+  private static final double MAGAZINE_HEIGHT_METERS =
+      RobotSettings.Simulation.magazineHeightMeters;
+  private static final double ENDGAME_BASE_HEIGHT_METERS =
+      RobotSettings.Simulation.endgameBaseHeightMeters;
+  private static final double EJECT_SPEED_METERS_PER_SEC =
+      RobotSettings.Simulation.ejectSpeedMetersPerSecond;
 
   private final SpartobotsArena2026Rebuilt arena;
   private final SuperstructureDrive drive;

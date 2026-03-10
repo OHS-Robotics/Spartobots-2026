@@ -38,6 +38,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.RobotSettings;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.shooter.ShotSolution;
 import frc.robot.subsystems.superstructure.SuperstructureDrive;
@@ -50,7 +51,7 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase implements SuperstructureDrive {
-  private static final Rotation2d AIM_TOLERANCE = Rotation2d.fromDegrees(3.0);
+  private static final Rotation2d AIM_TOLERANCE = RobotSettings.Drive.aimTolerance;
 
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;

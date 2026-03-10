@@ -7,6 +7,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
 import frc.robot.FieldTargets;
 import frc.robot.RobotAction;
+import frc.robot.RobotSettings;
 import frc.robot.TargetSelector;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.superstructure.Superstructure;
@@ -18,10 +19,11 @@ import java.util.Set;
 import org.ironmaple.simulation.SimulatedArena;
 
 public class AutoRoutineFactory {
-  private static final double PRELOAD_SCORE_TIMEOUT_SECONDS = 2.5;
-  private static final double ACQUIRE_TIMEOUT_SECONDS = 4.0;
-  private static final double SCORE_TIMEOUT_SECONDS = 2.5;
-  private static final double EJECT_TIMEOUT_SECONDS = 1.0;
+  private static final double PRELOAD_SCORE_TIMEOUT_SECONDS =
+      RobotSettings.Auto.preloadScoreTimeoutSeconds;
+  private static final double ACQUIRE_TIMEOUT_SECONDS = RobotSettings.Auto.acquireTimeoutSeconds;
+  private static final double SCORE_TIMEOUT_SECONDS = RobotSettings.Auto.scoreTimeoutSeconds;
+  private static final double EJECT_TIMEOUT_SECONDS = RobotSettings.Auto.ejectTimeoutSeconds;
 
   private static final AutoSpec DEFAULT_SPEC =
       AutoSpec.of(

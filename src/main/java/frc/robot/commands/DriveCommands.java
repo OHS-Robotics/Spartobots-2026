@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.RobotSettings;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.subsystems.shooter.ShotSolution;
@@ -34,16 +35,22 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 public class DriveCommands {
-  private static final double DEADBAND = 0.1;
-  private static final double ANGLE_KP = 5.5;
-  private static final double ANGLE_KD = 0.1;
-  private static final double ANGLE_MAX_VELOCITY = 45.0;
-  private static final double ANGLE_MAX_ACCELERATION = 90.0;
-  private static final double POSE_HOLD_TRANSLATION_KP = 2.5;
-  private static final double FF_START_DELAY = 2.0; // Secs
-  private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
-  private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
-  private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
+  private static final double DEADBAND = RobotSettings.Controls.joystickDeadband;
+  private static final double ANGLE_KP = RobotSettings.Controls.headingKp;
+  private static final double ANGLE_KD = RobotSettings.Controls.headingKd;
+  private static final double ANGLE_MAX_VELOCITY = RobotSettings.Controls.headingMaxVelocity;
+  private static final double ANGLE_MAX_ACCELERATION =
+      RobotSettings.Controls.headingMaxAcceleration;
+  private static final double POSE_HOLD_TRANSLATION_KP =
+      RobotSettings.Controls.poseHoldTranslationKp;
+  private static final double FF_START_DELAY =
+      RobotSettings.Controls.feedforwardStartDelaySeconds; // Secs
+  private static final double FF_RAMP_RATE =
+      RobotSettings.Controls.feedforwardRampRateVoltsPerSec; // Volts/Sec
+  private static final double WHEEL_RADIUS_MAX_VELOCITY =
+      RobotSettings.Controls.wheelRadiusMaxVelocityRadPerSec; // Rad/Sec
+  private static final double WHEEL_RADIUS_RAMP_RATE =
+      RobotSettings.Controls.wheelRadiusRampRateRadPerSecSquared; // Rad/Sec^2
 
   private DriveCommands() {}
 

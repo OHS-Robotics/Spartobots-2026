@@ -184,6 +184,39 @@ class SuperstructureTest {
   }
 
   @Test
+  void hubShotWaitsForShooterReadySignalBeforeFiring() {
+    FakeDrive drive = new FakeDrive();
+    FakeIndexer indexer = new FakeIndexer();
+    FakeShooter shooter = new FakeShooter();
+    shooter.readyOverride = false;
+    Superstructure superstructure =
+        createSuperstructure(drive, new FakeIntake(), indexer, shooter, new FakeEndgame());
+
+    indexer.holdingPiece = true;
+    superstructure.setGoal(
+        new SuperstructureGoal.IntakeDepot(SuperstructureGoal.IntakePhase.SETTLE));
+    superstructure.periodic();
+    superstructure.periodic();
+    superstructure.periodic();
+
+    superstructure.setGoal(new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE));
+    superstructure.periodic();
+    superstructure.periodic();
+
+    assertEquals(
+        new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.AIM),
+        superstructure.getStatus().activeGoal());
+
+    shooter.readyOverride = true;
+    superstructure.periodic();
+    superstructure.periodic();
+
+    assertEquals(
+        new SuperstructureGoal.HubShot(SuperstructureGoal.HubShotPhase.FIRE),
+        superstructure.getStatus().activeGoal());
+  }
+
+  @Test
   void outpostAlignKeepsMechanismsSafe() {
     FakeDrive drive = new FakeDrive();
     FakeIntake intake = new FakeIntake();
@@ -398,6 +431,7 @@ class SuperstructureTest {
   private static final class FakeShooter implements Shooter {
     private ShooterGoal goal = new ShooterGoal.Stow();
     private boolean atGoal = true;
+    private Boolean readyOverride = null;
 
     @Override
     public void setGoal(ShooterGoal goal) {
@@ -412,6 +446,9 @@ class SuperstructureTest {
     @Override
     public ShooterStatus getStatus() {
       boolean ready = goal instanceof ShooterGoal.Ready || goal instanceof ShooterGoal.Fire;
+      if (readyOverride != null) {
+        ready = readyOverride.booleanValue();
+      }
       frc.robot.subsystems.shooter.ShotSolution solution = null;
       if (goal instanceof ShooterGoal.Track track) {
         solution = track.shotSolution();

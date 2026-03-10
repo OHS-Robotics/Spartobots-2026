@@ -1,21 +1,27 @@
 package frc.robot.subsystems.shooter;
 
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.util.Units;
+import frc.robot.RobotSettings;
 
+/** Shooter constants delegated from {@link frc.robot.RobotSettings}. */
 public final class ShooterConstants {
   private ShooterConstants() {}
 
-  public static final double gravityMetersPerSecSquared = 9.80665;
+  public static final double gravityMetersPerSecSquared =
+      RobotSettings.Shooter.gravityMetersPerSecSquared;
 
   // Replace with measured values from your robot.
-  public static final double defaultLaunchSpeedMetersPerSec = 11.5;
-  public static final Rotation2d defaultLaunchAngle = Rotation2d.fromDegrees(56.0);
-  public static final double defaultLaunchHeightMeters = Units.inchesToMeters(30.0);
+  public static final double defaultLaunchSpeedMetersPerSec =
+      RobotSettings.Shooter.defaultLaunchSpeedMetersPerSec;
+  public static final Rotation2d defaultLaunchAngle = RobotSettings.Shooter.defaultLaunchAngle;
+  public static final double defaultLaunchHeightMeters =
+      RobotSettings.Shooter.defaultLaunchHeightMeters;
 
-  public static final double minLaunchSpeedMetersPerSec = 1.0;
-  public static final double minAirtimeSeconds = 0.05;
-  public static final double maxAirtimeSeconds = 2.5;
-  public static final double fallbackAirtimeSeconds = 0.6;
-  public static final double minHorizontalVelocityMetersPerSec = 0.25;
+  public static final double minLaunchSpeedMetersPerSec =
+      RobotSettings.Shooter.minLaunchSpeedMetersPerSec;
+  public static final double minAirtimeSeconds = RobotSettings.Shooter.minAirtimeSeconds;
+  public static final double maxAirtimeSeconds = RobotSettings.Shooter.maxAirtimeSeconds;
+  public static final double fallbackAirtimeSeconds = RobotSettings.Shooter.fallbackAirtimeSeconds;
+  public static final double minHorizontalVelocityMetersPerSec =
+      RobotSettings.Shooter.minHorizontalVelocityMetersPerSec;
 }

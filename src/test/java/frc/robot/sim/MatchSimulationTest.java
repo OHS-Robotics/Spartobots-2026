@@ -103,6 +103,78 @@ class MatchSimulationTest {
     assertEquals(0, arena.gamePiecesOnField().size());
   }
 
+  @Test
+  void ejectDropsFuelBackOntoFieldWhenHeldPieceIsPurged() {
+    SpartobotsArena2026Rebuilt arena = new SpartobotsArena2026Rebuilt(false);
+    FakeDrive drive = new FakeDrive();
+    SimpleIntake intake = new SimpleIntake();
+    SimpleIndexer indexer = new SimpleIndexer();
+    SimpleShooter shooter = new SimpleShooter();
+    SimpleEndgame endgame = new SimpleEndgame();
+    Superstructure superstructure = createSuperstructure(drive, intake, indexer, shooter, endgame);
+    MatchSimulation simulation =
+        new MatchSimulation(arena, drive, superstructure, intake, indexer, shooter, endgame);
+
+    indexer.setHoldingPiece(true);
+    superstructure.periodic();
+    simulation.beforeArenaStep(blueShiftState(MatchStateProvider.Hub.BLUE), 120.0, drive.pose);
+
+    superstructure.setGoal(new SuperstructureGoal.Eject(SuperstructureGoal.EjectPhase.FIRE));
+    superstructure.periodic();
+    simulation.beforeArenaStep(blueShiftState(MatchStateProvider.Hub.BLUE), 120.0, drive.pose);
+    superstructure.periodic();
+    simulation.beforeArenaStep(blueShiftState(MatchStateProvider.Hub.BLUE), 120.0, drive.pose);
+    superstructure.periodic();
+    simulation.beforeArenaStep(blueShiftState(MatchStateProvider.Hub.BLUE), 120.0, drive.pose);
+
+    assertEquals(1, arena.gamePiecesOnField().size());
+    assertEquals("Fuel", arena.gamePiecesOnField().iterator().next().getType());
+    assertTrue(!indexer.getStatus().holdingPiece());
+  }
+
+  @Test
+  void resetControlsWhetherRobotStartsWithPreload() {
+    SpartobotsArena2026Rebuilt arena = new SpartobotsArena2026Rebuilt(false);
+    FakeDrive drive = new FakeDrive();
+    SimpleIntake intake = new SimpleIntake();
+    SimpleIndexer indexer = new SimpleIndexer();
+    SimpleShooter shooter = new SimpleShooter();
+    SimpleEndgame endgame = new SimpleEndgame();
+    Superstructure superstructure = createSuperstructure(drive, intake, indexer, shooter, endgame);
+    MatchSimulation simulation =
+        new MatchSimulation(arena, drive, superstructure, intake, indexer, shooter, endgame);
+
+    simulation.reset(true);
+    assertTrue(indexer.getStatus().holdingPiece());
+
+    simulation.reset(false);
+    assertTrue(!indexer.getStatus().holdingPiece());
+  }
+
+  @Test
+  void outpostRefillRequiresDriveAlignment() {
+    SpartobotsArena2026Rebuilt arena = new SpartobotsArena2026Rebuilt(false);
+    FakeDrive drive = new FakeDrive();
+    drive.pose = FieldTargets.OUTPOST.bluePose();
+    drive.poseTrusted = false;
+    SimpleIntake intake = new SimpleIntake();
+    SimpleIndexer indexer = new SimpleIndexer();
+    SimpleShooter shooter = new SimpleShooter();
+    SimpleEndgame endgame = new SimpleEndgame();
+    Superstructure superstructure = createSuperstructure(drive, intake, indexer, shooter, endgame);
+    MatchSimulation simulation =
+        new MatchSimulation(arena, drive, superstructure, intake, indexer, shooter, endgame);
+
+    superstructure.setGoal(new SuperstructureGoal.OutpostAlign());
+    for (int i = 0; i < 20; i++) {
+      superstructure.periodic();
+      simulation.beforeArenaStep(blueShiftState(MatchStateProvider.Hub.BLUE), 120.0, drive.pose);
+    }
+
+    assertTrue(!indexer.getStatus().holdingPiece());
+    assertEquals(24, arena.getOutpostFuelCount(Alliance.Blue));
+  }
+
   private static MatchStateProvider.MatchState blueShiftState(MatchStateProvider.Hub activeHub) {
     return new MatchStateProvider.MatchState(
         Optional.of(Alliance.Blue),

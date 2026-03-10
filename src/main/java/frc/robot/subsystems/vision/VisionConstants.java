@@ -7,45 +7,36 @@
 
 package frc.robot.subsystems.vision;
 
-import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.util.Units;
+import frc.robot.RobotSettings;
 
+/** Vision constants delegated from {@link frc.robot.RobotSettings}. */
 public class VisionConstants {
   // Camera names, must match names configured on coprocessor
-  public static final String camera0Name = "Arducam_OV9281_USB_Camera";
-  public static final String camera1Name = "Arducam_OV9281_USB_Camera (1)";
+  public static final String camera0Name = RobotSettings.Vision.camera0Name;
+  public static final String camera1Name = RobotSettings.Vision.camera1Name;
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
-  public static final Transform3d robotToCamera0 =
-      new Transform3d(
-          new Translation3d(
-              Units.inchesToMeters(0), Units.inchesToMeters(-5), Units.inchesToMeters(10.5)),
-          new Rotation3d(0, 0, Units.degreesToRadians(-90)));
-  public static final Transform3d robotToCamera1 =
-      new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI));
+  public static final Transform3d robotToCamera0 = RobotSettings.Vision.robotToCamera0;
+  public static final Transform3d robotToCamera1 = RobotSettings.Vision.robotToCamera1;
 
   // Basic filtering thresholds
-  public static final double maxAmbiguity = 0.3;
-  public static final double maxZError = 0.75;
+  public static final double maxAmbiguity = RobotSettings.Vision.maxAmbiguity;
+  public static final double maxZError = RobotSettings.Vision.maxZError;
 
   // Standard deviation baselines, for 1 meter distance and 1 tag
   // (Adjusted automatically based on distance and # of tags)
-  public static final double linearStdDevBaseline = 0.02; // Meters
-  public static final double angularStdDevBaseline = 0.06; // Radians
+  public static final double linearStdDevBaseline = RobotSettings.Vision.linearStdDevBaseline;
+  public static final double angularStdDevBaseline = RobotSettings.Vision.angularStdDevBaseline;
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
-  public static final double[] cameraStdDevFactors =
-      new double[] {
-        1.0, // Camera 0
-        1.0 // Camera 1
-      };
+  public static final double[] cameraStdDevFactors = RobotSettings.Vision.cameraStdDevFactors;
 
   // Multipliers to apply for MegaTag 2 observations
-  public static final double linearStdDevMegatag2Factor = 0.5; // More stable than full 3D solve
+  public static final double linearStdDevMegatag2Factor =
+      RobotSettings.Vision.linearStdDevMegatag2Factor; // More stable than full 3D solve
   public static final double angularStdDevMegatag2Factor =
-      Double.POSITIVE_INFINITY; // No rotation data available
+      RobotSettings.Vision.angularStdDevMegatag2Factor; // No rotation data available
 }

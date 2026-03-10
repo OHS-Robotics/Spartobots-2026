@@ -15,20 +15,23 @@ import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.util.Units;
+import frc.robot.RobotSettings;
 import org.ironmaple.simulation.drivesims.COTS;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 
+/** Derived drive constants. Tune source values in {@link frc.robot.RobotSettings}. */
 public class DriveConstants {
-  public static final double maxSpeedMetersPerSec = 4.60248;
-  public static final double maxAccelerationMeterPerSecSquared = 3;
-  public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(30);
+  public static final double maxSpeedMetersPerSec = RobotSettings.Drive.maxSpeedMetersPerSec;
+  public static final double maxAccelerationMeterPerSecSquared =
+      RobotSettings.Drive.maxAccelerationMeterPerSecSquared;
+  public static final double maxRotationalSpeedRadiansPerSec =
+      RobotSettings.Drive.maxRotationalSpeedRadiansPerSec;
   public static final double maxRotationalAccelerationRadiansPerSecSquared =
-      Units.degreesToRadians(15);
-  public static final double odometryFrequency = 100.0; // Hz
-  public static final double trackWidth = Units.inchesToMeters(20.5);
-  public static final double wheelBase = Units.inchesToMeters(20.5);
+      RobotSettings.Drive.maxRotationalAccelerationRadiansPerSecSquared;
+  public static final double odometryFrequency = RobotSettings.Drive.odometryFrequency; // Hz
+  public static final double trackWidth = RobotSettings.Drive.trackWidthMeters;
+  public static final double wheelBase = RobotSettings.Drive.wheelBaseMeters;
   public static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   public static final Translation2d[] moduleTranslations =
       new Translation2d[] {
@@ -38,47 +41,50 @@ public class DriveConstants {
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // BR
       };
   // Maps logical module index (FL, FR, BL, BR) -> hardware position index
-  public static final int[] moduleIndexToHardwareIndex = {0, 1, 2, 3};
+  public static final int[] moduleIndexToHardwareIndex =
+      RobotSettings.Drive.moduleIndexToHardwareIndex;
 
   // Global chassis-frame correction scalars applied in Drive.runVelocity.
   // Keep at 1.0 unless you intentionally need to correct a frame mismatch.
-  public static final double chassisXCommandScalar = 1.0;
-  public static final double chassisYCommandScalar = 1.0;
-  public static final double chassisOmegaCommandScalar = 1.0;
+  public static final double chassisXCommandScalar = RobotSettings.Drive.chassisXCommandScalar;
+  public static final double chassisYCommandScalar = RobotSettings.Drive.chassisYCommandScalar;
+  public static final double chassisOmegaCommandScalar =
+      RobotSettings.Drive.chassisOmegaCommandScalar;
 
   // NavX yaw sign to match WPILib's CCW-positive convention.
-  public static final boolean navxYawInverted = true;
+  public static final boolean navxYawInverted = RobotSettings.Drive.navxYawInverted;
 
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
+  public static final Rotation2d frontLeftZeroRotation = RobotSettings.Drive.frontLeftZeroRotation;
+  public static final Rotation2d frontRightZeroRotation =
+      RobotSettings.Drive.frontRightZeroRotation;
+  public static final Rotation2d backLeftZeroRotation = RobotSettings.Drive.backLeftZeroRotation;
+  public static final Rotation2d backRightZeroRotation = RobotSettings.Drive.backRightZeroRotation;
 
   // Device CAN IDs
-  public static final int pigeonCanId = 1;
+  public static final int pigeonCanId = RobotSettings.Drive.pigeonCanId;
 
-  public static final int frontLeftDriveCanId = 8;
-  public static final int backLeftDriveCanId = 10;
-  public static final int frontRightDriveCanId = 6;
-  public static final int backRightDriveCanId = 12;
+  public static final int frontLeftDriveCanId = RobotSettings.Drive.frontLeftDriveCanId;
+  public static final int backLeftDriveCanId = RobotSettings.Drive.backLeftDriveCanId;
+  public static final int frontRightDriveCanId = RobotSettings.Drive.frontRightDriveCanId;
+  public static final int backRightDriveCanId = RobotSettings.Drive.backRightDriveCanId;
 
-  public static final int frontLeftTurnCanId = 7;
-  public static final int backLeftTurnCanId = 9;
-  public static final int frontRightTurnCanId = 5;
-  public static final int backRightTurnCanId = 11;
+  public static final int frontLeftTurnCanId = RobotSettings.Drive.frontLeftTurnCanId;
+  public static final int backLeftTurnCanId = RobotSettings.Drive.backLeftTurnCanId;
+  public static final int frontRightTurnCanId = RobotSettings.Drive.frontRightTurnCanId;
+  public static final int backRightTurnCanId = RobotSettings.Drive.backRightTurnCanId;
 
-  public static final int frontLeftCANcoderId = 21;
-  public static final int frontRightCANcoderId = 22;
-  public static final int backLeftCANcoderId = 20;
-  public static final int backRightCANcoderId = 23;
+  public static final int frontLeftCANcoderId = RobotSettings.Drive.frontLeftCanCoderId;
+  public static final int frontRightCANcoderId = RobotSettings.Drive.frontRightCanCoderId;
+  public static final int backLeftCANcoderId = RobotSettings.Drive.backLeftCanCoderId;
+  public static final int backRightCANcoderId = RobotSettings.Drive.backRightCanCoderId;
 
   // Drive motor configuration
-  public static final int driveMotorCurrentLimit = 50;
-  public static final double wheelRadiusMeters = Units.inchesToMeters(1.975);
-  public static final double driveMotorReduction = 6.75; // Swerve MK4 L2
+  public static final int driveMotorCurrentLimit = RobotSettings.Drive.driveMotorCurrentLimit;
+  public static final double wheelRadiusMeters = RobotSettings.Drive.wheelRadiusMeters;
+  public static final double driveMotorReduction = RobotSettings.Drive.driveMotorReduction;
   // and 22 spur teeth
-  public static final DCMotor driveGearbox = DCMotor.getNEO(1);
+  public static final DCMotor driveGearbox = RobotSettings.Drive.driveGearbox;
 
   // Drive encoder configuration
   public static final double driveEncoderPositionFactor =
@@ -89,42 +95,42 @@ public class DriveConstants {
   // Wheel Rad/Sec
 
   // Drive PID configuration
-  public static final double driveKp = 0.0010645;
-  public static final double driveKi = 0.0;
-  public static final double driveKd = 0.01;
-  public static final double driveKs = 0.0;
-  public static final double driveKv = 0.0789;
-  public static final double driveSimP = 0.0010645;
-  public static final double driveSimD = 0.01;
-  public static final double driveSimKs = 0.0;
-  public static final double driveSimKv = 0.0789;
+  public static final double driveKp = RobotSettings.Drive.driveKp;
+  public static final double driveKi = RobotSettings.Drive.driveKi;
+  public static final double driveKd = RobotSettings.Drive.driveKd;
+  public static final double driveKs = RobotSettings.Drive.driveKs;
+  public static final double driveKv = RobotSettings.Drive.driveKv;
+  public static final double driveSimP = RobotSettings.Drive.driveSimP;
+  public static final double driveSimD = RobotSettings.Drive.driveSimD;
+  public static final double driveSimKs = RobotSettings.Drive.driveSimKs;
+  public static final double driveSimKv = RobotSettings.Drive.driveSimKv;
 
   // Turn motor configuration
-  public static final boolean turnInverted = false;
-  public static final int turnMotorCurrentLimit = 20;
-  public static final double turnMotorReduction = 12.8;
-  public static final DCMotor turnGearbox = DCMotor.getNEO(1);
+  public static final boolean turnInverted = RobotSettings.Drive.turnInverted;
+  public static final int turnMotorCurrentLimit = RobotSettings.Drive.turnMotorCurrentLimit;
+  public static final double turnMotorReduction = RobotSettings.Drive.turnMotorReduction;
+  public static final DCMotor turnGearbox = RobotSettings.Drive.turnGearbox;
 
   // Turn encoder configuration
-  public static final boolean turnEncoderInverted = false;
+  public static final boolean turnEncoderInverted = RobotSettings.Drive.turnEncoderInverted;
   public static final double turnEncoderPositionFactor =
       2 * Math.PI / turnMotorReduction; // Rotor Rotations -> Wheel Radians
   public static final double turnEncoderVelocityFactor =
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 2.5;
-  public static final double turnKi = 0.5;
-  public static final double turnKd = 0.1;
-  public static final double turnSimP = 1.0;
-  public static final double turnSimD = 0.0;
+  public static final double turnKp = RobotSettings.Drive.turnKp;
+  public static final double turnKi = RobotSettings.Drive.turnKi;
+  public static final double turnKd = RobotSettings.Drive.turnKd;
+  public static final double turnSimP = RobotSettings.Drive.turnSimP;
+  public static final double turnSimD = RobotSettings.Drive.turnSimD;
   public static final double turnPIDMinInput = 0; // Radians
   public static final double turnPIDMaxInput = 2 * Math.PI; // Radians
 
   // PathPlanner configuration
-  public static final double robotMassKg = 74.088;
-  public static final double robotMOI = 6.883;
-  public static final double wheelCOF = 1.2;
+  public static final double robotMassKg = RobotSettings.Drive.robotMassKg;
+  public static final double robotMOI = RobotSettings.Drive.robotMoiKgMetersSq;
+  public static final double wheelCOF = RobotSettings.Drive.wheelCoefficientOfFriction;
   public static final RobotConfig ppConfig =
       new RobotConfig(
           robotMassKg,
@@ -145,11 +151,12 @@ public class DriveConstants {
           maxRotationalAccelerationRadiansPerSecSquared);
 
   // MapleSim configuration
-  public static final double bumperLengthXMeters = Units.inchesToMeters(30.0);
-  public static final double bumperWidthYMeters = Units.inchesToMeters(30.0);
-  public static final double mapleDriveFrictionVolts = 0.1;
-  public static final double mapleTurnFrictionVolts = 0.2;
-  public static final double mapleSteerInertiaKgMetersSq = 0.02;
+  public static final double bumperLengthXMeters = RobotSettings.Drive.bumperLengthMeters;
+  public static final double bumperWidthYMeters = RobotSettings.Drive.bumperWidthMeters;
+  public static final double mapleDriveFrictionVolts = RobotSettings.Drive.mapleDriveFrictionVolts;
+  public static final double mapleTurnFrictionVolts = RobotSettings.Drive.mapleTurnFrictionVolts;
+  public static final double mapleSteerInertiaKgMetersSq =
+      RobotSettings.Drive.mapleSteerInertiaKgMetersSq;
 
   public static final DriveTrainSimulationConfig mapleSimConfig =
       DriveTrainSimulationConfig.Default()
@@ -170,9 +177,9 @@ public class DriveConstants {
                   wheelCOF));
 
   // alignment config
-  public static final double aligned = Units.degreesToRadians(5);
+  public static final double aligned = RobotSettings.Drive.alignedToleranceRadians;
 
-  public static final double alignKp = 0;
-  public static final double alignKi = 0;
-  public static final double alignKd = 0;
+  public static final double alignKp = RobotSettings.Drive.alignKp;
+  public static final double alignKi = RobotSettings.Drive.alignKi;
+  public static final double alignKd = RobotSettings.Drive.alignKd;
 }
