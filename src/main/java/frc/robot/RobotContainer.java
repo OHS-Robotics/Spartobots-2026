@@ -307,7 +307,7 @@ public class RobotContainer {
     autoChooser.addOption("Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
     autoChooser.addOption("Hub Opening Shot (Basic Feed)", openingHubShotAutoRoutine());
     autoChooser.addOption("Trench Collect (Timed)", trenchCollectAutoRoutine());
-    autoChooser.addOption("Load Middle", trenchCollectAutoRoutineNew());
+    autoChooser.addOption("Trench Collect (Timed) new thing", trenchCollectAutoRoutineNew());
     autoChooser.addOption("Outpost Collect (Timed)", outpostCollectAutoRoutine());
 
     // Set up SysId routines

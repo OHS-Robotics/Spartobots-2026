@@ -91,31 +91,12 @@ public final class Constants {
       new Pose2d(15.5, 7.38, new Rotation2d(Units.degreesToRadians(180)));
 
   // define fuel loading areas
-  public class Middle {
-    public static final double blueMiddleSide = 6.9;
-    public static final double redMiddleSide = 9.45;
-    public static final double blueLeftY = 7.2;
-    public static final double blueRightY = 1.23;
-    public static final Rotation2d blueLeftRotation = new Rotation2d(Units.degreesToRadians(-135));
-    public static final Rotation2d blueRightRotation = new Rotation2d(Units.degreesToRadians(135));
-    public static final Rotation2d redLeftRotation = new Rotation2d(Units.degreesToRadians(45));
-    public static final Rotation2d redRightRotation = new Rotation2d(Units.degreesToRadians(-45));
-
-    public static final Pose2d[] redRight = {
-      new Pose2d(blueMiddleSide, blueLeftY, redRightRotation),
-      new Pose2d(redMiddleSide, midLineY, redRightRotation)
-    };
-    public static final Pose2d[] redLeft = {
-      new Pose2d(blueMiddleSide, blueRightY, redLeftRotation),
-      new Pose2d(redMiddleSide, midLineY, redLeftRotation)
-    };
-    public static final Pose2d[] blueRight = {
-      new Pose2d(redMiddleSide, blueRightY, blueRightRotation),
-      new Pose2d(blueMiddleSide, midLineY, blueRightRotation)
-    };
-    public static final Pose2d[] blueLeft = {
-      new Pose2d(redMiddleSide, blueLeftY, blueLeftRotation),
-      new Pose2d(blueMiddleSide, midLineY, blueLeftRotation)
-    };
-  }
+  public static final Pose2d beginRedRight =
+      new Pose2d(7.725, 7.2, new Rotation2d(Units.degreesToRadians(-100)));
+  public static final Pose2d beginRedLeft =
+      new Pose2d(7.725, 0.9, new Rotation2d(Units.degreesToRadians(100)));
+  public static final Pose2d beginBlueRight =
+      new Pose2d(8.75, 0.9, new Rotation2d(Units.degreesToRadians(100)));
+  public static final Pose2d beginBlueLeft =
+      new Pose2d(8.75, 7.2, new Rotation2d(Units.degreesToRadians(-100)));
 }
