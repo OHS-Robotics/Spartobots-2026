@@ -89,6 +89,7 @@ public class RobotContainer {
   private static final double HUB_WIDTH_X_METERS = Units.inchesToMeters(47.0);
   private static final double HUMP_PEAK_HEIGHT_METERS = Units.inchesToMeters(7.0);
   private static final double HUMP_X_CLEARANCE_MARGIN_METERS = 0.15;
+  private static final double SIM_TERRAIN_POSE_SMOOTHING_TIME_CONSTANT_SECS = 0.10;
   private static final double FIELD_X_MIN_METERS = 0.0;
   private static final double FIELD_X_MAX_METERS = 16.54105;
   private static final double FIELD_Y_MIN_METERS = 0.0;
@@ -118,7 +119,7 @@ public class RobotContainer {
       new Translation3d(-0.23, 0.0, 0.56);
   private static final Rotation2d SHOOTER_HOOD_MODEL_PITCH_OFFSET = Rotation2d.kZero;
   // Visual offset to match the AdvantageScope robot asset's exported origin.
-  private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.10;
+  private static final double ROBOT_BODY_BASE_HEIGHT_METERS = 0.0;
   private static final double MODULE_HEIGHT_ABOVE_GROUND_METERS = 0.05;
   private static final double MANUAL_HOOD_STEP_DEGREES = 0.35;
   private static final double SHOOTER_TRIGGER_DEADBAND = 0.02;
@@ -196,6 +197,8 @@ public class RobotContainer {
   private int simulatedShooterHubHits = 0;
   private int simulatedShooterShotsActiveHub = 0;
   private int simulatedShooterShotsInactiveHub = 0;
+  private HumpPoseSample filteredHumpPoseSample = null;
+  private double lastSimTerrainSampleTimestampSeconds = Double.NaN;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -918,6 +921,8 @@ public class RobotContainer {
     simulatedShooterHubHits = 0;
     simulatedShooterShotsActiveHub = 0;
     simulatedShooterShotsInactiveHub = 0;
+    filteredHumpPoseSample = null;
+    lastSimTerrainSampleTimestampSeconds = Double.NaN;
     driverController.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
     Logger.recordOutput("Shooter/Simulation/ShotsLaunched", simulatedShooterShotsLaunched);
     Logger.recordOutput("Shooter/Simulation/HubHits", simulatedShooterHubHits);
@@ -951,7 +956,8 @@ public class RobotContainer {
         driveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative();
     maybeLaunchSimulatedFuel(robotPose, simFieldSpeeds);
     updateCollisionRumble(robotPose, simFieldSpeeds);
-    HumpPoseSample humpPoseSample = sampleHumpPose(robotPose);
+    HumpPoseSample humpPoseSample =
+        smoothHumpPoseSample(sampleHumpPose(robotPose), Timer.getFPGATimestamp());
     Logger.recordOutput("FieldSimulation/RobotPose", robotPose);
     Logger.recordOutput(
         "FieldSimulation/RobotPose3d", getSimulatedRobotPose3d(robotPose, humpPoseSample));
@@ -1160,6 +1166,52 @@ public class RobotContainer {
         sampleTerrainHeightAt(
             plane, robotPose.getTranslation().getX(), robotPose.getTranslation().getY());
     return new HumpPoseSample(moduleHeights, centerHeight, plane.surfaceNormal());
+  }
+
+  private HumpPoseSample smoothHumpPoseSample(HumpPoseSample rawSample, double timestampSeconds) {
+    if (filteredHumpPoseSample == null || Double.isNaN(lastSimTerrainSampleTimestampSeconds)) {
+      filteredHumpPoseSample = rawSample;
+      lastSimTerrainSampleTimestampSeconds = timestampSeconds;
+      return filteredHumpPoseSample;
+    }
+
+    double dtSeconds = Math.max(0.0, timestampSeconds - lastSimTerrainSampleTimestampSeconds);
+    double blend =
+        dtSeconds <= 1e-9
+            ? 1.0
+            : 1.0 - Math.exp(-dtSeconds / SIM_TERRAIN_POSE_SMOOTHING_TIME_CONSTANT_SECS);
+
+    double[] smoothedModuleHeights = new double[rawSample.moduleHeightsMeters().length];
+    for (int i = 0; i < smoothedModuleHeights.length; i++) {
+      smoothedModuleHeights[i] =
+          MathUtil.interpolate(
+              filteredHumpPoseSample.moduleHeightsMeters()[i],
+              rawSample.moduleHeightsMeters()[i],
+              blend);
+    }
+
+    double smoothedHeight =
+        MathUtil.interpolate(
+            filteredHumpPoseSample.heightMeters(), rawSample.heightMeters(), blend);
+    Translation3d smoothedNormal =
+        normalizeVector(
+            MathUtil.interpolate(
+                filteredHumpPoseSample.surfaceNormal().getX(),
+                rawSample.surfaceNormal().getX(),
+                blend),
+            MathUtil.interpolate(
+                filteredHumpPoseSample.surfaceNormal().getY(),
+                rawSample.surfaceNormal().getY(),
+                blend),
+            MathUtil.interpolate(
+                filteredHumpPoseSample.surfaceNormal().getZ(),
+                rawSample.surfaceNormal().getZ(),
+                blend));
+
+    filteredHumpPoseSample =
+        new HumpPoseSample(smoothedModuleHeights, smoothedHeight, smoothedNormal);
+    lastSimTerrainSampleTimestampSeconds = timestampSeconds;
+    return filteredHumpPoseSample;
   }
 
   private TerrainPlane fitTerrainPlane(Translation2d[] samplePositions, double[] sampleHeights) {
