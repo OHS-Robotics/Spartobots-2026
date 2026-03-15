@@ -12,6 +12,7 @@ import static frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.photonvision.simulation.PhotonCameraSim;
 import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
@@ -60,9 +61,25 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
     visionSim.addCamera(cameraSim, robotToCamera);
   }
 
+  /** Advances the shared vision simulation using the current robot pose. */
+  void updateSimulationPose() {
+    visionSim.update(poseSupplier.get());
+
+    // PhotonVision's debug field only republishes cameras that processed a frame this cycle.
+    // Republish all camera poses so Glass keeps the camera markers stable between frame updates.
+    visionSim
+        .getDebugField()
+        .getObject("cameras")
+        .setPoses(
+            visionSim.getCameraSims().stream()
+                .map(visionSim::getCameraPose)
+                .flatMap(java.util.Optional::stream)
+                .map(pose -> pose.toPose2d())
+                .collect(Collectors.toList()));
+  }
+
   @Override
   public void updateInputs(VisionIOInputs inputs) {
-    visionSim.update(poseSupplier.get());
     super.updateInputs(inputs);
   }
 }

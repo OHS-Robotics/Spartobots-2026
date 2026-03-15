@@ -17,6 +17,9 @@ import frc.robot.Constants;
 import frc.robot.subsystems.drive.DriveConstants;
 
 public class VisionConstants {
+  public static record CameraVisualizationConfig(
+      int width, int height, Rotation2d diagonalFov, double frustumLengthMeters) {}
+
   public static record CameraSimConfig(
       int width,
       int height,
@@ -84,4 +87,33 @@ public class VisionConstants {
   public static final CameraSimConfig camera1SimConfig =
       new CameraSimConfig(
           960, 720, Rotation2d.fromDegrees(90.0), 25.0, 16.0, 40.0, 7.0, 0.35, 0.12, 6.0);
+
+  public static final CameraVisualizationConfig camera0VisualizationConfig =
+      new CameraVisualizationConfig(
+          camera0SimConfig.width(),
+          camera0SimConfig.height(),
+          camera0SimConfig.diagonalFov(),
+          camera0SimConfig.maxSightRangeMeters());
+  public static final CameraVisualizationConfig camera1VisualizationConfig =
+      new CameraVisualizationConfig(
+          camera1SimConfig.width(),
+          camera1SimConfig.height(),
+          camera1SimConfig.diagonalFov(),
+          camera1SimConfig.maxSightRangeMeters());
+
+  public static Transform3d getRobotToCamera(int cameraIndex) {
+    return switch (cameraIndex) {
+      case 0 -> robotToCamera0;
+      case 1 -> robotToCamera1;
+      default -> null;
+    };
+  }
+
+  public static CameraVisualizationConfig getCameraVisualizationConfig(int cameraIndex) {
+    return switch (cameraIndex) {
+      case 0 -> camera0VisualizationConfig;
+      case 1 -> camera1VisualizationConfig;
+      default -> null;
+    };
+  }
 }

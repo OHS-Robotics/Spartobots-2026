@@ -29,6 +29,8 @@
 - `GamePieceSimulation/Transfers/LastEvent`
 - `Vision/Summary/RobotPosesAccepted`
 - `Vision/Summary/RobotPosesRejected`
+- `Vision/Camera0/Frustum`
+- `Vision/Camera1/Frustum`
 - `AdvantageScope/Robot/Components`
 
 ## AdvantageScope Robot Asset Setup

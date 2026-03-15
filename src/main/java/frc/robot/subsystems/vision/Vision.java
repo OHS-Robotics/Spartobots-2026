@@ -14,24 +14,31 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.subsystems.vision.VisionConstants.CameraVisualizationConfig;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
 public class Vision extends SubsystemBase {
   private final VisionConsumer consumer;
+  private final Supplier<Pose2d> robotPoseSupplier;
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
 
-  public Vision(VisionConsumer consumer, VisionIO... io) {
+  public Vision(VisionConsumer consumer, Supplier<Pose2d> robotPoseSupplier, VisionIO... io) {
     this.consumer = consumer;
+    this.robotPoseSupplier = robotPoseSupplier;
     this.io = io;
 
     // Initialize inputs
@@ -60,9 +67,17 @@ public class Vision extends SubsystemBase {
 
   @Override
   public void periodic() {
+    for (var cameraIo : io) {
+      if (cameraIo instanceof VisionIOPhotonVisionSim simIo) {
+        simIo.updateSimulationPose();
+        break;
+      }
+    }
+
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
       Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
+      logCameraVisualization(cameraIndexToLogKey(i), i);
     }
 
     // Initialize logging values
@@ -236,6 +251,76 @@ public class Vision extends SubsystemBase {
     Logger.recordOutput("Vision/Summary/Rejected/Ambiguity", totalRejectedAmbiguity);
     Logger.recordOutput("Vision/Summary/Rejected/Z", totalRejectedZ);
     Logger.recordOutput("Vision/Summary/Rejected/OutOfField", totalRejectedOutOfField);
+  }
+
+  private void logCameraVisualization(String cameraLogKey, int cameraIndex) {
+    Transform3d robotToCamera = getRobotToCamera(cameraIndex);
+    CameraVisualizationConfig visualizationConfig = getCameraVisualizationConfig(cameraIndex);
+    if (robotToCamera == null || visualizationConfig == null) {
+      Logger.recordOutput(cameraLogKey + "/CameraPose", new Pose3d());
+      Logger.recordOutput(cameraLogKey + "/Frustum", new Pose3d[] {});
+      return;
+    }
+
+    Pose3d cameraPose = new Pose3d(robotPoseSupplier.get()).plus(robotToCamera);
+    Logger.recordOutput(cameraLogKey + "/CameraPose", cameraPose);
+    Logger.recordOutput(
+        cameraLogKey + "/Frustum", buildFrustumGeometry(cameraPose, visualizationConfig));
+  }
+
+  private static String cameraIndexToLogKey(int cameraIndex) {
+    return "Vision/Camera" + Integer.toString(cameraIndex);
+  }
+
+  private static Pose3d[] buildFrustumGeometry(
+      Pose3d cameraPose, CameraVisualizationConfig visualizationConfig) {
+    double frustumLengthMeters = visualizationConfig.frustumLengthMeters();
+    double halfVerticalFovTangent = getHalfVerticalFovTangent(visualizationConfig);
+    double halfHorizontalFovTangent =
+        halfVerticalFovTangent
+            * ((double) visualizationConfig.width() / (double) visualizationConfig.height());
+
+    double halfWidthMeters = frustumLengthMeters * halfHorizontalFovTangent;
+    double halfHeightMeters = frustumLengthMeters * halfVerticalFovTangent;
+
+    Pose3d topLeft =
+        transformCameraRelative(cameraPose, frustumLengthMeters, halfWidthMeters, halfHeightMeters);
+    Pose3d topRight =
+        transformCameraRelative(
+            cameraPose, frustumLengthMeters, -halfWidthMeters, halfHeightMeters);
+    Pose3d bottomRight =
+        transformCameraRelative(
+            cameraPose, frustumLengthMeters, -halfWidthMeters, -halfHeightMeters);
+    Pose3d bottomLeft =
+        transformCameraRelative(
+            cameraPose, frustumLengthMeters, halfWidthMeters, -halfHeightMeters);
+
+    return new Pose3d[] {
+      cameraPose,
+      topLeft,
+      topRight,
+      cameraPose,
+      bottomRight,
+      bottomLeft,
+      cameraPose,
+      topLeft,
+      bottomLeft,
+      bottomRight,
+      topRight
+    };
+  }
+
+  private static Pose3d transformCameraRelative(
+      Pose3d cameraPose, double xMeters, double yMeters, double zMeters) {
+    return cameraPose.plus(
+        new Transform3d(new Translation3d(xMeters, yMeters, zMeters), new Rotation3d()));
+  }
+
+  private static double getHalfVerticalFovTangent(CameraVisualizationConfig visualizationConfig) {
+    double aspectRatio =
+        (double) visualizationConfig.width() / (double) visualizationConfig.height();
+    double halfDiagonalFovTangent = Math.tan(visualizationConfig.diagonalFov().getRadians() * 0.5);
+    return halfDiagonalFovTangent / Math.hypot(aspectRatio, 1.0);
   }
 
   @FunctionalInterface
