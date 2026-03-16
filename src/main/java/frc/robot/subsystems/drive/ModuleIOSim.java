@@ -36,7 +36,9 @@ public class ModuleIOSim implements ModuleIO {
     this.driveMotor =
         moduleSimulation
             .useGenericMotorControllerForDrive()
-            .withCurrentLimit(Amps.of(driveMotorCurrentLimit));
+            // MapleSim's chassis damping model needs a higher sim-only stator limit to realize the
+            // drivetrain's configured free speed. Keep the real robot limit separate.
+            .withCurrentLimit(Amps.of(driveSimMotorCurrentLimit));
     this.turnMotor =
         moduleSimulation
             .useGenericControllerForSteer()

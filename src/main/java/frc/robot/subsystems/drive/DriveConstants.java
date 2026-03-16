@@ -73,6 +73,7 @@ public class DriveConstants {
 
   // Drive motor configuration
   public static final int driveMotorCurrentLimit = 50;
+  public static final int driveSimMotorCurrentLimit = 150;
   public static final double wheelRadiusMeters = Units.inchesToMeters(1.975);
   public static final double driveMotorReduction = 6.75; // Swerve MK4 L2
   // and 22 spur teeth
