@@ -4,7 +4,6 @@ import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.util.NetworkTablesUtil;
 import java.util.function.DoubleSupplier;
@@ -24,12 +23,11 @@ public class GameStateSubsystem extends SubsystemBase {
   private final Supplier<String> gameDataSupplier;
   private final DoubleSupplier timestampSupplier;
 
-  private final NetworkTable subsystemTable = NetworkTablesUtil.subsystemTable("GameState");
-  private final NetworkTable telemetryTable = NetworkTablesUtil.telemetryTable(subsystemTable);
-  private final NetworkTableEntry rawGameDataEntry = telemetryTable.getEntry("RawGameData");
-  private final NetworkTableEntry parsedHubStateEntry = telemetryTable.getEntry("HubState");
-  private final NetworkTableEntry hubActiveEntry = telemetryTable.getEntry("HubActive");
-  private final NetworkTableEntry gameDataValidEntry = telemetryTable.getEntry("GameDataValid");
+  private final NetworkTable gameStateTable = NetworkTablesUtil.state("Game");
+  private final NetworkTableEntry rawGameDataEntry = gameStateTable.getEntry("RawGameData");
+  private final NetworkTableEntry parsedHubStateEntry = gameStateTable.getEntry("HubState");
+  private final NetworkTableEntry hubActiveEntry = gameStateTable.getEntry("HubActive");
+  private final NetworkTableEntry gameDataValidEntry = gameStateTable.getEntry("GameDataValid");
 
   private String rawGameData = "";
   private HubState hubState = HubState.UNKNOWN;
@@ -94,15 +92,10 @@ public class GameStateSubsystem extends SubsystemBase {
     hubActiveEntry.setBoolean(isHubActive());
     gameDataValidEntry.setBoolean(gameDataValid);
 
-    SmartDashboard.putString("GameState/RawGameData", rawGameData);
-    SmartDashboard.putString("GameState/HubState", hubState.name());
-    SmartDashboard.putBoolean("GameState/HubActive", isHubActive());
-    SmartDashboard.putBoolean("GameState/GameDataValid", gameDataValid);
-
-    Logger.recordOutput("GameState/RawGameData", rawGameData);
-    Logger.recordOutput("GameState/HubState", hubState.name());
-    Logger.recordOutput("GameState/HubActive", isHubActive());
-    Logger.recordOutput("GameState/GameDataValid", gameDataValid);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Game/State/RawGameData"), rawGameData);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Game/State/HubState"), hubState.name());
+    Logger.recordOutput(NetworkTablesUtil.logPath("Game/State/HubActive"), isHubActive());
+    Logger.recordOutput(NetworkTablesUtil.logPath("Game/State/GameDataValid"), gameDataValid);
   }
 
   private static String sanitize(String gameSpecificMessage) {

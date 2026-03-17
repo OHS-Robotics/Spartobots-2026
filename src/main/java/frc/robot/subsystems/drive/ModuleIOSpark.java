@@ -55,6 +55,7 @@ public class ModuleIOSpark implements ModuleIO {
   private final PIDController turnController = new PIDController(turnKp, turnKi, turnKd);
   private boolean turnClosedLoop = false;
   private double lastTurnPositionRad = 0.0;
+  private double lastTurnSetpointRad = Double.NaN;
   private double turnAppliedVolts = 0.0;
   private double driveVelocityKp = driveKp;
   private double driveVelocityKi = driveKi;
@@ -124,6 +125,7 @@ public class ModuleIOSpark implements ModuleIO {
     turnVelocity.setUpdateFrequency(50.0);
     turnCanCoder.optimizeBusUtilization();
     turnController.enableContinuousInput(-Math.PI, Math.PI);
+    turnController.setIntegratorRange(-turnMaxIntegralOutputVolts, turnMaxIntegralOutputVolts);
 
     // Configure drive motor
     var driveConfig = new SparkMaxConfig();
@@ -264,6 +266,7 @@ public class ModuleIOSpark implements ModuleIO {
   @Override
   public void setTurnOpenLoop(double output) {
     turnClosedLoop = false;
+    lastTurnSetpointRad = Double.NaN;
     turnAppliedVolts = output;
     turnSpark.setVoltage(output);
   }
@@ -282,13 +285,24 @@ public class ModuleIOSpark implements ModuleIO {
   @Override
   public void setTurnPosition(Rotation2d rotation) {
     double setpointRad = rotation.getRadians();
-    if (!turnClosedLoop) {
+    if (!turnClosedLoop
+        || !Double.isFinite(lastTurnSetpointRad)
+        || Math.abs(MathUtil.angleModulus(setpointRad - lastTurnSetpointRad))
+            > turnSetpointResetThresholdRadians) {
       turnController.reset();
       turnClosedLoop = true;
     }
+    lastTurnSetpointRad = setpointRad;
     turnAppliedVolts =
         MathUtil.clamp(turnController.calculate(lastTurnPositionRad, setpointRad), -12.0, 12.0);
     turnSpark.setVoltage(turnAppliedVolts);
+  }
+
+  @Override
+  public void resetTurnPositionController() {
+    turnController.reset();
+    turnClosedLoop = false;
+    lastTurnSetpointRad = Double.NaN;
   }
 
   @Override

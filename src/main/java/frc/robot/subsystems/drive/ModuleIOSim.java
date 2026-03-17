@@ -120,6 +120,12 @@ public class ModuleIOSim implements ModuleIO {
   }
 
   @Override
+  public void resetTurnPositionController() {
+    turnClosedLoop = false;
+    turnController.reset();
+  }
+
+  @Override
   public void setDriveVelocityGains(double kp, double ki, double kd) {
     driveController.setPID(kp, ki, kd);
   }

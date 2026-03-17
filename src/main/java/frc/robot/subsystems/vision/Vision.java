@@ -24,6 +24,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.vision.VisionConstants.CameraVisualizationConfig;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
+import frc.robot.util.NetworkTablesUtil;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -76,7 +77,8 @@ public class Vision extends SubsystemBase {
 
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
-      Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
+      Logger.processInputs(
+          NetworkTablesUtil.logPath("Vision/Camera" + Integer.toString(i)), inputs[i]);
       logCameraVisualization(cameraIndexToLogKey(i), i);
     }
 
@@ -188,42 +190,34 @@ public class Vision extends SubsystemBase {
 
       // Log camera metadata
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/TagPoses",
-          tagPoses.toArray(new Pose3d[0]));
+          cameraIndexToLogKey(cameraIndex) + "/TagPoses", tagPoses.toArray(new Pose3d[0]));
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPoses",
-          robotPoses.toArray(new Pose3d[0]));
+          cameraIndexToLogKey(cameraIndex) + "/RobotPoses", robotPoses.toArray(new Pose3d[0]));
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesAccepted",
+          cameraIndexToLogKey(cameraIndex) + "/RobotPosesAccepted",
           robotPosesAccepted.toArray(new Pose3d[0]));
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesRejected",
+          cameraIndexToLogKey(cameraIndex) + "/RobotPosesRejected",
           robotPosesRejected.toArray(new Pose3d[0]));
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/ProcessedResultCount",
+          cameraIndexToLogKey(cameraIndex) + "/ProcessedResultCount",
           inputs[cameraIndex].processedResultCount);
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/DetectedTargetCount",
+          cameraIndexToLogKey(cameraIndex) + "/DetectedTargetCount",
           inputs[cameraIndex].detectedTargetCount);
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/LatestResultTimestampSeconds",
+          cameraIndexToLogKey(cameraIndex) + "/LatestResultTimestampSeconds",
           inputs[cameraIndex].latestResultTimestampSeconds);
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/AcceptedPoseCount",
-          acceptedPoseCount);
+          cameraIndexToLogKey(cameraIndex) + "/AcceptedPoseCount", acceptedPoseCount);
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RejectedPoseCount",
-          rejectedPoseCount);
+          cameraIndexToLogKey(cameraIndex) + "/RejectedPoseCount", rejectedPoseCount);
+      Logger.recordOutput(cameraIndexToLogKey(cameraIndex) + "/Rejected/NoTags", rejectedNoTags);
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/NoTags", rejectedNoTags);
+          cameraIndexToLogKey(cameraIndex) + "/Rejected/Ambiguity", rejectedAmbiguity);
+      Logger.recordOutput(cameraIndexToLogKey(cameraIndex) + "/Rejected/Z", rejectedZ);
       Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/Ambiguity",
-          rejectedAmbiguity);
-      Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/Z", rejectedZ);
-      Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/Rejected/OutOfField",
-          rejectedOutOfField);
+          cameraIndexToLogKey(cameraIndex) + "/Rejected/OutOfField", rejectedOutOfField);
       allTagPoses.addAll(tagPoses);
       allRobotPoses.addAll(robotPoses);
       allRobotPosesAccepted.addAll(robotPosesAccepted);
@@ -237,20 +231,33 @@ public class Vision extends SubsystemBase {
     }
 
     // Log summary data
-    Logger.recordOutput("Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[0]));
-    Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[0]));
     Logger.recordOutput(
-        "Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(new Pose3d[0]));
+        NetworkTablesUtil.logPath("Vision/Summary/TagPoses"), allTagPoses.toArray(new Pose3d[0]));
     Logger.recordOutput(
-        "Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
-    Logger.recordOutput("Vision/Summary/ProcessedResultCount", totalProcessedResultCount);
-    Logger.recordOutput("Vision/Summary/DetectedTargetCount", totalDetectedTargetCount);
-    Logger.recordOutput("Vision/Summary/AcceptedPoseCount", totalAcceptedPoseCount);
-    Logger.recordOutput("Vision/Summary/RejectedPoseCount", totalRejectedPoseCount);
-    Logger.recordOutput("Vision/Summary/Rejected/NoTags", totalRejectedNoTags);
-    Logger.recordOutput("Vision/Summary/Rejected/Ambiguity", totalRejectedAmbiguity);
-    Logger.recordOutput("Vision/Summary/Rejected/Z", totalRejectedZ);
-    Logger.recordOutput("Vision/Summary/Rejected/OutOfField", totalRejectedOutOfField);
+        NetworkTablesUtil.logPath("Vision/Summary/RobotPoses"),
+        allRobotPoses.toArray(new Pose3d[0]));
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/RobotPosesAccepted"),
+        allRobotPosesAccepted.toArray(new Pose3d[0]));
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/RobotPosesRejected"),
+        allRobotPosesRejected.toArray(new Pose3d[0]));
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/ProcessedResultCount"),
+        totalProcessedResultCount);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/DetectedTargetCount"), totalDetectedTargetCount);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/AcceptedPoseCount"), totalAcceptedPoseCount);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/RejectedPoseCount"), totalRejectedPoseCount);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/Rejected/NoTags"), totalRejectedNoTags);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/Rejected/Ambiguity"), totalRejectedAmbiguity);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Vision/Summary/Rejected/Z"), totalRejectedZ);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/Summary/Rejected/OutOfField"), totalRejectedOutOfField);
   }
 
   private void logCameraVisualization(String cameraLogKey, int cameraIndex) {
@@ -269,7 +276,7 @@ public class Vision extends SubsystemBase {
   }
 
   private static String cameraIndexToLogKey(int cameraIndex) {
-    return "Vision/Camera" + Integer.toString(cameraIndex);
+    return NetworkTablesUtil.logPath("Vision/Camera" + Integer.toString(cameraIndex));
   }
 
   private static Pose3d[] buildFrustumGeometry(

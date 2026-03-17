@@ -21,7 +21,8 @@ import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 
 public class DriveConstants {
-  public static final double maxSpeedMetersPerSec = 4.60248;
+  public static final double maxSpeedMetersPerSec = 3.65;
+  public static final double moduleAngleHoldMinSpeedMetersPerSec = maxSpeedMetersPerSec * 0.01;
   public static final double maxAccelerationMeterPerSecSquared = 4.1;
   public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(270);
   public static final double maxRotationalAccelerationRadiansPerSecSquared =
@@ -92,11 +93,13 @@ public class DriveConstants {
   public static final double driveKi = 0.0;
   public static final double driveKd = 0.01;
   public static final double driveKs = 0.0;
-  public static final double driveKv = 0.0789;
-  public static final double driveSimP = 0.0010645;
-  public static final double driveSimD = 0.01;
+  // Approximate volts per wheel rad/s for a NEO on MK4 L2 gearing.
+  // Replace with measured characterization data when available.
+  public static final double driveKv = 0.1363;
+  public static final double driveSimP = 0.05;
+  public static final double driveSimD = 0.0;
   public static final double driveSimKs = 0.0;
-  public static final double driveSimKv = 0.0789;
+  public static final double driveSimKv = 0.1363;
 
   // Turn motor configuration
   public static final boolean turnInverted = false;
@@ -115,7 +118,9 @@ public class DriveConstants {
   public static final double turnKp = 2.5;
   public static final double turnKi = 0.5;
   public static final double turnKd = 0.1;
-  public static final double turnSimP = 1.0;
+  public static final double turnMaxIntegralOutputVolts = 2.0;
+  public static final double turnSetpointResetThresholdRadians = Units.degreesToRadians(90.0);
+  public static final double turnSimP = 8.0;
   public static final double turnSimD = 0.0;
   public static final double turnPIDMinInput = 0; // Radians
   public static final double turnPIDMaxInput = 2 * Math.PI; // Radians
@@ -138,11 +143,10 @@ public class DriveConstants {
           moduleTranslations);
   public static final PathConstraints pathConstraints =
       new PathConstraints(
-          maxSpeedMetersPerSec / 3,
-          maxAccelerationMeterPerSecSquared / 3,
+          maxSpeedMetersPerSec,
+          maxAccelerationMeterPerSecSquared,
           maxRotationalSpeedRadiansPerSec / 3,
           maxRotationalAccelerationRadiansPerSecSquared / 3);
-  public static final double trenchApproachGoalEndVelocityMetersPerSec = 0.0;
   public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
 
   // MapleSim configuration

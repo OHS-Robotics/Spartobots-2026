@@ -56,15 +56,15 @@ public class DriveCommands {
   private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
   private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
   private static final NetworkTable tuningTable =
-      NetworkTablesUtil.tuningModeTable(NetworkTablesUtil.commandTable("Drive"));
-  private static final NetworkTableEntry angleKpEntry = tuningTable.getEntry("AlignToAngle/Kp");
-  private static final NetworkTableEntry angleKiEntry = tuningTable.getEntry("AlignToAngle/Ki");
-  private static final NetworkTableEntry angleKdEntry = tuningTable.getEntry("AlignToAngle/Kd");
-  private static final NetworkTableEntry angleKffEntry = tuningTable.getEntry("AlignToAngle/Kff");
+      NetworkTablesUtil.tuningMode(NetworkTablesUtil.actions("Drive").getSubTable("AlignToAngle"));
+  private static final NetworkTableEntry angleKpEntry = tuningTable.getEntry("Kp");
+  private static final NetworkTableEntry angleKiEntry = tuningTable.getEntry("Ki");
+  private static final NetworkTableEntry angleKdEntry = tuningTable.getEntry("Kd");
+  private static final NetworkTableEntry angleKffEntry = tuningTable.getEntry("Kff");
   private static final NetworkTableEntry angleMaxVelocityEntry =
-      tuningTable.getEntry("AlignToAngle/MaxVelocityRadPerSec");
+      tuningTable.getEntry("MaxVelocityRadPerSec");
   private static final NetworkTableEntry angleMaxAccelerationEntry =
-      tuningTable.getEntry("AlignToAngle/MaxAccelerationRadPerSecSquared");
+      tuningTable.getEntry("MaxAccelerationRadPerSecSquared");
 
   static {
     angleKpEntry.setDefaultDouble(ANGLE_KP);

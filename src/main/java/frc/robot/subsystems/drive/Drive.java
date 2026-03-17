@@ -44,7 +44,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
-import frc.robot.subsystems.body.shooter.ShooterConstants;
+import frc.robot.subsystems.gamepiece.shooter.ShooterConstants;
 import frc.robot.util.LocalADStarAK;
 import frc.robot.util.NetworkTablesUtil;
 import java.util.Optional;
@@ -78,11 +78,10 @@ public class Drive extends SubsystemBase {
               defaultPathTranslationKp, defaultPathTranslationKi, defaultPathTranslationKd),
           new PIDConstants(defaultPathRotationKp, defaultPathRotationKi, defaultPathRotationKd),
           0.02);
-  private final NetworkTable driveSubsystemTable = NetworkTablesUtil.subsystemTable("Drive");
+  private final NetworkTable driveSubsystemTable = NetworkTablesUtil.domain("Drive");
   private final NetworkTable driveCommonTuningTable =
-      NetworkTablesUtil.tuningCommonTable(driveSubsystemTable);
-  private final NetworkTable driveTuningTable =
-      NetworkTablesUtil.tuningModeTable(driveSubsystemTable);
+      NetworkTablesUtil.tuningCommon(driveSubsystemTable);
+  private final NetworkTable driveTuningTable = NetworkTablesUtil.tuningMode(driveSubsystemTable);
   private final NetworkTableEntry logHubAimVectorEntry =
       driveCommonTuningTable.getEntry("LogHubAimVector");
   private final NetworkTableEntry moduleDriveKpEntry =
@@ -110,7 +109,7 @@ public class Drive extends SubsystemBase {
   private final NetworkTableEntry pathRotationKdEntry =
       driveTuningTable.getEntry("PathPlanner/RotationPID/Kd");
   private final NetworkTable hubMotionCompTuningTable =
-      NetworkTablesUtil.sharedModeTuningTable("HubMotionCompensation");
+      NetworkTablesUtil.tuningMode("Targeting/Hub").getSubTable("MotionCompensation");
   private final NetworkTableEntry hubMotionCompVelocityScaleEntry =
       hubMotionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
@@ -192,11 +191,14 @@ public class Drive extends SubsystemBase {
     Pathfinding.setPathfinder(new LocalADStarAK());
     PathPlannerLogging.setLogActivePathCallback(
         (activePath) -> {
-          Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[0]));
+          Logger.recordOutput(
+              NetworkTablesUtil.logPath("Drive/Odometry/Trajectory"),
+              activePath.toArray(new Pose2d[0]));
         });
     PathPlannerLogging.setLogTargetPoseCallback(
         (targetPose) -> {
-          Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
+          Logger.recordOutput(
+              NetworkTablesUtil.logPath("Drive/Odometry/TrajectorySetpoint"), targetPose);
         });
 
     // Configure SysId
@@ -206,7 +208,9 @@ public class Drive extends SubsystemBase {
                 null,
                 null,
                 null,
-                (state) -> Logger.recordOutput("Drive/SysIdState", state.toString())),
+                (state) ->
+                    Logger.recordOutput(
+                        NetworkTablesUtil.logPath("Drive/SysId/State"), state.toString())),
             new SysIdRoutine.Mechanism(
                 (voltage) -> runCharacterization(voltage.in(Volts)), null, this));
   }
@@ -219,7 +223,7 @@ public class Drive extends SubsystemBase {
     odometryLock.lock(); // Prevents odometry updates while reading data
     try {
       gyroIO.updateInputs(gyroInputs);
-      Logger.processInputs("Drive/Gyro", gyroInputs);
+      Logger.processInputs(NetworkTablesUtil.logPath("Drive/Inputs/Gyro"), gyroInputs);
       for (var module : modules) {
         module.periodic();
       }
@@ -236,8 +240,11 @@ public class Drive extends SubsystemBase {
 
     // Log empty setpoint states when disabled
     if (DriverStation.isDisabled()) {
-      Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-      Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+      Logger.recordOutput(
+          NetworkTablesUtil.logPath("Drive/SwerveStates/Setpoints"), new SwerveModuleState[] {});
+      Logger.recordOutput(
+          NetworkTablesUtil.logPath("Drive/SwerveStates/SetpointsOptimized"),
+          new SwerveModuleState[] {});
     }
 
     // Update odometry
@@ -282,7 +289,7 @@ public class Drive extends SubsystemBase {
 
     determineOctant();
 
-    Logger.recordOutput("octant", octant);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Drive/State/Octant"), octant);
   }
 
   /**
@@ -303,10 +310,11 @@ public class Drive extends SubsystemBase {
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, maxSpeedMetersPerSec);
 
     // Log unoptimized setpoints
-    Logger.recordOutput("SwerveChassisSpeeds/Requested", speeds);
-    Logger.recordOutput("SwerveChassisSpeeds/Corrected", correctedSpeeds);
-    Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
-    Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Drive/ChassisSpeeds/Requested"), speeds);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Drive/ChassisSpeeds/Corrected"), correctedSpeeds);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Drive/SwerveStates/Setpoints"), setpointStates);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Drive/ChassisSpeeds/Setpoints"), discreteSpeeds);
 
     // Send setpoints to modules
     for (int i = 0; i < 4; i++) {
@@ -314,9 +322,10 @@ public class Drive extends SubsystemBase {
     }
 
     // Log optimized setpoints (runSetpoint mutates each state)
-    Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Drive/SwerveStates/SetpointsOptimized"), setpointStates);
 
-    Logger.recordOutput("Pose", this.getPose());
+    Logger.recordOutput(NetworkTablesUtil.logPath("Drive/State/Pose"), this.getPose());
   }
 
   /** Runs the drive in a straight line with the specified drive output. */
@@ -342,7 +351,7 @@ public class Drive extends SubsystemBase {
     }
     // Command an X lock without changing kinematics heading offsets
     for (int i = 0; i < 4; i++) {
-      modules[i].runSetpoint(new SwerveModuleState(0.0, headings[i]));
+      modules[i].runSetpoint(new SwerveModuleState(0.0, headings[i]), false);
     }
   }
 
@@ -359,7 +368,7 @@ public class Drive extends SubsystemBase {
   }
 
   /** Returns the module states (turn angles and drive velocities) for all of the modules. */
-  @AutoLogOutput(key = "SwerveStates/Measured")
+  @AutoLogOutput(key = NetworkTablesUtil.rootTableName + "/Drive/SwerveStates/Measured")
   private SwerveModuleState[] getModuleStates() {
     SwerveModuleState[] states = new SwerveModuleState[4];
     for (int i = 0; i < 4; i++) {
@@ -378,7 +387,7 @@ public class Drive extends SubsystemBase {
   }
 
   /** Returns the measured chassis speeds of the robot. */
-  @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
+  @AutoLogOutput(key = NetworkTablesUtil.rootTableName + "/Drive/ChassisSpeeds/Measured")
   private ChassisSpeeds getChassisSpeeds() {
     return kinematics.toChassisSpeeds(getModuleStates());
   }
@@ -402,7 +411,7 @@ public class Drive extends SubsystemBase {
   }
 
   /** Returns the current odometry pose. */
-  @AutoLogOutput(key = "Odometry/Robot")
+  @AutoLogOutput(key = NetworkTablesUtil.rootTableName + "/Drive/State/Pose")
   public Pose2d getPose() {
     return poseEstimator.getEstimatedPosition();
   }
@@ -415,6 +424,7 @@ public class Drive extends SubsystemBase {
   /** Resets the current odometry pose. */
   public void setPose(Pose2d pose) {
     poseEstimator.resetPosition(rawGyroRotation.unaryMinus(), getModulePositions(), pose);
+    setSimulationPoseCallback.accept(pose);
   }
 
   /** Adds a new timestamped vision measurement. */
@@ -447,21 +457,16 @@ public class Drive extends SubsystemBase {
           double snappedAngleRadians =
               DriveConstants.trenchSnapTo
                   * Math.round(getRotation().getRadians() / DriveConstants.trenchSnapTo);
-          return buildTrenchPathCommand(trenchPoses[0], trenchPoses[1], snappedAngleRadians);
+          return buildTrenchPathCommand(trenchPoses[1], snappedAngleRadians);
         },
         Set.of(this));
   }
 
-  private Command buildTrenchPathCommand(
-      Translation2d firstPose, Translation2d secondPose, double angleRadians) {
+  private Command buildTrenchPathCommand(Translation2d targetPose, double angleRadians) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
-    return AutoBuilder.pathfindToPose(
-            new Pose2d(firstPose, trenchHeading),
-            pathConstraints,
-            trenchApproachGoalEndVelocityMetersPerSec)
-        .andThen(alignToHeadingCommand(trenchHeading))
+    return alignToHeadingCommand(trenchHeading)
         .andThen(
-            AutoBuilder.pathfindToPose(new Pose2d(secondPose, trenchHeading), pathConstraints, 0));
+            AutoBuilder.pathfindToPose(new Pose2d(targetPose, trenchHeading), pathConstraints, 0));
   }
 
   private Command alignToHeadingCommand(Rotation2d targetHeading) {
@@ -653,37 +658,54 @@ public class Drive extends SubsystemBase {
     Translation2d vectorToTarget =
         compensatedHub.getTranslation().minus(robotPose.getTranslation());
 
-    Logger.recordOutput("Drive/HubAim/RobotPose", robotPose);
-    Logger.recordOutput("Drive/HubAim/BaseTargetPose", baseHub);
-    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", compensatedHub);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/RobotPose"), robotPose);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/BaseTargetPose"), baseHub);
     Logger.recordOutput(
-        "Drive/HubAim/TargetVectorEndpoints",
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensatedTargetPose"), compensatedHub);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/TargetVectorEndpoints"),
         new Pose2d[] {
           new Pose2d(robotPose.getTranslation(), Rotation2d.kZero),
           new Pose2d(compensatedHub.getTranslation(), Rotation2d.kZero)
         });
-    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", airtimeSeconds);
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", compensationOffset.getX());
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", compensationOffset.getY());
-    Logger.recordOutput("Drive/HubAim/CompensationVelocityScale", hubMotionCompVelocityScale);
-    Logger.recordOutput("Drive/HubAim/CompensationLeadSeconds", hubMotionCompLeadSeconds);
-    Logger.recordOutput("Drive/HubAim/VectorToTargetX", vectorToTarget.getX());
-    Logger.recordOutput("Drive/HubAim/VectorToTargetY", vectorToTarget.getY());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/AirtimeSeconds"), airtimeSeconds);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationOffsetX"),
+        compensationOffset.getX());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationOffsetY"),
+        compensationOffset.getY());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationVelocityScale"),
+        hubMotionCompVelocityScale);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationLeadSeconds"),
+        hubMotionCompLeadSeconds);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/VectorToTargetX"), vectorToTarget.getX());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/VectorToTargetY"), vectorToTarget.getY());
     wasHubAimVectorLoggingEnabled = true;
   }
 
   private void clearHubAimLogs() {
-    Logger.recordOutput("Drive/HubAim/RobotPose", Pose2d.kZero);
-    Logger.recordOutput("Drive/HubAim/BaseTargetPose", Pose2d.kZero);
-    Logger.recordOutput("Drive/HubAim/CompensatedTargetPose", Pose2d.kZero);
-    Logger.recordOutput("Drive/HubAim/TargetVectorEndpoints", new Pose2d[] {});
-    Logger.recordOutput("Drive/HubAim/AirtimeSeconds", 0.0);
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetX", 0.0);
-    Logger.recordOutput("Drive/HubAim/CompensationOffsetY", 0.0);
-    Logger.recordOutput("Drive/HubAim/CompensationVelocityScale", 0.0);
-    Logger.recordOutput("Drive/HubAim/CompensationLeadSeconds", 0.0);
-    Logger.recordOutput("Drive/HubAim/VectorToTargetX", 0.0);
-    Logger.recordOutput("Drive/HubAim/VectorToTargetY", 0.0);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/RobotPose"), Pose2d.kZero);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/BaseTargetPose"), Pose2d.kZero);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensatedTargetPose"), Pose2d.kZero);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/TargetVectorEndpoints"), new Pose2d[] {});
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/AirtimeSeconds"), 0.0);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationOffsetX"), 0.0);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationOffsetY"), 0.0);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationVelocityScale"), 0.0);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensationLeadSeconds"), 0.0);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/VectorToTargetX"), 0.0);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/VectorToTargetY"), 0.0);
     wasHubAimVectorLoggingEnabled = false;
   }
 

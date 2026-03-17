@@ -14,6 +14,7 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
 public class Module {
@@ -24,6 +25,8 @@ public class Module {
   private final Alert driveDisconnectedAlert;
   private final Alert turnDisconnectedAlert;
   private SwerveModulePosition[] odometryPositions = new SwerveModulePosition[] {};
+  private Rotation2d angleSetpoint = null;
+  private boolean holdingAngle = false;
 
   public Module(ModuleIO io, int index) {
     this.io = io;
@@ -39,7 +42,8 @@ public class Module {
 
   public void periodic() {
     io.updateInputs(inputs);
-    Logger.processInputs("Drive/Module" + Integer.toString(index), inputs);
+    Logger.processInputs(
+        NetworkTablesUtil.logPath("Drive/Inputs/Module" + Integer.toString(index)), inputs);
 
     // Calculate positions for odometry
     int sampleCount = inputs.odometryTimestamps.length; // All signals are sampled together
@@ -57,11 +61,27 @@ public class Module {
 
   /** Runs the module with the specified setpoint state. Mutates the state to optimize it. */
   public void runSetpoint(SwerveModuleState state) {
-    // Optimize velocity setpoint
-    state.optimize(getAngle());
-    state.cosineScale(inputs.turnPosition);
+    runSetpoint(state, true);
+  }
 
-    // Apply setpoints
+  void runSetpoint(SwerveModuleState state, boolean preserveAngleAtLowSpeed) {
+    if (angleSetpoint == null) {
+      angleSetpoint = getAngle();
+    }
+
+    if (preserveAngleAtLowSpeed
+        && Math.abs(state.speedMetersPerSecond) < moduleAngleHoldMinSpeedMetersPerSec) {
+      if (!holdingAngle) {
+        io.resetTurnPositionController();
+      }
+      holdingAngle = true;
+      state.speedMetersPerSecond = 0.0;
+      state.angle = angleSetpoint;
+    } else {
+      holdingAngle = false;
+      angleSetpoint = state.angle;
+    }
+
     io.setDriveVelocity(state.speedMetersPerSecond / wheelRadiusMeters);
     io.setTurnPosition(state.angle);
   }
@@ -74,6 +94,8 @@ public class Module {
 
   /** Disables all outputs to motors. */
   public void stop() {
+    angleSetpoint = getAngle();
+    holdingAngle = false;
     io.setDriveOpenLoop(0.0);
     io.setTurnOpenLoop(0.0);
   }

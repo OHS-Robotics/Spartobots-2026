@@ -8,51 +8,75 @@ import frc.robot.Constants;
 public final class NetworkTablesUtil {
   public static final String rootTableName = "Spartobots2026";
 
-  private static final String subsystemsSection = "Subsystems";
-  private static final String commandsSection = "Commands";
   private static final String tuningSection = "Tuning";
   private static final String telemetrySection = "Telemetry";
+  private static final String stateSection = "State";
+  private static final String actionsSection = "Actions";
   private static final String commonSection = "Common";
   private static final String modesSection = "Modes";
 
   private NetworkTablesUtil() {}
 
-  public static NetworkTable subsystemTable(String subsystemPath) {
-    return descend(rootTable().getSubTable(subsystemsSection), subsystemPath);
+  public static NetworkTable domain(String domainPath) {
+    return descend(rootTable(), domainPath);
   }
 
-  public static NetworkTable commandTable(String commandPath) {
-    return descend(rootTable().getSubTable(commandsSection), commandPath);
+  public static NetworkTable tuningCommon(String domainPath) {
+    return tuningCommon(domain(domainPath));
   }
 
-  public static NetworkTable tuningCommonTable(NetworkTable table) {
+  public static NetworkTable tuningCommon(NetworkTable table) {
     return table.getSubTable(tuningSection).getSubTable(commonSection);
   }
 
-  public static NetworkTable tuningModeTable(NetworkTable table) {
-    return tuningModeTable(table, Constants.currentMode);
+  public static NetworkTable tuningMode(String domainPath) {
+    return tuningMode(domain(domainPath));
   }
 
-  public static NetworkTable tuningModeTable(NetworkTable table, Constants.Mode mode) {
+  public static NetworkTable tuningMode(String domainPath, Constants.Mode mode) {
+    return tuningMode(domain(domainPath), mode);
+  }
+
+  public static NetworkTable tuningMode(NetworkTable table) {
+    return tuningMode(table, Constants.currentMode);
+  }
+
+  public static NetworkTable tuningMode(NetworkTable table, Constants.Mode mode) {
     return table.getSubTable(tuningSection).getSubTable(modesSection).getSubTable(mode.name());
   }
 
-  public static NetworkTable telemetryTable(NetworkTable subsystemTable) {
-    return subsystemTable.getSubTable(telemetrySection);
+  public static NetworkTable telemetry(String domainPath) {
+    return telemetry(domain(domainPath));
   }
 
-  public static NetworkTable sharedModeTuningTable(String path) {
-    return descend(
-        rootTable()
-            .getSubTable(tuningSection)
-            .getSubTable(modesSection)
-            .getSubTable(Constants.currentMode.name()),
-        path);
+  public static NetworkTable telemetry(NetworkTable table) {
+    return table.getSubTable(telemetrySection);
+  }
+
+  public static NetworkTable state(String domainPath) {
+    return state(domain(domainPath));
+  }
+
+  public static NetworkTable state(NetworkTable table) {
+    return table.getSubTable(stateSection);
+  }
+
+  public static NetworkTable actions(String domainPath) {
+    return actions(domain(domainPath));
+  }
+
+  public static NetworkTable actions(NetworkTable table) {
+    return table.getSubTable(actionsSection);
   }
 
   public static String absoluteKey(String path) {
     String trimmedPath = trimPath(path);
     return trimmedPath.isEmpty() ? "/" + rootTableName : "/" + rootTableName + "/" + trimmedPath;
+  }
+
+  public static String logPath(String path) {
+    String trimmedPath = trimPath(path);
+    return trimmedPath.isEmpty() ? rootTableName : rootTableName + "/" + trimmedPath;
   }
 
   private static NetworkTable rootTable() {
