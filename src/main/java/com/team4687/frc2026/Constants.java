@@ -33,6 +33,10 @@ public final class Constants {
   public static final double MAX_ROTATIONAL_SPEED = Units.degreesToRadians(270.0);
   public static final double MIN_AUTO_ROTATIONAL_SPEED = Units.degreesToRadians(60.0);
   public static final double MAX_ROTATIONAL_ACCELERATION = Units.degreesToRadians(90.0);
+
+  public static final double AUTO_ROTATION_SPEED = Units.degreesToRadians(90.0);
+  public static final double AUTO_TRANSLATION_SPEED = Units.feetToMeters(3.0);
+
   public static AprilTagFieldLayout FIELD_LAYOUT = AprilTagFieldLayout.loadField(
     AprilTagFields.k2026RebuiltWelded
   );

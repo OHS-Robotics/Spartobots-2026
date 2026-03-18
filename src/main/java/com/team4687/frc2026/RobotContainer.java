@@ -81,7 +81,10 @@ public class RobotContainer {
       climber.climberEncoder.setPosition(55.0); // all the way up
 
       // if (Robot.isSimulation()) swerveDrive.swerveDrive.resetOdometry(new Pose2d(5.0, 5.0, new Rotation2d()));
-
+      if (DriverStation.getAlliance().get() == Alliance.Red) {
+        swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
+        // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
+      }
       // todo: test
       //swerveDrive.swerveDrive.zeroGyro();
       robotZeroed = true;
@@ -96,10 +99,6 @@ public class RobotContainer {
     launcher.launcherAngleDrive.set(0.0); // just in case it's still running for some reason
     climber.climber.set(0.0); // ditto
     zeroRobot();
-    if (DriverStation.getAlliance().get() == Alliance.Red) {
-      swerveDrive.swerveDrive.resetOdometry(new Pose2d(0.0, 0.0, new Rotation2d(Math.PI)));
-      // swerveDrive.swerveDrive.setGyro(new Rotation3d(0.0, 0.0, Math.PI));
-    }
 
     // alignment controls
     if (!delayedEventsRun) {
@@ -240,7 +239,7 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
     //return swerveDrive.changePosition(new Translation2d(0.0, 2.0), Units.feetToMeters(3.0));
-    return intake.initializeIntakeAngle().andThen(auto.getAutonomousCommand());
+    return Robot.isReal() ? intake.initializeIntakeAngle().andThen(auto.getAutonomousCommand()) : auto.getAutonomousCommand();
   }
 
   // from https://docs.wpilib.org/en/stable/docs/yearly-overview/2026-game-data.html
