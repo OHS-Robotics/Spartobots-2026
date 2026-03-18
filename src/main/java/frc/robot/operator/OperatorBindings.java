@@ -1,7 +1,7 @@
 package frc.robot.operator;
 
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
 import frc.robot.commands.DriveCommands;
@@ -14,7 +14,6 @@ import frc.robot.targeting.HubTargetingService;
 
 public class OperatorBindings {
   private static final double manualHoodStepDegrees = 0.35;
-  private static final boolean enableDriverStationCharacterization = true;
   private static final boolean enableMechanismBringupBindings = false;
   private static final double intakePivotManualSpeed = 0.25;
   private static final double hopperExtensionBringupSpeed = 0.25;
@@ -22,8 +21,8 @@ public class OperatorBindings {
   private static final int topRightPaddleButton = 8;
   private static final int bottomLeftPaddleButton = 11;
 
-  private final CommandGenericHID driverHid;
-  private final CommandGenericHID operatorHid;
+  private final CommandXboxController driverController;
+  private final CommandXboxController operatorController;
   private final Drive drive;
   private final Intake intake;
   private final Shooter shooter;
@@ -33,8 +32,8 @@ public class OperatorBindings {
   private final AutoAssistController autoAssistController;
 
   public OperatorBindings(
-      CommandGenericHID driverHid,
-      CommandGenericHID operatorHid,
+      CommandXboxController driverController,
+      CommandXboxController operatorController,
       Drive drive,
       Intake intake,
       Shooter shooter,
@@ -42,8 +41,8 @@ public class OperatorBindings {
       HubTargetingService hubTargetingService,
       FieldTargetingService fieldTargetingService,
       AutoAssistController autoAssistController) {
-    this.driverHid = driverHid;
-    this.operatorHid = operatorHid;
+    this.driverController = driverController;
+    this.operatorController = operatorController;
     this.drive = drive;
     this.intake = intake;
     this.shooter = shooter;
@@ -54,10 +53,6 @@ public class OperatorBindings {
   }
 
   public void configure() {
-    if (enableDriverStationCharacterization) {
-      return;
-    }
-
     configureDriverBindings();
     configureOperatorBindings();
   }
@@ -66,49 +61,50 @@ public class OperatorBindings {
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
-            () -> driverHid.getRawAxis(1),
-            () -> driverHid.getRawAxis(0),
-            () -> -driverHid.getRawAxis(4),
+            () -> driverController.getLeftY(),
+            () -> driverController.getLeftX(),
+            () -> -driverController.getRightX(),
             () -> false));
 
-    driverHid
-        .button(10)
+    driverController
+        .rightStick()
         .whileTrue(
             hubTargetingService.alignToHub(
-                () -> -driverHid.getRawAxis(1),
-                () -> -driverHid.getRawAxis(0),
+                () -> -driverController.getLeftY(),
+                () -> -driverController.getLeftX(),
                 gamePieceCoordinator));
 
-    new Trigger(() -> driverHid.getRawAxis(3) > 0.02)
+    new Trigger(() -> driverController.getRightTriggerAxis() > 0.02)
         .whileTrue(
-            gamePieceCoordinator.runShooterDemandWhileHeldCommand(() -> driverHid.getRawAxis(3)));
-    new Trigger(() -> driverHid.getRawAxis(2) > 0.02)
+            gamePieceCoordinator.runShooterDemandWhileHeldCommand(
+                driverController::getRightTriggerAxis));
+    new Trigger(() -> driverController.getLeftTriggerAxis() > 0.02)
         .whileTrue(
             gamePieceCoordinator.runManualFeedAndIndexersWhileHeldCommand(
-                () -> driverHid.getRawAxis(2)));
+                driverController::getLeftTriggerAxis));
 
-    driverHid.button(5).onTrue(Commands.runOnce(autoAssistController::cancel));
-    driverHid
-        .button(6)
+    driverController.leftBumper().onTrue(Commands.runOnce(autoAssistController::cancel));
+    driverController
+        .rightBumper()
         .onTrue(
             autoAssistController.scheduleAction(
                 "AutoAssist/DriveUnderTrench", fieldTargetingService::autoDriveUnderTrenchCommand));
-    driverHid
-        .button(9)
+    driverController
+        .leftStick()
         .onTrue(
             autoAssistController.scheduleAction(
                 "AutoAssist/ParkAtLadderL1", fieldTargetingService::parkAtLadderL1Command));
 
     if (!enableMechanismBringupBindings) {
-      new Trigger(() -> driverHid.getHID().getRawButton(topLeftPaddleButton))
+      new Trigger(() -> driverController.getHID().getRawButton(topLeftPaddleButton))
           .onTrue(
               autoAssistController.scheduleAction(
                   "AutoAssist/ParkAtLadderL1", fieldTargetingService::parkAtLadderL1Command));
-      new Trigger(() -> driverHid.getHID().getRawButton(topRightPaddleButton))
+      new Trigger(() -> driverController.getHID().getRawButton(topRightPaddleButton))
           .onTrue(
               autoAssistController.scheduleAction(
                   "AutoAssist/DriveToOutpost", fieldTargetingService::driveToOutpostCommand));
-      new Trigger(() -> driverHid.getHID().getRawButton(bottomLeftPaddleButton))
+      new Trigger(() -> driverController.getHID().getRawButton(bottomLeftPaddleButton))
           .onTrue(
               autoAssistController.scheduleAction(
                   "AutoAssist/AlignToDepot", fieldTargetingService::alignToDepotCommand));
@@ -121,38 +117,38 @@ public class OperatorBindings {
 
   private void configureOperatorBindings() {
     // Consolidated single-controller layout: operator actions live on the driver controller.
-    driverHid.button(4).whileTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(true));
-    driverHid.button(3).whileTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(false));
-    driverHid.button(1).whileTrue(gamePieceCoordinator.basicReverseWhileHeldCommand());
-    driverHid.button(2).onTrue(Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow));
+    driverController.y().whileTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(true));
+    driverController.x().whileTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(false));
+    driverController.a().whileTrue(gamePieceCoordinator.basicReverseWhileHeldCommand());
+    driverController.b().onTrue(Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow));
 
-    driverHid
+    driverController
         .povUp()
         .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(manualHoodStepDegrees)));
-    driverHid
+    driverController
         .povDown()
         .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(-manualHoodStepDegrees)));
 
-    driverHid
+    driverController
         .povLeft()
         .whileTrue(intake.manualIntakePivotWhileHeldCommand(-intakePivotManualSpeed));
-    driverHid
+    driverController
         .povRight()
         .whileTrue(intake.manualIntakePivotWhileHeldCommand(intakePivotManualSpeed));
 
     if (enableMechanismBringupBindings) {
-      driverHid
-          .button(7)
+      driverController
+          .back()
           .whileTrue(
               gamePieceCoordinator.runHopperExtensionWhileHeldCommand(
                   -hopperExtensionBringupSpeed));
-      driverHid
-          .button(8)
+      driverController
+          .start()
           .whileTrue(
               gamePieceCoordinator.runHopperExtensionWhileHeldCommand(hopperExtensionBringupSpeed));
     } else {
-      driverHid.button(7).onTrue(Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow));
-      driverHid.button(8).onTrue(intake.calibrateIntakePivotToHardStopsCommand());
+      driverController.back().onTrue(Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow));
+      driverController.start().onTrue(intake.calibrateIntakePivotToHardStopsCommand());
     }
   }
 }

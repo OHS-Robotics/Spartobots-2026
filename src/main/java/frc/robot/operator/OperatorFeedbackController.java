@@ -3,6 +3,7 @@ package frc.robot.operator;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.util.NetworkTablesUtil;
 import org.littletonrobotics.junction.Logger;
 
@@ -11,15 +12,15 @@ public class OperatorFeedbackController {
   private static final double endgameRumbleDurationSeconds = 0.65;
   private static final double endgameRumbleStrength = 0.65;
 
-  private final GenericHID driverHid;
+  private final CommandXboxController driverController;
 
   private double endgameRumbleUntilTimestampSeconds = 0.0;
   private double impactRumbleUntilTimestampSeconds = 0.0;
   private double impactRumbleStrength = 0.0;
   private boolean endgameWindowLatched = false;
 
-  public OperatorFeedbackController(GenericHID driverHid) {
-    this.driverHid = driverHid;
+  public OperatorFeedbackController(CommandXboxController driverController) {
+    this.driverController = driverController;
   }
 
   public void periodic() {
@@ -43,7 +44,7 @@ public class OperatorFeedbackController {
     endgameRumbleUntilTimestampSeconds = 0.0;
     impactRumbleUntilTimestampSeconds = 0.0;
     impactRumbleStrength = 0.0;
-    driverHid.setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
+    driverController.getHID().setRumble(GenericHID.RumbleType.kBothRumble, 0.0);
   }
 
   private void updateEndgameWindowState() {
@@ -83,7 +84,7 @@ public class OperatorFeedbackController {
       rumbleStrength = Math.max(rumbleStrength, impactRumbleStrength);
     }
 
-    driverHid.setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
+    driverController.getHID().setRumble(GenericHID.RumbleType.kBothRumble, rumbleStrength);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Operator/DriverFeedback/State/RumbleStrength"), rumbleStrength);
     Logger.recordOutput(

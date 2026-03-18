@@ -11,11 +11,10 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.auto.AutoRoutines;
 import frc.robot.game.GameStateSubsystem;
 import frc.robot.operator.AutoAssistController;
-import frc.robot.operator.DriverStationHidCharacterization;
 import frc.robot.operator.OperatorActionPublisher;
 import frc.robot.operator.OperatorBindings;
 import frc.robot.operator.OperatorDashboard;
@@ -78,8 +77,10 @@ public class RobotContainer {
   @SuppressWarnings("unused")
   private final Vision vision;
 
-  public final CommandGenericHID driverHid = new CommandGenericHID(driverControllerPort);
-  public final CommandGenericHID operatorHid = new CommandGenericHID(operatorControllerPort);
+  public final CommandXboxController driverController =
+      new CommandXboxController(driverControllerPort);
+  public final CommandXboxController operatorController =
+      new CommandXboxController(operatorControllerPort);
 
   private final LoggedDashboardChooser<Command> autoChooser;
   private final GamePieceCoordinator gamePieceCoordinator;
@@ -88,7 +89,6 @@ public class RobotContainer {
   private final AutoRoutines autoRoutines;
   private final OperatorDashboard operatorDashboard;
   private final OperatorFeedbackController operatorFeedbackController;
-  private final DriverStationHidCharacterization driverStationHidCharacterization;
   private final AutoAssistController autoAssistController;
   private final RobotVisualizationPublisher robotVisualizationPublisher;
   private final FieldSimulationManager fieldSimulationManager;
@@ -220,12 +220,10 @@ public class RobotContainer {
     OperatorActionPublisher operatorActionPublisher = new OperatorActionPublisher();
     autoAssistController = new AutoAssistController(operatorActionPublisher);
     operatorDashboard = new OperatorDashboard(operatorActionPublisher, autoChooser, autoRoutines);
-    operatorFeedbackController = new OperatorFeedbackController(driverHid.getHID());
-    driverStationHidCharacterization =
-        new DriverStationHidCharacterization(driverHid.getHID(), operatorHid.getHID());
+    operatorFeedbackController = new OperatorFeedbackController(driverController);
     new OperatorBindings(
-            driverHid,
-            operatorHid,
+            driverController,
+            operatorController,
             drive,
             intake,
             shooter,
@@ -263,7 +261,6 @@ public class RobotContainer {
     hubTargetingService.update();
     robotVisualizationPublisher.publish();
     operatorFeedbackController.periodic();
-    driverStationHidCharacterization.periodic();
     operatorDashboard.periodic();
   }
 
