@@ -7,12 +7,12 @@
 
 package frc.robot;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.auto.AutoRoutines;
+import frc.robot.commands.DriveCommands;
 import frc.robot.game.GameStateSubsystem;
 import frc.robot.operator.AutoAssistController;
 import frc.robot.operator.OperatorActionPublisher;
@@ -133,8 +133,7 @@ public class RobotContainer {
       case SIM:
         SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
         driveSimulationLocal =
-            new SwerveDriveSimulation(
-                DriveConstants.mapleSimConfig, new Pose2d(3.0, 3.0, Rotation2d.kZero));
+            new SwerveDriveSimulation(DriveConstants.mapleSimConfig, Constants.simulationStartPose);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulationLocal);
         intakeLocal = new Intake(new IntakeIOSim());
         hopperLocal = new Hopper(new HopperIOSim());
@@ -287,9 +286,45 @@ public class RobotContainer {
         "Calibration/Shooter/HomeHoodToHardStop",
         shooter.homeHoodToHardStopCommand());
     operatorDashboard.registerAction(
+        "Shooter/Calibration/EnableMode",
+        "Calibration/Shooter/EnableCalibrationMode",
+        shooter.enableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Shooter/Calibration/DisableMode",
+        "Calibration/Shooter/DisableCalibrationMode",
+        shooter.disableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Shooter/Calibration/RecordSample",
+        "Calibration/Shooter/RecordCalibrationSample",
+        shooter.recordCalibrationSampleCommand());
+    operatorDashboard.registerAction(
         "Intake/CalibratePivotToHardStops",
         "Calibration/GamePiece/Intake/CalibratePivotToHardStops",
         intake.calibrateIntakePivotToHardStopsCommand());
+    operatorDashboard.registerAction(
+        "Drive/WheelRadiusCharacterization",
+        "Tuning/Drive/WheelRadiusCharacterization",
+        DriveCommands.wheelRadiusCharacterization(drive));
+    operatorDashboard.registerAction(
+        "Drive/SimpleFFCharacterization",
+        "Tuning/Drive/SimpleFFCharacterization",
+        DriveCommands.feedforwardCharacterization(drive));
+    operatorDashboard.registerAction(
+        "Drive/SysId/QuasistaticForward",
+        "Tuning/Drive/SysId/QuasistaticForward",
+        drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+    operatorDashboard.registerAction(
+        "Drive/SysId/QuasistaticReverse",
+        "Tuning/Drive/SysId/QuasistaticReverse",
+        drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+    operatorDashboard.registerAction(
+        "Drive/SysId/DynamicForward",
+        "Tuning/Drive/SysId/DynamicForward",
+        drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+    operatorDashboard.registerAction(
+        "Drive/SysId/DynamicReverse",
+        "Tuning/Drive/SysId/DynamicReverse",
+        drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       operatorDashboard.registerAction(

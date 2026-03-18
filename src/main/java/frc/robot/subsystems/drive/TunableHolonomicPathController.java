@@ -5,13 +5,17 @@ import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectoryState;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 public class TunableHolonomicPathController implements PathFollowingController {
   private final PIDController xController;
   private final PIDController yController;
   private final PIDController rotationController;
   private boolean enabled = true;
+  private Supplier<Optional<Rotation2d>> rotationTargetOverride = Optional::empty;
 
   public TunableHolonomicPathController(
       PIDConstants translationConstants, PIDConstants rotationConstants, double periodSeconds) {
@@ -49,6 +53,15 @@ public class TunableHolonomicPathController implements PathFollowingController {
     rotationController.setPID(kp, ki, kd);
   }
 
+  public void setRotationTargetOverride(Supplier<Optional<Rotation2d>> rotationTargetOverride) {
+    this.rotationTargetOverride =
+        rotationTargetOverride != null ? rotationTargetOverride : Optional::empty;
+  }
+
+  public void clearRotationTargetOverride() {
+    rotationTargetOverride = Optional::empty;
+  }
+
   public void setTranslationIntegratorRange(double iZone) {
     double clampedIZone = Math.abs(iZone);
     xController.setIntegratorRange(-clampedIZone, clampedIZone);
@@ -72,9 +85,10 @@ public class TunableHolonomicPathController implements PathFollowingController {
 
     double xFeedback = xController.calculate(currentPose.getX(), targetState.pose.getX());
     double yFeedback = yController.calculate(currentPose.getY(), targetState.pose.getY());
+    Rotation2d targetRotation = rotationTargetOverride.get().orElse(targetState.pose.getRotation());
     double rotationFeedback =
         rotationController.calculate(
-            currentPose.getRotation().getRadians(), targetState.pose.getRotation().getRadians());
+            currentPose.getRotation().getRadians(), targetRotation.getRadians());
     double rotationFeedforward = targetState.fieldSpeeds.omegaRadiansPerSecond;
 
     return ChassisSpeeds.fromFieldRelativeSpeeds(

@@ -1,5 +1,6 @@
 package frc.robot.targeting;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -7,6 +8,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants;
 import frc.robot.subsystems.drive.Drive;
+import java.util.Optional;
 import java.util.function.DoubleSupplier;
 
 public class FieldTargetingService {
@@ -51,18 +53,51 @@ public class FieldTargetingService {
   }
 
   public Command alignToDepotCommand() {
-    return drive.alignToPose(getAlliancePose(blueDepotAlignPose, redDepotAlignPose));
+    return drive.alignToPose(selectDepotAlignPose(DriverStation.getAlliance()));
   }
 
   public Pose2d getOutpostStartPose() {
-    return getAlliancePose(Constants.blueOutpost, Constants.redOutpost);
+    return selectCompetitionAutoStartPose(DriverStation.getAlliance(), drive.getPose());
   }
 
   public Pose2d getOpeningShotPose() {
-    return getAlliancePose(blueOutpostOpeningShotPose, redOutpostOpeningShotPose);
+    return selectOpeningShotPose(DriverStation.getAlliance());
+  }
+
+  public Command driveToOpeningShotCommand() {
+    return drive.pathfindToTranslation(getOpeningShotPose().getTranslation());
+  }
+
+  static Pose2d selectLadderAlignPose(Optional<Alliance> alliance) {
+    return getAlliancePose(alliance, blueLadderAlignPose, redLadderAlignPose);
+  }
+
+  static Pose2d selectDepotAlignPose(Optional<Alliance> alliance) {
+    return getAlliancePose(alliance, blueDepotAlignPose, redDepotAlignPose);
+  }
+
+  static Pose2d selectOutpostStartPose(Optional<Alliance> alliance) {
+    return getAlliancePose(alliance, Constants.blueOutpost, Constants.redOutpost);
+  }
+
+  static Pose2d selectCompetitionAutoStartPose(Optional<Alliance> alliance, Pose2d currentPose) {
+    Pose2d nominalStartPose =
+        getAlliancePose(
+            alliance, Constants.competitionAutoBlueStart, Constants.competitionAutoRedStart);
+    double yOnStartingLine = MathUtil.clamp(currentPose.getY(), 0.0, Constants.fieldWidth);
+    return new Pose2d(nominalStartPose.getX(), yOnStartingLine, nominalStartPose.getRotation());
+  }
+
+  static Pose2d selectOpeningShotPose(Optional<Alliance> alliance) {
+    return getAlliancePose(alliance, blueOutpostOpeningShotPose, redOutpostOpeningShotPose);
+  }
+
+  private static Pose2d getAlliancePose(
+      Optional<Alliance> alliance, Pose2d bluePose, Pose2d redPose) {
+    return alliance.orElse(Alliance.Blue) == Alliance.Red ? redPose : bluePose;
   }
 
   private Pose2d getAlliancePose(Pose2d bluePose, Pose2d redPose) {
-    return DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red ? redPose : bluePose;
+    return getAlliancePose(DriverStation.getAlliance(), bluePose, redPose);
   }
 }

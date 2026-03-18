@@ -1,13 +1,10 @@
 package frc.robot.auto;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.gamepiece.hopper.Hopper;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
@@ -16,25 +13,35 @@ import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
 import frc.robot.targeting.FieldTargetingService;
 import frc.robot.targeting.HubTargetingService;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class AutoRoutines {
-  private static final double startAutoOpeningShotSeconds = 1.75;
-  private static final double startAutoTrenchTimeoutSeconds = 4.0;
-  private static final double startAutoOutpostTimeoutSeconds = 3.0;
-  private static final double startAutoOutpostToShootTimeoutSeconds = 4.0;
-  private static final double startAutoOutpostShootSeconds = 4.0;
-  private static final double startAutoLadderAlignTimeoutSeconds = 4.0;
-  private static final String defaultAutoName = "Start Match (Outpost -> Shoot -> Ladder)";
+  private static final double competitionAutoDriveToShotTimeoutSeconds = 4.0;
+  private static final double competitionAutoShotSpinUpTimeoutSeconds = 2.5;
+  private static final double competitionAutoFeedSeconds = 0.75;
+  private static final double competitionAutoLadderAlignTimeoutSeconds = 4.0;
+  private static final double competitionAutoShotPositionToleranceMeters = 0.35;
+  private static final String competitionAutoName = "Competition: Outpost -> Shoot -> Ladder";
+  private static final String doNothingAutoName = "Do Nothing";
+  private static final String autoShotStateLogKey = "Auto/Competition/ShotState";
+  private static final List<String> namedCommandNames =
+      List.of(
+          "collectStart",
+          "collectStop",
+          "feedStart",
+          "feedStop",
+          "shooterOn",
+          "shooterOff",
+          "alignHub",
+          "homeHood",
+          "calibrateIntakePivot");
 
   private final Drive drive;
   private final Shooter shooter;
@@ -45,7 +52,11 @@ public class AutoRoutines {
   private final HubTargetingService hubTargetingService;
   private final FieldTargetingService fieldTargetingService;
   private final Map<Command, String> autoNamesByCommand = new IdentityHashMap<>();
-  private final List<String> autoOptionNames = new ArrayList<>();
+  private final List<String> autoOptionNames =
+      new ArrayList<>(List.of(competitionAutoName, doNothingAutoName));
+  private final Command competitionAutoCommand;
+  private final Command doNothingAutoCommand = Commands.none().withName(doNothingAutoName);
+  private String competitionAutoShotState = "IDLE";
 
   public AutoRoutines(
       Drive drive,
@@ -64,43 +75,14 @@ public class AutoRoutines {
     this.gamePieceCoordinator = gamePieceCoordinator;
     this.hubTargetingService = hubTargetingService;
     this.fieldTargetingService = fieldTargetingService;
-    autoOptionNames.addAll(discoverPathPlannerAutoNames());
+    competitionAutoCommand = buildCompetitionAutoRoutine();
   }
 
   public LoggedDashboardChooser<Command> buildAutoChooser() {
-    LoggedDashboardChooser<Command> chooser =
-        new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
-    addAutoOption(chooser, defaultAutoName, outpostStartShootAndLadderAutoRoutine());
-    addAutoOption(chooser, "Start Match (Hub + Trench + Outpost)", startOfMatchAutoRoutine());
-    addAutoOption(chooser, "Hub Opening Shot (Basic Feed)", openingHubShotAutoRoutine());
-    addAutoOption(chooser, "Trench Collect (Timed)", trenchCollectAutoRoutine());
-    addAutoOption(chooser, "Trench Collect (Timed) new thing", trenchCollectAutoRoutineNew());
-    addAutoOption(chooser, "Outpost Collect (Timed)", outpostCollectAutoRoutine());
-    addAutoOption(
-        chooser,
-        "Drive Wheel Radius Characterization",
-        DriveCommands.wheelRadiusCharacterization(drive));
-    addAutoOption(
-        chooser,
-        "Drive Simple FF Characterization",
-        DriveCommands.feedforwardCharacterization(drive));
-    addAutoOption(
-        chooser,
-        "Drive SysId (Quasistatic Forward)",
-        drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-    addAutoOption(
-        chooser,
-        "Drive SysId (Quasistatic Reverse)",
-        drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-    addAutoOption(
-        chooser,
-        "Drive SysId (Dynamic Forward)",
-        drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-    addAutoOption(
-        chooser,
-        "Drive SysId (Dynamic Reverse)",
-        drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
-    return chooser;
+    SendableChooser<Command> baseChooser = new SendableChooser<>();
+    addDefaultAutoOption(baseChooser, competitionAutoName, competitionAutoCommand);
+    addAutoOption(baseChooser, doNothingAutoName, doNothingAutoCommand);
+    return new LoggedDashboardChooser<>("Auto Choices", baseChooser);
   }
 
   public void registerNamedCommands() {
@@ -139,16 +121,16 @@ public class AutoRoutines {
 
   public Command selectAutonomousCommand(LoggedDashboardChooser<Command> autoChooser) {
     Command selectedAuto = autoChooser.get();
-    return selectedAuto != null ? selectedAuto : outpostStartShootAndLadderAutoRoutine();
+    return selectedAuto != null ? selectedAuto : competitionAutoCommand;
   }
 
   public Command getDefaultAutonomousCommand() {
-    return outpostStartShootAndLadderAutoRoutine();
+    return competitionAutoCommand;
   }
 
   public String getSelectedAutoName(Command selectedAuto) {
     if (selectedAuto == null) {
-      return defaultAutoName;
+      return competitionAutoName;
     }
     String mappedName = autoNamesByCommand.get(selectedAuto);
     if (mappedName != null) {
@@ -156,118 +138,193 @@ public class AutoRoutines {
     }
 
     String commandName = selectedAuto.getName();
-    return (commandName == null || commandName.isBlank()) ? defaultAutoName : commandName;
+    return (commandName == null || commandName.isBlank()) ? competitionAutoName : commandName;
   }
 
   public String[] getAutoOptionNames() {
     return autoOptionNames.toArray(String[]::new);
   }
 
-  private void addAutoOption(
-      LoggedDashboardChooser<Command> chooser, String name, Command command) {
+  String getCompetitionAutoShotState() {
+    return competitionAutoShotState;
+  }
+
+  static List<String> getNamedCommandNames() {
+    return namedCommandNames;
+  }
+
+  Command buildCompetitionShotCommandForTest(boolean readyToFire) {
+    return buildCompetitionShotCommandForTest(readyToFire, true);
+  }
+
+  Command buildCompetitionShotCommandForTest(boolean readyToFire, boolean inShotWindow) {
+    return buildCompetitionShooterShotCommand(() -> readyToFire, () -> inShotWindow, 0.0, 0.0, 0.0);
+  }
+
+  private void addDefaultAutoOption(
+      SendableChooser<Command> chooser, String name, Command command) {
+    chooser.setDefaultOption(name, command);
+    autoNamesByCommand.put(command, name);
+  }
+
+  private void addAutoOption(SendableChooser<Command> chooser, String name, Command command) {
     chooser.addOption(name, command);
     autoNamesByCommand.put(command, name);
-    if (!autoOptionNames.contains(name)) {
-      autoOptionNames.add(name);
-    }
   }
 
-  private Command startOfMatchAutoRoutine() {
-    return Commands.sequence(
-            openingHubShotAutoRoutine(), trenchCollectAutoRoutine(), outpostCollectAutoRoutine())
-        .finallyDo(
+  private Command buildCompetitionAutoRoutine() {
+    return Commands.defer(
             () -> {
-              shooter.setShotControlEnabled(false);
-              gamePieceCoordinator.stopGamePieceFlow();
-            });
+              Pose2d outpostStartPose = fieldTargetingService.getOutpostStartPose();
+              Pose2d openingShotPose = fieldTargetingService.getOpeningShotPose();
+
+              return Commands.sequence(
+                      Commands.runOnce(
+                          () -> {
+                            drive.setPose(outpostStartPose);
+                            recordCompetitionAutoShotState("RESET_POSE");
+                          },
+                          drive),
+                      Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_AND_SHOOT")),
+                      buildCompetitionDriveAndShootCommand(openingShotPose),
+                      Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_TO_LADDER")),
+                      fieldTargetingService
+                          .alignToLadderCommand()
+                          .withTimeout(competitionAutoLadderAlignTimeoutSeconds))
+                  .finallyDo(
+                      () -> {
+                        shooter.setShotControlEnabled(false);
+                        gamePieceCoordinator.stopGamePieceFlow();
+                        recordCompetitionAutoShotState("IDLE");
+                      });
+            },
+            Set.of(drive, shooter, intake, hopper, indexers))
+        .withName(competitionAutoName);
   }
 
-  private Command openingHubShotAutoRoutine() {
-    return timedHubShotAutoRoutine(startAutoOpeningShotSeconds);
-  }
-
-  private Command outpostStartShootAndLadderAutoRoutine() {
-    Pose2d outpostStartPose = fieldTargetingService.getOutpostStartPose();
-    Pose2d openingShotPose = fieldTargetingService.getOpeningShotPose();
-
-    return Commands.sequence(
-            Commands.runOnce(() -> drive.setPose(outpostStartPose), drive),
-            drive.alignToPose(openingShotPose).withTimeout(startAutoOutpostToShootTimeoutSeconds),
-            timedHubShotAutoRoutine(startAutoOutpostShootSeconds),
-            fieldTargetingService
-                .alignToLadderCommand()
-                .withTimeout(startAutoLadderAlignTimeoutSeconds))
-        .finallyDo(
-            () -> {
-              shooter.setShotControlEnabled(false);
-              gamePieceCoordinator.stopGamePieceFlow();
-            });
-  }
-
-  private Command timedHubShotAutoRoutine(double shotDurationSeconds) {
+  private Command buildCompetitionDriveAndShootCommand(Pose2d openingShotPose) {
     return Commands.deadline(
-        Commands.waitSeconds(shotDurationSeconds),
-        drive.alignToHub(() -> 0.0, () -> 0.0, hubTargetingService::updateAndGetAirtimeSeconds),
-        Commands.run(
+            buildCompetitionShotCommand(
+                shooter::isReadyToFire,
+                () ->
+                    drive.isNearTranslation(
+                        openingShotPose.getTranslation(),
+                        competitionAutoShotPositionToleranceMeters)),
+            drive
+                .pathfindToTranslationAndAlignToHub(
+                    openingShotPose.getTranslation(),
+                    hubTargetingService::updateAndGetAirtimeSeconds)
+                .withTimeout(competitionAutoDriveToShotTimeoutSeconds + competitionAutoFeedSeconds))
+        .finallyDo(() -> recordCompetitionAutoShotState("SHOT_PHASE_COMPLETE"));
+  }
+
+  private Command buildCompetitionShotCommand(
+      BooleanSupplier shooterReadySupplier, BooleanSupplier inShotWindowSupplier) {
+    return buildCompetitionShooterShotCommand(
+        shooterReadySupplier,
+        inShotWindowSupplier,
+        competitionAutoShotSpinUpTimeoutSeconds,
+        competitionAutoDriveToShotTimeoutSeconds,
+        competitionAutoFeedSeconds);
+  }
+
+  private Command buildCompetitionShooterShotCommand(
+      BooleanSupplier shooterReadySupplier,
+      BooleanSupplier inShotWindowSupplier,
+      double spinUpTimeoutSeconds,
+      double positionWaitTimeoutSeconds,
+      double feedSeconds) {
+    Command spinUp =
+        Commands.deadline(
+                Commands.waitUntil(shooterReadySupplier).withTimeout(spinUpTimeoutSeconds),
+                Commands.run(
+                    () -> {
+                      hubTargetingService.updateAndGetAirtimeSeconds();
+                      shooter.setShotControlEnabled(true);
+                      recordCompetitionAutoShotState("SPINNING_UP");
+                    },
+                    shooter))
+            .beforeStarting(
                 () -> {
-                  hubTargetingService.updateAndGetAirtimeSeconds();
-                  shooter.setShotControlEnabled(true);
-                  gamePieceCoordinator.applyBasicFeed(true);
-                },
-                shooter,
-                intake,
-                hopper,
-                indexers)
-            .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false))
+                  shooter.setManualHoodOverrideEnabled(false);
+                  gamePieceCoordinator.stopGamePieceFlow();
+                  recordCompetitionAutoShotState("WAITING_READY");
+                });
+
+    Command waitForShotWindow =
+        Commands.deadline(
+                Commands.waitUntil(inShotWindowSupplier).withTimeout(positionWaitTimeoutSeconds),
+                Commands.run(
+                    () -> {
+                      hubTargetingService.updateAndGetAirtimeSeconds();
+                      shooter.setShotControlEnabled(true);
+                      recordCompetitionAutoShotState("WAITING_SHOT_WINDOW");
+                    },
+                    shooter))
+            .beforeStarting(() -> recordCompetitionAutoShotState("WAITING_SHOT_WINDOW"));
+
+    Command feedWhileAligned =
+        Commands.deadline(
+                Commands.waitSeconds(feedSeconds),
+                Commands.run(
+                    () -> {
+                      hubTargetingService.updateAndGetAirtimeSeconds();
+                      shooter.setShotControlEnabled(true);
+                      gamePieceCoordinator.applyBasicFeed(true);
+                      recordCompetitionAutoShotState("FEEDING");
+                    },
+                    shooter,
+                    intake,
+                    hopper,
+                    indexers))
             .finallyDo(
                 () -> {
                   shooter.setShotControlEnabled(false);
                   gamePieceCoordinator.stopGamePieceFlow();
-                }));
-  }
+                  recordCompetitionAutoShotState("FEED_COMPLETE");
+                });
 
-  private Command trenchCollectAutoRoutineNew() {
-    return Commands.sequence(
-        fieldTargetingService.autoDriveUnderTrenchCommand(),
+    Command skipShotWindow =
         Commands.runOnce(
             () -> {
-              intake.setTargetIntakeSpeed(0.65);
-              intake.updateIntake();
+              shooter.setShotControlEnabled(false);
+              gamePieceCoordinator.stopGamePieceFlow();
+              recordCompetitionAutoShotState("SKIPPED_NO_SHOT_WINDOW");
             },
-            intake),
-        drive.autoLoadMiddleCommand(),
-        Commands.runOnce(intake::stopIntake, intake),
-        fieldTargetingService.autoDriveUnderTrenchCommand());
+            shooter,
+            intake,
+            hopper,
+            indexers);
+
+    Command skipFeed =
+        Commands.runOnce(
+            () -> {
+              shooter.setShotControlEnabled(false);
+              gamePieceCoordinator.stopGamePieceFlow();
+              recordCompetitionAutoShotState("SKIPPED_NOT_READY");
+            },
+            shooter,
+            intake,
+            hopper,
+            indexers);
+
+    return Commands.sequence(
+            spinUp,
+            Commands.either(
+                Commands.sequence(
+                    waitForShotWindow,
+                    Commands.either(feedWhileAligned, skipShotWindow, inShotWindowSupplier)),
+                skipFeed,
+                shooterReadySupplier))
+        .finallyDo(
+            () -> {
+              shooter.setShotControlEnabled(false);
+              gamePieceCoordinator.stopGamePieceFlow();
+            });
   }
 
-  private Command trenchCollectAutoRoutine() {
-    return Commands.deadline(
-        fieldTargetingService
-            .autoDriveUnderTrenchCommand()
-            .withTimeout(startAutoTrenchTimeoutSeconds),
-        gamePieceCoordinator.basicCollectWhileHeldCommand(true));
-  }
-
-  private Command outpostCollectAutoRoutine() {
-    return Commands.deadline(
-        fieldTargetingService.driveToOutpostCommand().withTimeout(startAutoOutpostTimeoutSeconds),
-        gamePieceCoordinator.basicCollectWhileHeldCommand(true));
-  }
-
-  private static List<String> discoverPathPlannerAutoNames() {
-    Path autosDirectory = Filesystem.getDeployDirectory().toPath().resolve("pathplanner/autos");
-    if (!Files.isDirectory(autosDirectory)) {
-      return List.of();
-    }
-
-    try (Stream<Path> autoFiles = Files.list(autosDirectory)) {
-      return autoFiles
-          .filter(path -> path.getFileName().toString().endsWith(".auto"))
-          .map(path -> path.getFileName().toString().replaceFirst("\\.auto$", ""))
-          .sorted(Comparator.naturalOrder())
-          .toList();
-    } catch (IOException ignored) {
-      return List.of();
-    }
+  private void recordCompetitionAutoShotState(String state) {
+    competitionAutoShotState = state;
+    Logger.recordOutput(autoShotStateLogKey, state);
   }
 }

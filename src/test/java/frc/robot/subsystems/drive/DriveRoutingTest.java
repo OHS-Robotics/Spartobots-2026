@@ -3,6 +3,7 @@ package frc.robot.subsystems.drive;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import java.util.Optional;
@@ -42,6 +43,20 @@ class DriveRoutingTest {
             new ModuleIO() {},
             new ModuleIO() {});
     var command = drive.driveToOutpostCommand();
+    assertNotNull(command);
+    assertEquals("DeferredCommand", command.getClass().getSimpleName());
+  }
+
+  @Test
+  void pathfindToTranslationReturnsDeferredCommand() {
+    Drive drive =
+        new Drive(
+            new GyroIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {});
+    var command = drive.pathfindToTranslation(new Translation2d(2.0, 3.0));
     assertNotNull(command);
     assertEquals("DeferredCommand", command.getClass().getSimpleName());
   }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import frc.robot.util.NetworkTablesUtil;
 import org.junit.jupiter.api.Test;
 
 class ShooterTest {
@@ -86,6 +87,83 @@ class ShooterTest {
         (launchSpeedMetersPerSec * solution.launchAngle().getSin())
             - (ShooterConstants.gravityMetersPerSecSquared * timeToHubSeconds);
     assertTrue(vyAtHubMetersPerSec <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec);
+  }
+
+  @Test
+  void calibrationModeOwnsShooterSetpoints() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    double calibrationHoodSetpointRotations =
+        ShooterConstants.defaultHoodRetractedPositionRotations + 1.25;
+
+    shooter.setCalibrationHoodSetpointRotations(calibrationHoodSetpointRotations);
+    shooter.setCalibrationWheelSetpointsRadPerSec(120.0, 140.0);
+    shooter.setCalibrationModeEnabled(true);
+    shooter.setShotControlEnabled(true);
+    shooter.periodic();
+
+    assertEquals(calibrationHoodSetpointRotations, shooter.getHoodSetpointMotorRotations(), 1e-9);
+    assertEquals(120.0, shooter.getPair1WheelSetpointRadPerSec(), 1e-9);
+    assertEquals(140.0, shooter.getPair2WheelSetpointRadPerSec(), 1e-9);
+    assertEquals(-120.0, io.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(-140.0, io.pair2SetpointRadPerSec, 1e-9);
+    assertTrue(shooter.isCalibrationModeEnabled());
+  }
+
+  @Test
+  void calibrationSamplePublishesDerivedBallistics() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    io.pair1MeasuredVelocityRadPerSec = 90.0;
+    io.pair2MeasuredVelocityRadPerSec = 110.0;
+    shooter.periodic();
+    shooter.setCalibrationHoodSetpointRotations(
+        ShooterConstants.defaultHoodRetractedPositionRotations + 0.75);
+    shooter.setCalibrationWheelSetpointsRadPerSec(100.0, 120.0);
+    shooter.setCalibrationMeasurement(4.0, 1.0, 0.5, 46.0, "test sample");
+
+    shooter.recordCalibrationSample();
+
+    var calibrationTelemetry =
+        NetworkTablesUtil.telemetry(NetworkTablesUtil.domain(ShooterConstants.configTableName))
+            .getSubTable("Calibration");
+    double expectedHorizontalVelocityMetersPerSec = 8.0;
+    double expectedVerticalVelocityMetersPerSec =
+        (1.0 + (0.5 * ShooterConstants.gravityMetersPerSecSquared * 0.25)) / 0.5;
+    double expectedLaunchSpeedMetersPerSec =
+        Math.hypot(expectedHorizontalVelocityMetersPerSec, expectedVerticalVelocityMetersPerSec);
+    double expectedLaunchAngleDegrees =
+        Math.toDegrees(
+            Math.atan2(
+                expectedVerticalVelocityMetersPerSec, expectedHorizontalVelocityMetersPerSec));
+
+    assertEquals(1.0, calibrationTelemetry.getEntry("RecordedSampleCount").getDouble(0.0), 1e-9);
+    assertTrue(calibrationTelemetry.getEntry("LastRecorded/Derived/Valid").getBoolean(false));
+    assertEquals(
+        expectedHorizontalVelocityMetersPerSec,
+        calibrationTelemetry
+            .getEntry("LastRecorded/Derived/HorizontalVelocityMetersPerSec")
+            .getDouble(0.0),
+        1e-9);
+    assertEquals(
+        expectedVerticalVelocityMetersPerSec,
+        calibrationTelemetry
+            .getEntry("LastRecorded/Derived/VerticalVelocityMetersPerSec")
+            .getDouble(0.0),
+        1e-9);
+    assertEquals(
+        expectedLaunchSpeedMetersPerSec,
+        calibrationTelemetry
+            .getEntry("LastRecorded/Derived/LaunchSpeedMetersPerSec")
+            .getDouble(0.0),
+        1e-9);
+    assertEquals(
+        expectedLaunchAngleDegrees,
+        calibrationTelemetry.getEntry("LastRecorded/Derived/LaunchAngleDegrees").getDouble(0.0),
+        1e-9);
+    assertEquals(
+        "test sample",
+        calibrationTelemetry.getEntry("LastRecorded/Measurement/Notes").getString(""));
   }
 
   private static class FakeShooterIO implements ShooterIO {

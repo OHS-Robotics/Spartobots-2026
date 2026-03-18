@@ -2,7 +2,7 @@
 
 This asset is configured for component poses published at:
 
-- `AdvantageScope/Robot/Components` (`Pose3d[]`, robot-relative)
+- `Spartobots2026/Simulation/RobotModel/Components` (`Pose3d[]`, robot-relative)
 
 Component index order (must match `components` in `config.json`):
 
@@ -18,4 +18,4 @@ Expected model files in this folder:
 If a component appears offset or rotated in AdvantageScope, tune:
 
 - `zeroedPosition` / `zeroedRotations` in `config.json`
-- the corresponding geometry constants in `RobotContainer`
+- the corresponding geometry constants in `src/main/java/frc/robot/sim/RobotVisualizationPublisher.java`

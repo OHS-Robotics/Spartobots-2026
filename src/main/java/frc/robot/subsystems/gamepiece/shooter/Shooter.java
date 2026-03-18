@@ -6,6 +6,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -20,6 +21,13 @@ public class Shooter extends SubsystemBase {
 
   private static record MotionCompensatedHubShotSolution(
       HubShotSolution shotSolution, Pose2d compensatedHubPose, int iterations, boolean converged) {}
+
+  private static record CalibrationDerivedMeasurement(
+      double horizontalVelocityMetersPerSec,
+      double verticalVelocityMetersPerSec,
+      double launchSpeedMetersPerSec,
+      Rotation2d launchAngle,
+      boolean valid) {}
 
   public static record HubShotSolution(
       double distanceMeters,
@@ -62,6 +70,18 @@ public class Shooter extends SubsystemBase {
   private double hoodHomingStallSeconds = 0.0;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
+  private boolean calibrationModeEnabled = false;
+  private double calibrationHoodSetpointRotations = 0.0;
+  private double calibrationPair1WheelSetpointRadPerSec = 0.0;
+  private double calibrationPair2WheelSetpointRadPerSec = 0.0;
+  private double calibrationMeasuredDistanceMeters = 0.0;
+  private double calibrationMeasuredHeightDeltaMeters =
+      ShooterConstants.hubCenterHeightMeters - ShooterConstants.defaultLaunchHeightMeters;
+  private double calibrationMeasuredAirtimeSeconds = Double.NaN;
+  private double calibrationVideoLaunchAngleDegrees = Double.NaN;
+  private String calibrationNotes = "";
+  private int calibrationRecordedSampleCount = 0;
+  private double calibrationLastRecordedTimestampSeconds = Double.NaN;
   private double lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
   private HubShotSolution latestHubShotSolution =
       new HubShotSolution(
@@ -79,6 +99,8 @@ public class Shooter extends SubsystemBase {
   private final NetworkTable motionCompTuningTable =
       NetworkTablesUtil.tuningMode("Targeting/Hub").getSubTable("MotionCompensation");
   private final NetworkTable telemetryTable = NetworkTablesUtil.telemetry(subsystemTable);
+  private final NetworkTable calibrationTuningTable = tuningTable.getSubTable("Calibration");
+  private final NetworkTable calibrationTelemetryTable = telemetryTable.getSubTable("Calibration");
   private final NetworkTableEntry hoodRetractedPositionEntry =
       tuningTable.getEntry("Hood/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry hoodExtendedPositionEntry =
@@ -153,6 +175,89 @@ public class Shooter extends SubsystemBase {
       motionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
       motionCompTuningTable.getEntry("LeadSeconds");
+  private final NetworkTableEntry calibrationModeEnabledEntry =
+      calibrationTuningTable.getEntry("Enabled");
+  private final NetworkTableEntry calibrationHoodSetpointRotationsEntry =
+      calibrationTuningTable.getEntry("Hood/SetpointRotations");
+  private final NetworkTableEntry calibrationPair1WheelSetpointEntry =
+      calibrationTuningTable.getEntry("Wheels/Pair1SetpointRadPerSec");
+  private final NetworkTableEntry calibrationPair2WheelSetpointEntry =
+      calibrationTuningTable.getEntry("Wheels/Pair2SetpointRadPerSec");
+  private final NetworkTableEntry calibrationDistanceEntry =
+      calibrationTuningTable.getEntry("Measurement/DistanceMeters");
+  private final NetworkTableEntry calibrationHeightDeltaEntry =
+      calibrationTuningTable.getEntry("Measurement/HeightDeltaMeters");
+  private final NetworkTableEntry calibrationAirtimeEntry =
+      calibrationTuningTable.getEntry("Measurement/AirtimeSeconds");
+  private final NetworkTableEntry calibrationVideoLaunchAngleEntry =
+      calibrationTuningTable.getEntry("Measurement/VideoLaunchAngleDegrees");
+  private final NetworkTableEntry calibrationNotesEntry =
+      calibrationTuningTable.getEntry("Measurement/Notes");
+  private final NetworkTableEntry calibrationModeTelemetryEntry =
+      calibrationTelemetryTable.getEntry("ModeEnabled");
+  private final NetworkTableEntry calibrationConfiguredHoodSetpointEntry =
+      calibrationTelemetryTable.getEntry("Configured/HoodSetpointRotations");
+  private final NetworkTableEntry calibrationConfiguredHoodAngleEntry =
+      calibrationTelemetryTable.getEntry("Configured/HoodSetpointDegrees");
+  private final NetworkTableEntry calibrationConfiguredPair1WheelSetpointEntry =
+      calibrationTelemetryTable.getEntry("Configured/Wheels/Pair1SetpointRadPerSec");
+  private final NetworkTableEntry calibrationConfiguredPair2WheelSetpointEntry =
+      calibrationTelemetryTable.getEntry("Configured/Wheels/Pair2SetpointRadPerSec");
+  private final NetworkTableEntry calibrationConfiguredDistanceEntry =
+      calibrationTelemetryTable.getEntry("Configured/Measurement/DistanceMeters");
+  private final NetworkTableEntry calibrationConfiguredHeightDeltaEntry =
+      calibrationTelemetryTable.getEntry("Configured/Measurement/HeightDeltaMeters");
+  private final NetworkTableEntry calibrationConfiguredAirtimeEntry =
+      calibrationTelemetryTable.getEntry("Configured/Measurement/AirtimeSeconds");
+  private final NetworkTableEntry calibrationConfiguredVideoLaunchAngleEntry =
+      calibrationTelemetryTable.getEntry("Configured/Measurement/VideoLaunchAngleDegrees");
+  private final NetworkTableEntry calibrationConfiguredNotesEntry =
+      calibrationTelemetryTable.getEntry("Configured/Measurement/Notes");
+  private final NetworkTableEntry calibrationRecordedSampleCountEntry =
+      calibrationTelemetryTable.getEntry("RecordedSampleCount");
+  private final NetworkTableEntry calibrationLastRecordedTimestampEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/TimestampSeconds");
+  private final NetworkTableEntry calibrationLastRecordedModeEnabledEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/ModeEnabled");
+  private final NetworkTableEntry calibrationLastRecordedHoodSetpointEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/HoodSetpointRotations");
+  private final NetworkTableEntry calibrationLastRecordedHoodSetpointAngleEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/HoodSetpointDegrees");
+  private final NetworkTableEntry calibrationLastRecordedMeasuredHoodPositionEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/HoodMeasuredRotations");
+  private final NetworkTableEntry calibrationLastRecordedMeasuredHoodAngleEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/HoodMeasuredDegrees");
+  private final NetworkTableEntry calibrationLastRecordedPair1SetpointEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Wheels/Pair1SetpointRadPerSec");
+  private final NetworkTableEntry calibrationLastRecordedPair2SetpointEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Wheels/Pair2SetpointRadPerSec");
+  private final NetworkTableEntry calibrationLastRecordedPair1MeasuredEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Wheels/Pair1MeasuredRadPerSec");
+  private final NetworkTableEntry calibrationLastRecordedPair2MeasuredEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Wheels/Pair2MeasuredRadPerSec");
+  private final NetworkTableEntry calibrationLastRecordedEstimatedLaunchSpeedEntry =
+      calibrationTelemetryTable.getEntry(
+          "LastRecorded/Wheels/EstimatedLaunchSpeedFromMeasuredMetersPerSec");
+  private final NetworkTableEntry calibrationLastRecordedDistanceEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Measurement/DistanceMeters");
+  private final NetworkTableEntry calibrationLastRecordedHeightDeltaEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Measurement/HeightDeltaMeters");
+  private final NetworkTableEntry calibrationLastRecordedAirtimeEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Measurement/AirtimeSeconds");
+  private final NetworkTableEntry calibrationLastRecordedVideoLaunchAngleEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Measurement/VideoLaunchAngleDegrees");
+  private final NetworkTableEntry calibrationLastRecordedNotesEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Measurement/Notes");
+  private final NetworkTableEntry calibrationLastRecordedDerivedValidEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Derived/Valid");
+  private final NetworkTableEntry calibrationLastRecordedHorizontalVelocityEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Derived/HorizontalVelocityMetersPerSec");
+  private final NetworkTableEntry calibrationLastRecordedVerticalVelocityEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Derived/VerticalVelocityMetersPerSec");
+  private final NetworkTableEntry calibrationLastRecordedDerivedLaunchSpeedEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Derived/LaunchSpeedMetersPerSec");
+  private final NetworkTableEntry calibrationLastRecordedDerivedLaunchAngleEntry =
+      calibrationTelemetryTable.getEntry("LastRecorded/Derived/LaunchAngleDegrees");
 
   public Shooter() {
     this(new ShooterIO() {});
@@ -160,9 +265,14 @@ public class Shooter extends SubsystemBase {
 
   public Shooter(ShooterIO io) {
     this.io = io;
+    hoodSetpointMotorRotations = hoodAngleToMotorRotations(ShooterConstants.defaultLaunchAngle);
+    calibrationHoodSetpointRotations = hoodSetpointMotorRotations;
+    WheelSpeedSetpoints defaultCalibrationWheelSetpoints =
+        calculateWheelSetpointsFromLaunchSpeed(ShooterConstants.defaultLaunchSpeedMetersPerSec);
+    calibrationPair1WheelSetpointRadPerSec = defaultCalibrationWheelSetpoints.pair1RadPerSec();
+    calibrationPair2WheelSetpointRadPerSec = defaultCalibrationWheelSetpoints.pair2RadPerSec();
     configureNetworkTableDefaults();
     loadNetworkTableConfig();
-    hoodSetpointMotorRotations = hoodAngleToMotorRotations(ShooterConstants.defaultLaunchAngle);
   }
 
   @Override
@@ -171,6 +281,11 @@ public class Shooter extends SubsystemBase {
     Logger.processInputs(NetworkTablesUtil.logPath("GamePiece/Shooter/Inputs"), inputs);
     loadNetworkTableConfig();
     clampHoodSetpointToCalibrationRange();
+    if (calibrationModeEnabled) {
+      hoodSetpointMotorRotations = calibrationHoodSetpointRotations;
+      pair1WheelSetpointRadPerSec = calibrationPair1WheelSetpointRadPerSec;
+      pair2WheelSetpointRadPerSec = calibrationPair2WheelSetpointRadPerSec;
+    }
     double pair1VelocityTargetRadPerSec =
         shotControlEnabled ? getPair1VelocityTargetSetpointRadPerSec() : 0.0;
     double pair2VelocityTargetRadPerSec =
@@ -194,6 +309,7 @@ public class Shooter extends SubsystemBase {
         pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     publishHoodShotOverlayToNetworkTables(
         pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
+    publishCalibrationTelemetry();
 
     logControlState(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
   }
@@ -215,7 +331,7 @@ public class Shooter extends SubsystemBase {
   }
 
   public boolean isHubShotSolutionFeasible() {
-    return latestHubShotSolution.feasible();
+    return calibrationModeEnabled || latestHubShotSolution.feasible();
   }
 
   public HubShotSolution getLatestHubShotSolution() {
@@ -262,10 +378,21 @@ public class Shooter extends SubsystemBase {
   }
 
   public void setManualHoodOverrideEnabled(boolean enabled) {
-    manualHoodOverrideEnabled = enabled;
+    manualHoodOverrideEnabled = calibrationModeEnabled ? false : enabled;
   }
 
   public void adjustHoodSetpointDegrees(double deltaDegrees) {
+    if (calibrationModeEnabled) {
+      double targetAngleDegrees =
+          MathUtil.clamp(
+              motorRotationsToHoodAngle(calibrationHoodSetpointRotations).getDegrees()
+                  + deltaDegrees,
+              ShooterConstants.minLaunchAngle.getDegrees(),
+              ShooterConstants.maxLaunchAngle.getDegrees());
+      setCalibrationHoodSetpointRotations(
+          hoodAngleToMotorRotations(Rotation2d.fromDegrees(targetAngleDegrees)));
+      return;
+    }
     manualHoodOverrideEnabled = true;
     double targetAngleDegrees =
         MathUtil.clamp(
@@ -277,9 +404,77 @@ public class Shooter extends SubsystemBase {
   }
 
   public void adjustHoodSetpointRotations(double deltaRotations) {
+    if (calibrationModeEnabled) {
+      setCalibrationHoodSetpointRotations(calibrationHoodSetpointRotations + deltaRotations);
+      return;
+    }
     manualHoodOverrideEnabled = true;
     hoodSetpointMotorRotations =
         clampToHoodCalibrationRange(hoodSetpointMotorRotations + deltaRotations);
+  }
+
+  public boolean isCalibrationModeEnabled() {
+    return calibrationModeEnabled;
+  }
+
+  public void setCalibrationModeEnabled(boolean enabled) {
+    calibrationModeEnabled = enabled;
+    if (enabled) {
+      manualHoodOverrideEnabled = false;
+      hoodSetpointMotorRotations = calibrationHoodSetpointRotations;
+      pair1WheelSetpointRadPerSec = calibrationPair1WheelSetpointRadPerSec;
+      pair2WheelSetpointRadPerSec = calibrationPair2WheelSetpointRadPerSec;
+    }
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+  }
+
+  public void setCalibrationHoodSetpointRotations(double hoodSetpointRotations) {
+    calibrationHoodSetpointRotations = clampToHoodCalibrationRange(hoodSetpointRotations);
+    calibrationHoodSetpointRotationsEntry.setDouble(calibrationHoodSetpointRotations);
+    if (calibrationModeEnabled) {
+      hoodSetpointMotorRotations = calibrationHoodSetpointRotations;
+    }
+  }
+
+  public void setCalibrationWheelSetpointsRadPerSec(double pair1RadPerSec, double pair2RadPerSec) {
+    calibrationPair1WheelSetpointRadPerSec = clampCalibrationWheelSpeedRadPerSec(pair1RadPerSec);
+    calibrationPair2WheelSetpointRadPerSec = clampCalibrationWheelSpeedRadPerSec(pair2RadPerSec);
+    calibrationPair1WheelSetpointEntry.setDouble(calibrationPair1WheelSetpointRadPerSec);
+    calibrationPair2WheelSetpointEntry.setDouble(calibrationPair2WheelSetpointRadPerSec);
+    if (calibrationModeEnabled) {
+      pair1WheelSetpointRadPerSec = calibrationPair1WheelSetpointRadPerSec;
+      pair2WheelSetpointRadPerSec = calibrationPair2WheelSetpointRadPerSec;
+    }
+  }
+
+  public void setCalibrationMeasurement(
+      double distanceMeters,
+      double heightDeltaMeters,
+      double airtimeSeconds,
+      double videoLaunchAngleDegrees,
+      String notes) {
+    calibrationMeasuredDistanceMeters = Math.max(0.0, distanceMeters);
+    calibrationMeasuredHeightDeltaMeters = heightDeltaMeters;
+    calibrationMeasuredAirtimeSeconds = airtimeSeconds;
+    calibrationVideoLaunchAngleDegrees = videoLaunchAngleDegrees;
+    calibrationNotes = notes != null ? notes : "";
+    calibrationDistanceEntry.setDouble(calibrationMeasuredDistanceMeters);
+    calibrationHeightDeltaEntry.setDouble(calibrationMeasuredHeightDeltaMeters);
+    calibrationAirtimeEntry.setDouble(calibrationMeasuredAirtimeSeconds);
+    calibrationVideoLaunchAngleEntry.setDouble(calibrationVideoLaunchAngleDegrees);
+    calibrationNotesEntry.setString(calibrationNotes);
+  }
+
+  public Command enableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(true), this).ignoringDisable(true);
+  }
+
+  public Command disableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(false), this).ignoringDisable(true);
+  }
+
+  public Command recordCalibrationSampleCommand() {
+    return Commands.runOnce(this::recordCalibrationSample, this).ignoringDisable(true);
   }
 
   public Command homeHoodToHardStopCommand() {
@@ -311,6 +506,12 @@ public class Shooter extends SubsystemBase {
 
   public HubShotSolution updateHubShotSolution(
       Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
+    if (calibrationModeEnabled) {
+      latestHubShotSolution = createCalibrationModeShotSolution();
+      applyHubShotSetpoints(latestHubShotSolution);
+      return latestHubShotSolution;
+    }
+
     Translation2d robotFieldVelocity =
         robotFieldVelocityMetersPerSec != null
             ? robotFieldVelocityMetersPerSec
@@ -364,6 +565,15 @@ public class Shooter extends SubsystemBase {
         ShooterConstants.minHoodAngleFromFloor.getDegrees());
     hoodMaxAngleFromFloorEntry.setDefaultDouble(
         ShooterConstants.maxHoodAngleFromFloor.getDegrees());
+    calibrationModeEnabledEntry.setDefaultBoolean(false);
+    calibrationHoodSetpointRotationsEntry.setDefaultDouble(calibrationHoodSetpointRotations);
+    calibrationPair1WheelSetpointEntry.setDefaultDouble(calibrationPair1WheelSetpointRadPerSec);
+    calibrationPair2WheelSetpointEntry.setDefaultDouble(calibrationPair2WheelSetpointRadPerSec);
+    calibrationDistanceEntry.setDefaultDouble(calibrationMeasuredDistanceMeters);
+    calibrationHeightDeltaEntry.setDefaultDouble(calibrationMeasuredHeightDeltaMeters);
+    calibrationAirtimeEntry.setDefaultDouble(calibrationMeasuredAirtimeSeconds);
+    calibrationVideoLaunchAngleEntry.setDefaultDouble(calibrationVideoLaunchAngleDegrees);
+    calibrationNotesEntry.setDefaultString(calibrationNotes);
   }
 
   private void loadNetworkTableConfig() {
@@ -377,22 +587,62 @@ public class Shooter extends SubsystemBase {
     pair1Direction = normalizeDirection(pair1DirectionEntry.getDouble(pair1Direction));
     pair2Direction = normalizeDirection(pair2DirectionEntry.getDouble(pair2Direction));
     wheelVelocityKp =
-        sanitizeGain(wheelVelocityKpEntry.getDouble(wheelVelocityKp), wheelVelocityKp);
+        sanitizeFinite(wheelVelocityKpEntry.getDouble(wheelVelocityKp), wheelVelocityKp);
     wheelVelocityKi =
-        sanitizeGain(wheelVelocityKiEntry.getDouble(wheelVelocityKi), wheelVelocityKi);
+        sanitizeFinite(wheelVelocityKiEntry.getDouble(wheelVelocityKi), wheelVelocityKi);
     wheelVelocityKd =
-        sanitizeGain(wheelVelocityKdEntry.getDouble(wheelVelocityKd), wheelVelocityKd);
+        sanitizeFinite(wheelVelocityKdEntry.getDouble(wheelVelocityKd), wheelVelocityKd);
     wheelVelocityKv =
-        sanitizeGain(wheelVelocityKvEntry.getDouble(wheelVelocityKv), wheelVelocityKv);
-    hoodPositionKp = sanitizeGain(hoodPositionKpEntry.getDouble(hoodPositionKp), hoodPositionKp);
-    hoodPositionKi = sanitizeGain(hoodPositionKiEntry.getDouble(hoodPositionKi), hoodPositionKi);
-    hoodPositionKd = sanitizeGain(hoodPositionKdEntry.getDouble(hoodPositionKd), hoodPositionKd);
+        sanitizeFinite(wheelVelocityKvEntry.getDouble(wheelVelocityKv), wheelVelocityKv);
+    hoodPositionKp = sanitizeFinite(hoodPositionKpEntry.getDouble(hoodPositionKp), hoodPositionKp);
+    hoodPositionKi = sanitizeFinite(hoodPositionKiEntry.getDouble(hoodPositionKi), hoodPositionKi);
+    hoodPositionKd = sanitizeFinite(hoodPositionKdEntry.getDouble(hoodPositionKd), hoodPositionKd);
     hubMotionCompVelocityScale =
         clampMotionCompVelocityScale(
             hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale));
     hubMotionCompLeadSeconds =
         clampMotionCompLeadSeconds(
             hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds));
+    calibrationModeEnabled = calibrationModeEnabledEntry.getBoolean(calibrationModeEnabled);
+    if (calibrationModeEnabled) {
+      manualHoodOverrideEnabled = false;
+    }
+    calibrationHoodSetpointRotations =
+        clampToHoodCalibrationRange(
+            sanitizeFinite(
+                calibrationHoodSetpointRotationsEntry.getDouble(calibrationHoodSetpointRotations),
+                calibrationHoodSetpointRotations));
+    calibrationPair1WheelSetpointRadPerSec =
+        clampCalibrationWheelSpeedRadPerSec(
+            sanitizeFinite(
+                calibrationPair1WheelSetpointEntry.getDouble(
+                    calibrationPair1WheelSetpointRadPerSec),
+                calibrationPair1WheelSetpointRadPerSec));
+    calibrationPair2WheelSetpointRadPerSec =
+        clampCalibrationWheelSpeedRadPerSec(
+            sanitizeFinite(
+                calibrationPair2WheelSetpointEntry.getDouble(
+                    calibrationPair2WheelSetpointRadPerSec),
+                calibrationPair2WheelSetpointRadPerSec));
+    calibrationMeasuredDistanceMeters =
+        Math.max(
+            0.0,
+            sanitizeFinite(
+                calibrationDistanceEntry.getDouble(calibrationMeasuredDistanceMeters),
+                calibrationMeasuredDistanceMeters));
+    calibrationMeasuredHeightDeltaMeters =
+        sanitizeFinite(
+            calibrationHeightDeltaEntry.getDouble(calibrationMeasuredHeightDeltaMeters),
+            calibrationMeasuredHeightDeltaMeters);
+    calibrationMeasuredAirtimeSeconds =
+        sanitizeFiniteOrNaN(
+            calibrationAirtimeEntry.getDouble(calibrationMeasuredAirtimeSeconds),
+            calibrationMeasuredAirtimeSeconds);
+    calibrationVideoLaunchAngleDegrees =
+        sanitizeFiniteOrNaN(
+            calibrationVideoLaunchAngleEntry.getDouble(calibrationVideoLaunchAngleDegrees),
+            calibrationVideoLaunchAngleDegrees);
+    calibrationNotes = calibrationNotesEntry.getString(calibrationNotes);
     wheelSpeedScaleEntry.setDouble(wheelSpeedScale);
     pair1DirectionEntry.setDouble(pair1Direction);
     pair2DirectionEntry.setDouble(pair2Direction);
@@ -405,10 +655,23 @@ public class Shooter extends SubsystemBase {
     hoodPositionKdEntry.setDouble(hoodPositionKd);
     hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
     hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    calibrationHoodSetpointRotationsEntry.setDouble(calibrationHoodSetpointRotations);
+    calibrationPair1WheelSetpointEntry.setDouble(calibrationPair1WheelSetpointRadPerSec);
+    calibrationPair2WheelSetpointEntry.setDouble(calibrationPair2WheelSetpointRadPerSec);
+    calibrationDistanceEntry.setDouble(calibrationMeasuredDistanceMeters);
+    calibrationHeightDeltaEntry.setDouble(calibrationMeasuredHeightDeltaMeters);
+    calibrationAirtimeEntry.setDouble(calibrationMeasuredAirtimeSeconds);
+    calibrationVideoLaunchAngleEntry.setDouble(calibrationVideoLaunchAngleDegrees);
+    calibrationNotesEntry.setString(calibrationNotes);
   }
 
-  private double sanitizeGain(double value, double fallback) {
+  private static double sanitizeFinite(double value, double fallback) {
     return Double.isFinite(value) ? value : fallback;
+  }
+
+  private static double sanitizeFiniteOrNaN(double value, double fallback) {
+    return Double.isNaN(value) || Double.isFinite(value) ? value : fallback;
   }
 
   private void publishHoodEncoderToNetworkTables() {
@@ -445,8 +708,20 @@ public class Shooter extends SubsystemBase {
     double measuredLaunchSpeedMetersPerSec =
         getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec();
 
-    double targetDistanceMeters = Math.max(0.0, latestHubShotSolution.distanceMeters());
-    double hubCenterHeightMeters = ShooterConstants.hubCenterHeightMeters;
+    double targetDistanceMeters =
+        Math.max(
+            0.0,
+            calibrationModeEnabled
+                ? calibrationMeasuredDistanceMeters
+                : latestHubShotSolution.distanceMeters());
+    double targetHeightMeters =
+        calibrationModeEnabled
+            ? launchHeightMeters + calibrationMeasuredHeightDeltaMeters
+            : ShooterConstants.hubCenterHeightMeters;
+    Rotation2d solutionAngle =
+        calibrationModeEnabled
+            ? motorRotationsToHoodAngle(calibrationHoodSetpointRotations)
+            : latestHubShotSolution.launchAngle();
 
     OptionalDouble setpointHeightAtTargetMeters =
         calculateProjectileHeightAtDistance(
@@ -466,21 +741,37 @@ public class Shooter extends SubsystemBase {
             ShooterConstants.maxHoodAngleFromFloor);
 
     shotOverlayTargetDistanceEntry.setDouble(targetDistanceMeters);
-    shotOverlayHubHeightEntry.setDouble(hubCenterHeightMeters);
+    shotOverlayHubHeightEntry.setDouble(targetHeightMeters);
     shotOverlayLaunchHeightEntry.setDouble(launchHeightMeters);
-    shotOverlaySolutionAngleEntry.setDouble(latestHubShotSolution.launchAngle().getDegrees());
+    shotOverlaySolutionAngleEntry.setDouble(solutionAngle.getDegrees());
     shotOverlaySetpointLaunchSpeedEntry.setDouble(setpointLaunchSpeedMetersPerSec);
     shotOverlayMeasuredLaunchSpeedEntry.setDouble(measuredLaunchSpeedMetersPerSec);
     shotOverlaySetpointHeightEntry.setDouble(optionalDoubleOrNaN(setpointHeightAtTargetMeters));
     shotOverlayMeasuredHeightEntry.setDouble(optionalDoubleOrNaN(measuredHeightAtTargetMeters));
     shotOverlaySetpointClearanceEntry.setDouble(
-        optionalClearanceToHubOrNaN(setpointHeightAtTargetMeters, hubCenterHeightMeters));
+        optionalClearanceToTargetHeightOrNaN(setpointHeightAtTargetMeters, targetHeightMeters));
     shotOverlayMeasuredClearanceEntry.setDouble(
-        optionalClearanceToHubOrNaN(measuredHeightAtTargetMeters, hubCenterHeightMeters));
+        optionalClearanceToTargetHeightOrNaN(measuredHeightAtTargetMeters, targetHeightMeters));
     shotOverlayMinAngleClearanceEntry.setDouble(
-        optionalClearanceToHubOrNaN(minAngleHeightAtTargetMeters, hubCenterHeightMeters));
+        optionalClearanceToTargetHeightOrNaN(minAngleHeightAtTargetMeters, targetHeightMeters));
     shotOverlayMaxAngleClearanceEntry.setDouble(
-        optionalClearanceToHubOrNaN(maxAngleHeightAtTargetMeters, hubCenterHeightMeters));
+        optionalClearanceToTargetHeightOrNaN(maxAngleHeightAtTargetMeters, targetHeightMeters));
+  }
+
+  private void publishCalibrationTelemetry() {
+    calibrationModeTelemetryEntry.setBoolean(calibrationModeEnabled);
+    calibrationConfiguredHoodSetpointEntry.setDouble(calibrationHoodSetpointRotations);
+    calibrationConfiguredHoodAngleEntry.setDouble(
+        motorRotationsToHoodAngle(calibrationHoodSetpointRotations).getDegrees());
+    calibrationConfiguredPair1WheelSetpointEntry.setDouble(calibrationPair1WheelSetpointRadPerSec);
+    calibrationConfiguredPair2WheelSetpointEntry.setDouble(calibrationPair2WheelSetpointRadPerSec);
+    calibrationConfiguredDistanceEntry.setDouble(calibrationMeasuredDistanceMeters);
+    calibrationConfiguredHeightDeltaEntry.setDouble(calibrationMeasuredHeightDeltaMeters);
+    calibrationConfiguredAirtimeEntry.setDouble(calibrationMeasuredAirtimeSeconds);
+    calibrationConfiguredVideoLaunchAngleEntry.setDouble(calibrationVideoLaunchAngleDegrees);
+    calibrationConfiguredNotesEntry.setString(calibrationNotes);
+    calibrationRecordedSampleCountEntry.setDouble(calibrationRecordedSampleCount);
+    calibrationLastRecordedTimestampEntry.setDouble(calibrationLastRecordedTimestampSeconds);
   }
 
   private OptionalDouble calculateProjectileHeightAtDistance(
@@ -574,6 +865,160 @@ public class Shooter extends SubsystemBase {
         hoodExtendedPositionRotations + ShooterConstants.hoodMotorRotationsFromMaxToMinAngle;
     hoodExtendedPositionEntry.setDouble(hoodExtendedPositionRotations);
     hoodRetractedPositionEntry.setDouble(hoodRetractedPositionRotations);
+  }
+
+  public void recordCalibrationSample() {
+    calibrationRecordedSampleCount++;
+    calibrationLastRecordedTimestampSeconds = Timer.getFPGATimestamp();
+    calibrationRecordedSampleCountEntry.setDouble(calibrationRecordedSampleCount);
+    Rotation2d hoodSetpointAngle = motorRotationsToHoodAngle(calibrationHoodSetpointRotations);
+    Rotation2d measuredHoodAngle = motorRotationsToHoodAngle(inputs.hoodPositionRotations);
+    double estimatedLaunchSpeedFromMeasuredWheelsMetersPerSec =
+        getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec();
+    CalibrationDerivedMeasurement derivedMeasurement =
+        deriveCalibrationMeasurement(
+            calibrationMeasuredDistanceMeters,
+            calibrationMeasuredHeightDeltaMeters,
+            calibrationMeasuredAirtimeSeconds);
+
+    calibrationLastRecordedTimestampEntry.setDouble(calibrationLastRecordedTimestampSeconds);
+    calibrationLastRecordedModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    calibrationLastRecordedHoodSetpointEntry.setDouble(calibrationHoodSetpointRotations);
+    calibrationLastRecordedHoodSetpointAngleEntry.setDouble(hoodSetpointAngle.getDegrees());
+    calibrationLastRecordedMeasuredHoodPositionEntry.setDouble(inputs.hoodPositionRotations);
+    calibrationLastRecordedMeasuredHoodAngleEntry.setDouble(measuredHoodAngle.getDegrees());
+    calibrationLastRecordedPair1SetpointEntry.setDouble(calibrationPair1WheelSetpointRadPerSec);
+    calibrationLastRecordedPair2SetpointEntry.setDouble(calibrationPair2WheelSetpointRadPerSec);
+    calibrationLastRecordedPair1MeasuredEntry.setDouble(inputs.pair1LeaderVelocityRadPerSec);
+    calibrationLastRecordedPair2MeasuredEntry.setDouble(inputs.pair2LeaderVelocityRadPerSec);
+    calibrationLastRecordedEstimatedLaunchSpeedEntry.setDouble(
+        estimatedLaunchSpeedFromMeasuredWheelsMetersPerSec);
+    calibrationLastRecordedDistanceEntry.setDouble(calibrationMeasuredDistanceMeters);
+    calibrationLastRecordedHeightDeltaEntry.setDouble(calibrationMeasuredHeightDeltaMeters);
+    calibrationLastRecordedAirtimeEntry.setDouble(calibrationMeasuredAirtimeSeconds);
+    calibrationLastRecordedVideoLaunchAngleEntry.setDouble(calibrationVideoLaunchAngleDegrees);
+    calibrationLastRecordedNotesEntry.setString(calibrationNotes);
+    calibrationLastRecordedDerivedValidEntry.setBoolean(derivedMeasurement.valid());
+    calibrationLastRecordedHorizontalVelocityEntry.setDouble(
+        derivedMeasurement.horizontalVelocityMetersPerSec());
+    calibrationLastRecordedVerticalVelocityEntry.setDouble(
+        derivedMeasurement.verticalVelocityMetersPerSec());
+    calibrationLastRecordedDerivedLaunchSpeedEntry.setDouble(
+        derivedMeasurement.launchSpeedMetersPerSec());
+    calibrationLastRecordedDerivedLaunchAngleEntry.setDouble(
+        derivedMeasurement.launchAngle().getDegrees());
+
+    String calibrationLogRoot =
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/LastRecorded");
+    Logger.recordOutput(calibrationLogRoot + "/SampleCount", calibrationRecordedSampleCount);
+    Logger.recordOutput(
+        calibrationLogRoot + "/TimestampSeconds", calibrationLastRecordedTimestampSeconds);
+    Logger.recordOutput(calibrationLogRoot + "/ModeEnabled", calibrationModeEnabled);
+    Logger.recordOutput(
+        calibrationLogRoot + "/HoodSetpointRotations", calibrationHoodSetpointRotations);
+    Logger.recordOutput(
+        calibrationLogRoot + "/HoodSetpointDegrees", hoodSetpointAngle.getDegrees());
+    Logger.recordOutput(
+        calibrationLogRoot + "/HoodMeasuredRotations", inputs.hoodPositionRotations);
+    Logger.recordOutput(
+        calibrationLogRoot + "/HoodMeasuredDegrees", measuredHoodAngle.getDegrees());
+    Logger.recordOutput(
+        calibrationLogRoot + "/Wheels/Pair1SetpointRadPerSec",
+        calibrationPair1WheelSetpointRadPerSec);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Wheels/Pair2SetpointRadPerSec",
+        calibrationPair2WheelSetpointRadPerSec);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Wheels/Pair1MeasuredRadPerSec", inputs.pair1LeaderVelocityRadPerSec);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Wheels/Pair2MeasuredRadPerSec", inputs.pair2LeaderVelocityRadPerSec);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Wheels/EstimatedLaunchSpeedFromMeasuredMetersPerSec",
+        estimatedLaunchSpeedFromMeasuredWheelsMetersPerSec);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Measurement/DistanceMeters", calibrationMeasuredDistanceMeters);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Measurement/HeightDeltaMeters",
+        calibrationMeasuredHeightDeltaMeters);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Measurement/AirtimeSeconds", calibrationMeasuredAirtimeSeconds);
+    Logger.recordOutput(
+        calibrationLogRoot + "/Measurement/VideoLaunchAngleDegrees",
+        calibrationVideoLaunchAngleDegrees);
+    Logger.recordOutput(calibrationLogRoot + "/Measurement/Notes", calibrationNotes);
+    Logger.recordOutput(calibrationLogRoot + "/Derived/Valid", derivedMeasurement.valid());
+    Logger.recordOutput(
+        calibrationLogRoot + "/Derived/HorizontalVelocityMetersPerSec",
+        derivedMeasurement.horizontalVelocityMetersPerSec());
+    Logger.recordOutput(
+        calibrationLogRoot + "/Derived/VerticalVelocityMetersPerSec",
+        derivedMeasurement.verticalVelocityMetersPerSec());
+    Logger.recordOutput(
+        calibrationLogRoot + "/Derived/LaunchSpeedMetersPerSec",
+        derivedMeasurement.launchSpeedMetersPerSec());
+    Logger.recordOutput(
+        calibrationLogRoot + "/Derived/LaunchAngleDegrees",
+        derivedMeasurement.launchAngle().getDegrees());
+  }
+
+  private HubShotSolution createCalibrationModeShotSolution() {
+    Rotation2d launchAngle = motorRotationsToHoodAngle(calibrationHoodSetpointRotations);
+    double launchSpeedMetersPerSec =
+        estimateLaunchSpeedFromWheelVelocitiesMetersPerSec(
+            calibrationPair1WheelSetpointRadPerSec, calibrationPair2WheelSetpointRadPerSec);
+    double airtimeSeconds =
+        (Double.isFinite(calibrationMeasuredAirtimeSeconds)
+                && calibrationMeasuredAirtimeSeconds > 0.0)
+            ? clampAirtime(calibrationMeasuredAirtimeSeconds)
+            : calculateAirtimeSeconds(
+                calibrationMeasuredDistanceMeters,
+                calibrationMeasuredHeightDeltaMeters,
+                launchSpeedMetersPerSec,
+                launchAngle);
+    return new HubShotSolution(
+        calibrationMeasuredDistanceMeters,
+        launchAngle,
+        launchSpeedMetersPerSec,
+        speedToPower(launchSpeedMetersPerSec),
+        airtimeSeconds,
+        true);
+  }
+
+  private CalibrationDerivedMeasurement deriveCalibrationMeasurement(
+      double distanceMeters, double heightDeltaMeters, double airtimeSeconds) {
+    if (!(distanceMeters > 0.0) || !(airtimeSeconds > 0.0) || !Double.isFinite(heightDeltaMeters)) {
+      return invalidCalibrationDerivedMeasurement();
+    }
+
+    double horizontalVelocityMetersPerSec = distanceMeters / airtimeSeconds;
+    double verticalVelocityMetersPerSec =
+        (heightDeltaMeters
+                + (0.5
+                    * ShooterConstants.gravityMetersPerSecSquared
+                    * airtimeSeconds
+                    * airtimeSeconds))
+            / airtimeSeconds;
+    double launchSpeedMetersPerSec =
+        Math.hypot(horizontalVelocityMetersPerSec, verticalVelocityMetersPerSec);
+    if (!Double.isFinite(horizontalVelocityMetersPerSec)
+        || !Double.isFinite(verticalVelocityMetersPerSec)
+        || !Double.isFinite(launchSpeedMetersPerSec)
+        || launchSpeedMetersPerSec <= 0.0) {
+      return invalidCalibrationDerivedMeasurement();
+    }
+
+    return new CalibrationDerivedMeasurement(
+        horizontalVelocityMetersPerSec,
+        verticalVelocityMetersPerSec,
+        launchSpeedMetersPerSec,
+        Rotation2d.fromRadians(
+            Math.atan2(verticalVelocityMetersPerSec, horizontalVelocityMetersPerSec)),
+        true);
+  }
+
+  private CalibrationDerivedMeasurement invalidCalibrationDerivedMeasurement() {
+    return new CalibrationDerivedMeasurement(
+        Double.NaN, Double.NaN, Double.NaN, Rotation2d.fromDegrees(Double.NaN), false);
   }
 
   private MotionCompensatedHubShotSolution solveHubShotWithMotionCompensation(
@@ -895,6 +1340,13 @@ public class Shooter extends SubsystemBase {
   }
 
   private void applyHubShotSetpoints(HubShotSolution solution) {
+    if (calibrationModeEnabled) {
+      hoodSetpointMotorRotations = calibrationHoodSetpointRotations;
+      pair1WheelSetpointRadPerSec = calibrationPair1WheelSetpointRadPerSec;
+      pair2WheelSetpointRadPerSec = calibrationPair2WheelSetpointRadPerSec;
+      return;
+    }
+
     if (!manualHoodOverrideEnabled) {
       Rotation2d clampedHoodAngle =
           new Rotation2d(
@@ -940,6 +1392,11 @@ public class Shooter extends SubsystemBase {
         wheelSpeedRadPerSec,
         ShooterConstants.minWheelSpeedRadPerSec,
         ShooterConstants.maxWheelSpeedRadPerSec);
+  }
+
+  private static double clampCalibrationWheelSpeedRadPerSec(double wheelSpeedRadPerSec) {
+    return MathUtil.clamp(
+        Math.abs(wheelSpeedRadPerSec), 0.0, ShooterConstants.maxWheelSpeedRadPerSec);
   }
 
   private static double clampWheelSpeedScale(double speedScale) {
@@ -1002,7 +1459,7 @@ public class Shooter extends SubsystemBase {
   public boolean isReadyToFire() {
     return shotControlEnabled
         && !hoodHomingActive
-        && latestHubShotSolution.feasible()
+        && (calibrationModeEnabled || latestHubShotSolution.feasible())
         && inputs.pair1Connected
         && inputs.pair2Connected
         && inputs.hoodConnected
@@ -1143,10 +1600,10 @@ public class Shooter extends SubsystemBase {
     return value.orElse(Double.NaN);
   }
 
-  private static double optionalClearanceToHubOrNaN(
-      OptionalDouble projectileHeightMeters, double hubCenterHeightMeters) {
+  private static double optionalClearanceToTargetHeightOrNaN(
+      OptionalDouble projectileHeightMeters, double targetHeightMeters) {
     return projectileHeightMeters.isPresent()
-        ? projectileHeightMeters.getAsDouble() - hubCenterHeightMeters
+        ? projectileHeightMeters.getAsDouble() - targetHeightMeters
         : Double.NaN;
   }
 
@@ -1233,6 +1690,37 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Measured/EstimatedLaunchSpeedMetersPerSec"),
         getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/ModeEnabled"),
+        calibrationModeEnabled);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/HoodSetpointRotations"),
+        calibrationHoodSetpointRotations);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/HoodSetpointDegrees"),
+        motorRotationsToHoodAngle(calibrationHoodSetpointRotations).getDegrees());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/Pair1SetpointRadPerSec"),
+        calibrationPair1WheelSetpointRadPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/Pair2SetpointRadPerSec"),
+        calibrationPair2WheelSetpointRadPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/Measurement/DistanceMeters"),
+        calibrationMeasuredDistanceMeters);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/Measurement/HeightDeltaMeters"),
+        calibrationMeasuredHeightDeltaMeters);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/Measurement/AirtimeSeconds"),
+        calibrationMeasuredAirtimeSeconds);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Shooter/Calibration/Measurement/VideoLaunchAngleDegrees"),
+        calibrationVideoLaunchAngleDegrees);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Calibration/RecordedSampleCount"),
+        calibrationRecordedSampleCount);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Simulation/Shooter/WheelsReady"),
         areWheelsReadyForSimulatedShot());

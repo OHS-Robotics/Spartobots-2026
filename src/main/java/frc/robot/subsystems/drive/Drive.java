@@ -11,7 +11,6 @@ import static edu.wpi.first.units.Units.*;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
@@ -53,6 +52,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -446,10 +446,6 @@ public class Drive extends SubsystemBase {
     return maxSpeedMetersPerSec / driveBaseRadius;
   }
 
-  public Command getAutonomousCommand() {
-    return new PathPlannerAuto("Default");
-  }
-
   public Command autoDriveUnderTrenchCommand() {
     return Commands.defer(
         () -> {
@@ -515,21 +511,6 @@ public class Drive extends SubsystemBase {
         Set.of(this));
   }
 
-  public Command autoLoadMiddleCommand() {
-    return Commands.defer(
-        () -> {
-          try {
-            return new PathPlannerAuto("BlueRightMiddleLoadAuto");
-          } catch (RuntimeException e) {
-            DriverStation.reportError(
-                "Failed to load PathPlanner auto 'BlueRightMiddleLoadAuto': " + e.getMessage(),
-                e.getStackTrace());
-            return Commands.none();
-          }
-        },
-        Set.of(this));
-  }
-
   private void determineOctant() {
     double x = this.getPose().getX();
     double y = this.getPose().getY();
@@ -559,6 +540,23 @@ public class Drive extends SubsystemBase {
 
   public Command alignToPose(Pose2d target) {
     return AutoBuilder.pathfindToPose(target, pathConstraints);
+  }
+
+  public Command pathfindToTranslation(Translation2d target) {
+    return Commands.defer(
+        () -> AutoBuilder.pathfindToPose(new Pose2d(target, getRotation()), pathConstraints),
+        Set.of(this));
+  }
+
+  public Command pathfindToTranslationAndAlignToHub(
+      Translation2d target, DoubleSupplier shotAirtimeSecondsSupplier) {
+    return pathfindToTranslationWithRotationOverride(
+            target, () -> Optional.of(getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble())))
+        .andThen(alignToHub(() -> 0.0, () -> 0.0, shotAirtimeSecondsSupplier));
+  }
+
+  public boolean isNearTranslation(Translation2d target, double toleranceMeters) {
+    return getPose().getTranslation().getDistance(target) <= toleranceMeters;
   }
 
   public Command outpostLoadAuto() {
@@ -635,16 +633,22 @@ public class Drive extends SubsystemBase {
   public Command alignToHub(
       DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
     return DriveCommands.joystickDriveAtAngle(
-        this,
-        x,
-        y,
-        () -> {
-          double airtimeSeconds = shotAirtimeSecondsSupplier.getAsDouble();
-          Pose2d baseHub = getAllianceHubPose();
-          Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
-          logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
-          return getRotationToHub(compensatedHub);
-        });
+        this, x, y, () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()));
+  }
+
+  private Command pathfindToTranslationWithRotationOverride(
+      Translation2d target, Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
+    return pathfindToTranslation(target)
+        .beforeStarting(
+            () -> pathController.setRotationTargetOverride(rotationTargetOverrideSupplier))
+        .finallyDo(pathController::clearRotationTargetOverride);
+  }
+
+  private Rotation2d getHubAimRotation(double airtimeSeconds) {
+    Pose2d baseHub = getAllianceHubPose();
+    Pose2d compensatedHub = getCompensatedHub(baseHub, airtimeSeconds);
+    logHubAimTarget(baseHub, compensatedHub, airtimeSeconds);
+    return getRotationToHub(compensatedHub);
   }
 
   private void logHubAimTarget(Pose2d baseHub, Pose2d compensatedHub, double airtimeSeconds) {

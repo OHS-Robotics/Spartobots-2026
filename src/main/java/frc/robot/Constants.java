@@ -99,4 +99,16 @@ public final class Constants {
       new Pose2d(8.75, 0.9, new Rotation2d(Units.degreesToRadians(100)));
   public static final Pose2d beginBlueLeft =
       new Pose2d(8.75, 7.2, new Rotation2d(Units.degreesToRadians(-100)));
+
+  public static final double robotStartingLineXMeters = Units.inchesToMeters(158.6);
+  public static final double competitionAutoStartLaneYMeters = 0.9;
+  public static final Pose2d competitionAutoBlueStart =
+      new Pose2d(
+          robotStartingLineXMeters, competitionAutoStartLaneYMeters, Rotation2d.fromDegrees(0.0));
+  public static final Pose2d competitionAutoRedStart =
+      new Pose2d(
+          fieldLength - robotStartingLineXMeters,
+          fieldWidth - competitionAutoStartLaneYMeters,
+          Rotation2d.fromDegrees(180.0));
+  public static final Pose2d simulationStartPose = competitionAutoBlueStart;
 }

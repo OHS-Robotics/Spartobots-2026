@@ -33,7 +33,7 @@ import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 import org.littletonrobotics.junction.Logger;
 
 public class FieldSimulationManager {
-  private static final Pose2d simStartPose = new Pose2d(3.0, 3.0, Rotation2d.kZero);
+  private static final Pose2d simStartPose = Constants.simulationStartPose;
   private static final Pose3d[] emptyPose3dArray = new Pose3d[] {};
   private static final double hubTopLengthYMeters = Units.inchesToMeters(47.0);
   private static final double hubRampLengthYMeters = Units.inchesToMeters(73.0);
