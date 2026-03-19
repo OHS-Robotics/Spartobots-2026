@@ -132,6 +132,8 @@ public final class ShooterConstants {
   public static final double hubMotionCompensationLeadSeconds = 0.03;
   public static final int hubMotionCompensationMaxIterations = 8;
   public static final double hubMotionCompensationAirtimeToleranceSeconds = 0.01;
+  public static final double hubShotPredictionLaunchLeadSeconds = 0.10;
+  public static final double hubPredictionMaxRobotAccelerationMetersPerSecSquared = 8.0;
 
   // Feed interlock readiness
   public static final double wheelReadyToleranceRatio = 0.08;

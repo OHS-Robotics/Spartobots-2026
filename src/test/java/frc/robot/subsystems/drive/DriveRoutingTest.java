@@ -1,13 +1,16 @@
 package frc.robot.subsystems.drive;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
-import frc.robot.util.NetworkTablesUtil;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,10 +19,6 @@ class DriveRoutingTest {
   @BeforeEach
   void setUp() {
     AutoBuilder.resetForTesting();
-    NetworkTablesUtil.tuningMode("Targeting/Hub")
-        .getSubTable("AutoAim")
-        .getEntry("MaxLinearAccelerationMetersPerSecSquared")
-        .setDouble(DriveConstants.maxAccelerationMeterPerSecSquared);
   }
 
   @Test
@@ -74,7 +73,7 @@ class DriveRoutingTest {
   }
 
   @Test
-  void hubAutoAimAccelerationLimitLoadsFromNetworkTables() {
+  void followNamedPathReturnsDeferredCommand() {
     Drive drive =
         new Drive(
             new GyroIO() {},
@@ -82,18 +81,30 @@ class DriveRoutingTest {
             new ModuleIO() {},
             new ModuleIO() {},
             new ModuleIO() {});
-    var entry =
-        NetworkTablesUtil.tuningMode("Targeting/Hub")
-            .getSubTable("AutoAim")
-            .getEntry("MaxLinearAccelerationMetersPerSecSquared");
+    var command = drive.followNamedPath("Depot");
+    assertNotNull(command);
+    assertEquals("DeferredCommand", command.getClass().getSimpleName());
+  }
 
-    entry.setDouble(2.25);
-    drive.periodic();
-    assertEquals(2.25, drive.getHubAutoAimLinearAccelerationLimitMetersPerSecSquared(), 1e-9);
+  @Test
+  void deployedPathFilesLoadSuccessfully() throws Exception {
+    Path pathsDirectory =
+        Path.of(System.getProperty("user.dir"), "src/main/deploy/pathplanner/paths");
+    if (!Files.isDirectory(pathsDirectory)) {
+      return;
+    }
 
-    entry.setDouble(-1.0);
-    drive.periodic();
-    assertEquals(0.0, drive.getHubAutoAimLinearAccelerationLimitMetersPerSecSquared(), 1e-9);
-    assertEquals(0.0, entry.getDouble(-999.0), 1e-9);
+    try (var pathFiles = Files.list(pathsDirectory)) {
+      var pathNames =
+          pathFiles
+              .filter(path -> path.getFileName().toString().endsWith(".path"))
+              .map(path -> path.getFileName().toString().replaceFirst("\\.path$", ""))
+              .toList();
+
+      assertFalse(pathNames.isEmpty());
+      for (String pathName : pathNames) {
+        assertNotNull(PathPlannerPath.fromPathFile(pathName), pathName);
+      }
+    }
   }
 }

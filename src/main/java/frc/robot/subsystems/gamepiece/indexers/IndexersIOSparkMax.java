@@ -19,15 +19,15 @@ public class IndexersIOSparkMax implements IndexersIO {
   private double bottomPositionRotations = 0.0;
 
   public IndexersIOSparkMax() {
-    SparkBaseConfig coastConfig =
+    SparkBaseConfig brakeConfig =
         new SparkMaxConfig()
-            .idleMode(IdleMode.kCoast)
+            .idleMode(IdleMode.kBrake)
             .smartCurrentLimit(IndexersConstants.indexerMotorCurrentLimitAmps)
             .voltageCompensation(12.0);
     topIndexer.configure(
-        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     bottomIndexer.configure(
-        coastConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+        brakeConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override

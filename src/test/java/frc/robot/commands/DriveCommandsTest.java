@@ -46,6 +46,24 @@ class DriveCommandsTest {
     assertEquals(0.0, drive.getLastRequestedSpeeds().omegaRadiansPerSecond, 1e-9);
   }
 
+  @Test
+  void joystickDriveAtAngleWithoutLinearAccelerationLimitUsesFullRequestedSpeed() {
+    RecordingDrive drive = new RecordingDrive();
+    Command command =
+        DriveCommands.joystickDriveAtAngle(drive, () -> 1.0, () -> 0.0, () -> Rotation2d.kZero);
+
+    command.initialize();
+    command.execute();
+    command.end(false);
+
+    assertEquals(
+        drive.getMaxLinearSpeedMetersPerSec(),
+        drive.getLastRequestedSpeeds().vxMetersPerSecond,
+        1e-9);
+    assertEquals(0.0, drive.getLastRequestedSpeeds().vyMetersPerSecond, 1e-9);
+    assertEquals(0.0, drive.getLastRequestedSpeeds().omegaRadiansPerSecond, 1e-9);
+  }
+
   private static class RecordingDrive extends Drive {
     private ChassisSpeeds lastRequestedSpeeds = new ChassisSpeeds();
 

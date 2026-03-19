@@ -93,8 +93,6 @@ public class GamePieceCoordinator {
 
   public void applyBasicFeed(boolean runIndexers) {
     intake.stopIntake();
-    hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
-    hopper.updateAgitator();
     if (runIndexers) {
       boolean feedAllowed =
           ShooterFeedInterlock.shouldAdvanceToShooter(
@@ -102,14 +100,19 @@ public class GamePieceCoordinator {
               shooter.isReadyToFire(),
               true /* Sensorless path: assume staged piece is present when feed is requested. */);
       if (feedAllowed) {
+        hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
+        hopper.updateAgitator();
         indexers.setTargetIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
         indexers.updateIndexers();
         recordMode("FEED");
       } else {
+        hopper.stopAgitator();
         indexers.stopIndexers();
         recordMode("FEED_INTERLOCKED");
       }
     } else {
+      hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
+      hopper.updateAgitator();
       indexers.stopIndexers();
       recordMode("MANUAL_FEED");
     }
@@ -184,6 +187,15 @@ public class GamePieceCoordinator {
 
   private void applyManualFeed(double throttle) {
     intake.stopIntake();
+    boolean allowFeedPath =
+        ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
+            true, shooterDemandFromAlign, shooter.isHubShotSolutionFeasible());
+    if (!allowFeedPath) {
+      hopper.stopAgitator();
+      Logger.recordOutput(logRoot + "/State/ManualFeedThrottleScale", 0.0);
+      return;
+    }
+
     double throttleScale = getManualFeedThrottleScale(throttle);
     hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED * throttleScale);
     hopper.updateAgitator();

@@ -12,6 +12,7 @@ import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
@@ -68,7 +69,6 @@ public class Drive extends SubsystemBase {
   private static final double defaultPathRotationKi = 0.0;
   private static final double defaultPathRotationKd = 0.2;
   private static final double minAimVectorMagnitudeMeters = 0.10;
-  private static final double maxHubAutoAimAccelerationMetersPerSecSquared = 20.0;
 
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
@@ -118,10 +118,6 @@ public class Drive extends SubsystemBase {
       hubMotionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
       hubMotionCompTuningTable.getEntry("LeadSeconds");
-  private final NetworkTable hubAutoAimTuningTable =
-      NetworkTablesUtil.tuningMode("Targeting/Hub").getSubTable("AutoAim");
-  private final NetworkTableEntry hubAutoAimLinearAccelerationLimitEntry =
-      hubAutoAimTuningTable.getEntry("MaxLinearAccelerationMetersPerSecSquared");
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
@@ -139,8 +135,6 @@ public class Drive extends SubsystemBase {
   private double pathRotationKd = defaultPathRotationKd;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
-  private double hubAutoAimLinearAccelerationLimitMetersPerSecSquared =
-      DriveConstants.maxAccelerationMeterPerSecSquared;
   public int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
@@ -558,6 +552,14 @@ public class Drive extends SubsystemBase {
         Set.of(this));
   }
 
+  public Command followNamedPath(String pathName) {
+    return Commands.defer(() -> buildNamedPathCommand(pathName, false), Set.of(this));
+  }
+
+  public Command pathfindThenFollowNamedPath(String pathName) {
+    return Commands.defer(() -> buildNamedPathCommand(pathName, true), Set.of(this));
+  }
+
   public Command pathfindToTranslationAndAlignToHub(
       Translation2d target, DoubleSupplier shotAirtimeSecondsSupplier) {
     return pathfindToTranslationWithRotationOverride(
@@ -642,11 +644,7 @@ public class Drive extends SubsystemBase {
   public Command alignToHub(
       DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
     return DriveCommands.joystickDriveAtAngle(
-        this,
-        x,
-        y,
-        () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()),
-        () -> hubAutoAimLinearAccelerationLimitMetersPerSecSquared);
+        this, x, y, () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()));
   }
 
   private Command pathfindToTranslationWithRotationOverride(
@@ -655,6 +653,20 @@ public class Drive extends SubsystemBase {
         .beforeStarting(
             () -> pathController.setRotationTargetOverride(rotationTargetOverrideSupplier))
         .finallyDo(pathController::clearRotationTargetOverride);
+  }
+
+  private Command buildNamedPathCommand(String pathName, boolean pathfindFirst) {
+    try {
+      PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
+      return pathfindFirst
+          ? AutoBuilder.pathfindThenFollowPath(path, pathConstraints)
+          : AutoBuilder.followPath(path);
+    } catch (Exception e) {
+      DriverStation.reportError(
+          "Failed to load PathPlanner path '" + pathName + "': " + e.getMessage(),
+          e.getStackTrace());
+      return Commands.none();
+    }
   }
 
   private Rotation2d getHubAimRotation(double airtimeSeconds) {
@@ -797,8 +809,6 @@ public class Drive extends SubsystemBase {
         ShooterConstants.hubMotionCompensationVelocityScale);
     hubMotionCompLeadSecondsEntry.setDefaultDouble(
         ShooterConstants.hubMotionCompensationLeadSeconds);
-    hubAutoAimLinearAccelerationLimitEntry.setDefaultDouble(
-        DriveConstants.maxAccelerationMeterPerSecSquared);
   }
 
   private void loadHubTargetingTuning() {
@@ -808,20 +818,8 @@ public class Drive extends SubsystemBase {
     hubMotionCompLeadSeconds =
         MathUtil.clamp(
             hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds), -0.25, 0.25);
-    hubAutoAimLinearAccelerationLimitMetersPerSecSquared =
-        MathUtil.clamp(
-            hubAutoAimLinearAccelerationLimitEntry.getDouble(
-                hubAutoAimLinearAccelerationLimitMetersPerSecSquared),
-            0.0,
-            maxHubAutoAimAccelerationMetersPerSecSquared);
     hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
     hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
-    hubAutoAimLinearAccelerationLimitEntry.setDouble(
-        hubAutoAimLinearAccelerationLimitMetersPerSecSquared);
-  }
-
-  double getHubAutoAimLinearAccelerationLimitMetersPerSecSquared() {
-    return hubAutoAimLinearAccelerationLimitMetersPerSecSquared;
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {

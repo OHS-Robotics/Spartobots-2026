@@ -326,6 +326,34 @@ public class RobotContainer {
         "Drive/SysId/DynamicReverse",
         "Tuning/Drive/SysId/DynamicReverse",
         drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+    operatorDashboard.registerAction(
+        "AutoAssist/Paths/BumpLeftIn",
+        "AutoAssist/Paths/BumpLeftIn",
+        drive.followNamedPath("Bump Left In"));
+    operatorDashboard.registerAction(
+        "AutoAssist/Paths/BumpLeftOut",
+        "AutoAssist/Paths/BumpLeftOut",
+        drive.followNamedPath("Bump Left Out"));
+    operatorDashboard.registerAction(
+        "AutoAssist/Paths/BumpRightIn",
+        "AutoAssist/Paths/BumpRightIn",
+        drive.followNamedPath("Bump Right In"));
+    operatorDashboard.registerAction(
+        "AutoAssist/Paths/BumpRightOut",
+        "AutoAssist/Paths/BumpRightOut",
+        drive.followNamedPath("Bump Right Out"));
+    operatorDashboard.registerAction(
+        "AutoAssist/Collect/Depot",
+        "AutoAssist/Collect/Depot",
+        buildCollectAlongPathCommand("Depot"));
+    operatorDashboard.registerAction(
+        "AutoAssist/Collect/DepotAlt",
+        "AutoAssist/Collect/DepotAlt",
+        buildCollectAlongPathCommand("Depot Alt"));
+    operatorDashboard.registerAction(
+        "AutoAssist/Collect/Middle",
+        "AutoAssist/Collect/Middle",
+        buildCollectAlongPathCommand("Middle"));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       operatorDashboard.registerAction(
@@ -333,5 +361,13 @@ public class RobotContainer {
           "Simulation/Actions/ResetField",
           Commands.runOnce(fieldSimulationManager::resetField).ignoringDisable(true));
     }
+  }
+
+  private Command buildCollectAlongPathCommand(String pathName) {
+    return Commands.deadline(
+            drive.followNamedPath(pathName),
+            Commands.run(
+                () -> gamePieceCoordinator.applyBasicCollect(true), intake, hopper, indexers))
+        .finallyDo(gamePieceCoordinator::stopGamePieceFlow);
   }
 }

@@ -79,6 +79,8 @@ public class Shooter extends SubsystemBase {
   private double hoodHomingStallSeconds = 0.0;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
+  private double hubShotPredictionLaunchLeadSeconds =
+      ShooterConstants.hubShotPredictionLaunchLeadSeconds;
   private double hubAimHeightOffsetMeters = ShooterConstants.defaultHubAimHeightOffsetMeters;
   private boolean calibrationModeEnabled = false;
   private double calibrationHoodSetpointRotations = 0.0;
@@ -93,9 +95,11 @@ public class Shooter extends SubsystemBase {
   private int calibrationRecordedSampleCount = 0;
   private double calibrationLastRecordedTimestampSeconds = Double.NaN;
   private double lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
+  private double lastHubMotionSampleTimestampSeconds = Double.NaN;
   private Pose2d latestHubRobotPose = Pose2d.kZero;
   private Pose2d latestHubPose = Pose2d.kZero;
   private Translation2d latestRobotFieldVelocityMetersPerSec = new Translation2d();
+  private Translation2d latestRobotFieldAccelerationMetersPerSecSquared = new Translation2d();
   private HubShotSolution latestHubShotSolution =
       new HubShotSolution(
           0.0,
@@ -192,6 +196,8 @@ public class Shooter extends SubsystemBase {
       motionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
       motionCompTuningTable.getEntry("LeadSeconds");
+  private final NetworkTableEntry hubShotPredictionLaunchLeadSecondsEntry =
+      motionCompTuningTable.getEntry("PredictionLaunchLeadSeconds");
   private final NetworkTableEntry calibrationModeEnabledEntry =
       calibrationTuningTable.getEntry("Enabled");
   private final NetworkTableEntry calibrationHoodSetpointRotationsEntry =
@@ -537,6 +543,7 @@ public class Shooter extends SubsystemBase {
         robotFieldVelocityMetersPerSec != null
             ? robotFieldVelocityMetersPerSec
             : new Translation2d();
+    updateRobotMotionState(robotFieldVelocity);
     latestHubRobotPose = robotPose;
     latestHubPose = hubPose;
     latestRobotFieldVelocityMetersPerSec = robotFieldVelocity;
@@ -596,6 +603,8 @@ public class Shooter extends SubsystemBase {
         ShooterConstants.hubMotionCompensationVelocityScale);
     hubMotionCompLeadSecondsEntry.setDefaultDouble(
         ShooterConstants.hubMotionCompensationLeadSeconds);
+    hubShotPredictionLaunchLeadSecondsEntry.setDefaultDouble(
+        ShooterConstants.hubShotPredictionLaunchLeadSeconds);
     hoodMinAngleFromFloorEntry.setDefaultDouble(
         ShooterConstants.minHoodAngleFromFloor.getDegrees());
     hoodMaxAngleFromFloorEntry.setDefaultDouble(
@@ -641,6 +650,9 @@ public class Shooter extends SubsystemBase {
     hubMotionCompLeadSeconds =
         clampMotionCompLeadSeconds(
             hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds));
+    hubShotPredictionLaunchLeadSeconds =
+        clampPredictionLaunchLeadSeconds(
+            hubShotPredictionLaunchLeadSecondsEntry.getDouble(hubShotPredictionLaunchLeadSeconds));
     calibrationModeEnabled = calibrationModeEnabledEntry.getBoolean(calibrationModeEnabled);
     if (calibrationModeEnabled) {
       manualHoodOverrideEnabled = false;
@@ -694,6 +706,7 @@ public class Shooter extends SubsystemBase {
     hoodPositionKdEntry.setDouble(hoodPositionKd);
     hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
     hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
+    hubShotPredictionLaunchLeadSecondsEntry.setDouble(hubShotPredictionLaunchLeadSeconds);
     calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
     calibrationHoodSetpointRotationsEntry.setDouble(calibrationHoodSetpointRotations);
     calibrationPair1WheelSetpointEntry.setDouble(calibrationPair1WheelSetpointRadPerSec);
@@ -845,9 +858,39 @@ public class Shooter extends SubsystemBase {
             latestHubRobotPose, latestHubPose, latestRobotFieldVelocityMetersPerSec);
   }
 
+  private void updateRobotMotionState(Translation2d robotFieldVelocityMetersPerSec) {
+    double nowSeconds = Timer.getFPGATimestamp();
+    Translation2d measuredAccelerationMetersPerSecSquared = new Translation2d();
+    if (Double.isFinite(lastHubMotionSampleTimestampSeconds)) {
+      double dtSeconds = nowSeconds - lastHubMotionSampleTimestampSeconds;
+      double effectiveDtSeconds =
+          Double.isFinite(dtSeconds) && dtSeconds >= (0.5 * loopPeriodSeconds) && dtSeconds <= 0.1
+              ? dtSeconds
+              : loopPeriodSeconds;
+      measuredAccelerationMetersPerSecSquared =
+          clampVectorMagnitude(
+              robotFieldVelocityMetersPerSec
+                  .minus(latestRobotFieldVelocityMetersPerSec)
+                  .times(1.0 / effectiveDtSeconds),
+              ShooterConstants.hubPredictionMaxRobotAccelerationMetersPerSecSquared);
+    }
+    latestRobotFieldAccelerationMetersPerSecSquared = measuredAccelerationMetersPerSecSquared;
+    lastHubMotionSampleTimestampSeconds = nowSeconds;
+  }
+
   private PredictedHubShot predictCurrentHubShot(
       Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
-    Translation2d launchOrigin = HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
+    Translation2d launchOrigin =
+        getPredictedLaunchOriginFieldPosition(
+            robotPose,
+            robotFieldVelocityMetersPerSec,
+            latestRobotFieldAccelerationMetersPerSecSquared,
+            hubShotPredictionLaunchLeadSeconds);
+    Translation2d projectedRobotFieldVelocityAtLaunch =
+        getPredictedRobotFieldVelocityAtLaunch(
+            robotFieldVelocityMetersPerSec,
+            latestRobotFieldAccelerationMetersPerSecSquared,
+            hubShotPredictionLaunchLeadSeconds);
     Rotation2d launchYaw = robotPose.getRotation().plus(ShooterConstants.shooterFacingOffset);
     Rotation2d launchPitch = getMeasuredHoodAngle();
     double launchSpeedMetersPerSec =
@@ -858,7 +901,7 @@ public class Shooter extends SubsystemBase {
     double horizontalLaunchSpeedMetersPerSec =
         launchSpeedMetersPerSec * Math.cos(launchPitch.getRadians());
     Translation2d projectileFieldVelocityMetersPerSec =
-        robotFieldVelocityMetersPerSec.plus(
+        projectedRobotFieldVelocityAtLaunch.plus(
             new Translation2d(horizontalLaunchSpeedMetersPerSec, launchYaw));
     double horizontalVelocityMagnitudeSquared =
         projectileFieldVelocityMetersPerSec.getNorm()
@@ -909,6 +952,29 @@ public class Shooter extends SubsystemBase {
         verticalErrorMeters,
         evaluationTimeSeconds,
         descendingAtTarget);
+  }
+
+  private Translation2d getPredictedLaunchOriginFieldPosition(
+      Pose2d robotPose,
+      Translation2d robotFieldVelocityMetersPerSec,
+      Translation2d robotFieldAccelerationMetersPerSecSquared,
+      double leadSeconds) {
+    Translation2d launchOrigin = HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
+    double clampedLeadSeconds = clampPredictionLaunchLeadSeconds(leadSeconds);
+    return launchOrigin
+        .plus(robotFieldVelocityMetersPerSec.times(clampedLeadSeconds))
+        .plus(
+            robotFieldAccelerationMetersPerSecSquared.times(
+                0.5 * clampedLeadSeconds * clampedLeadSeconds));
+  }
+
+  private Translation2d getPredictedRobotFieldVelocityAtLaunch(
+      Translation2d robotFieldVelocityMetersPerSec,
+      Translation2d robotFieldAccelerationMetersPerSecSquared,
+      double leadSeconds) {
+    double clampedLeadSeconds = clampPredictionLaunchLeadSeconds(leadSeconds);
+    return robotFieldVelocityMetersPerSec.plus(
+        robotFieldAccelerationMetersPerSecSquared.times(clampedLeadSeconds));
   }
 
   private void clampHoodSetpointToCalibrationRange() {
@@ -1517,12 +1583,30 @@ public class Shooter extends SubsystemBase {
     return MathUtil.clamp(throttleScale, 0.0, 1.0);
   }
 
+  private static Translation2d clampVectorMagnitude(Translation2d vector, double maxMagnitude) {
+    if (!Double.isFinite(maxMagnitude) || maxMagnitude <= 0.0) {
+      return new Translation2d();
+    }
+    double vectorMagnitude = vector.getNorm();
+    if (!Double.isFinite(vectorMagnitude)) {
+      return new Translation2d();
+    }
+    if (vectorMagnitude <= maxMagnitude) {
+      return vector;
+    }
+    return vector.times(maxMagnitude / vectorMagnitude);
+  }
+
   private static double clampMotionCompVelocityScale(double velocityScale) {
     return MathUtil.clamp(velocityScale, 0.0, 3.0);
   }
 
   private static double clampMotionCompLeadSeconds(double leadSeconds) {
     return MathUtil.clamp(leadSeconds, -0.25, 0.25);
+  }
+
+  private static double clampPredictionLaunchLeadSeconds(double leadSeconds) {
+    return MathUtil.clamp(leadSeconds, 0.0, 0.25);
   }
 
   private static double normalizeDirection(double direction) {
@@ -1859,6 +1943,15 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedDescendingAtTarget"),
         latestPredictedHubShot.descendingAtTarget());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/RobotFieldAccelerationX"),
+        latestRobotFieldAccelerationMetersPerSecSquared.getX());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/RobotFieldAccelerationY"),
+        latestRobotFieldAccelerationMetersPerSecSquared.getY());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictionLaunchLeadSeconds"),
+        hubShotPredictionLaunchLeadSeconds);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedScoreToleranceXYMeters"),
         ShooterConstants.hubPredictedScoreToleranceXYMeters);

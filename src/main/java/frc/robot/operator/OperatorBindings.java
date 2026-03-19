@@ -11,6 +11,7 @@ import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
 import frc.robot.targeting.FieldTargetingService;
 import frc.robot.targeting.HubTargetingService;
+import java.util.function.DoubleSupplier;
 
 public class OperatorBindings {
   private static final double manualHoodStepDegrees = 0.35;
@@ -58,11 +59,14 @@ public class OperatorBindings {
   }
 
   private void configureDriverBindings() {
+    DoubleSupplier driverForwardSupplier = driverController::getLeftY;
+    DoubleSupplier driverStrafeSupplier = driverController::getLeftX;
+
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
-            () -> driverController.getLeftY(),
-            () -> driverController.getLeftX(),
+            driverForwardSupplier,
+            driverStrafeSupplier,
             () -> -driverController.getRightX(),
             () -> false));
 
@@ -70,9 +74,7 @@ public class OperatorBindings {
         .rightStick()
         .whileTrue(
             hubTargetingService.alignToHub(
-                () -> -driverController.getLeftY(),
-                () -> -driverController.getLeftX(),
-                gamePieceCoordinator));
+                driverForwardSupplier, driverStrafeSupplier, gamePieceCoordinator));
 
     new Trigger(() -> driverController.getRightTriggerAxis() > 0.02)
         .whileTrue(
@@ -91,9 +93,7 @@ public class OperatorBindings {
                 "AutoAssist/DriveUnderTrench", fieldTargetingService::autoDriveUnderTrenchCommand));
     driverController
         .leftStick()
-        .onTrue(
-            autoAssistController.scheduleAction(
-                "AutoAssist/ParkAtLadderL1", fieldTargetingService::parkAtLadderL1Command));
+        .whileTrue(Commands.run(drive::stopWithX, drive));
 
     if (!enableMechanismBringupBindings) {
       new Trigger(() -> driverController.getHID().getRawButton(topLeftPaddleButton))

@@ -22,7 +22,7 @@ public class HopperIOSparkMax implements HopperIO {
   public HopperIOSparkMax() {
     SparkBaseConfig agitatorConfig =
         new SparkMaxConfig()
-            .idleMode(IdleMode.kCoast)
+            .idleMode(IdleMode.kBrake)
             .smartCurrentLimit(HopperConstants.hopperAgitatorCurrentLimitAmps)
             .voltageCompensation(12.0);
     SparkBaseConfig extensionConfig =

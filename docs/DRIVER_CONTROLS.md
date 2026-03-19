@@ -13,7 +13,7 @@ The default layout is a single-controller scheme on the driver controller at USB
 | Left trigger | Hold manual feed plus indexers |
 | Left bumper | Cancel the active auto-assist |
 | Right bumper | Schedule `AutoAssist/DriveUnderTrench` |
-| Left stick press | Schedule `AutoAssist/ParkAtLadderL1` |
+| Left stick press | Hold X-lock on the swerve modules |
 | `Y` | Hold collect with indexers enabled |
 | `X` | Hold collect without indexers |
 | `A` | Hold reverse on intake, hopper, and indexers |

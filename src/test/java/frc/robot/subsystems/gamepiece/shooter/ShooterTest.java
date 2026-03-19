@@ -78,6 +78,36 @@ class ShooterTest {
   }
 
   @Test
+  void readyToFireRejectsShotDuringRapidLateralAcceleration() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    shooter.setCalibrationModeEnabled(false);
+    Pose2d hubPose = new Pose2d(5.0, 2.0, Rotation2d.kZero);
+    Pose2d robotPose =
+        new Pose2d(
+            2.0,
+            2.0,
+            HubTargetingGeometry.getRobotRotationToAimAtHub(
+                new Pose2d(2.0, 2.0, Rotation2d.kZero), hubPose));
+
+    shooter.updateHubShotSolution(robotPose, hubPose, new Translation2d());
+    Shooter.HubShotSolution solution =
+        shooter.updateHubShotSolution(robotPose, hubPose, new Translation2d(0.0, 0.10));
+
+    assertTrue(solution.feasible());
+
+    shooter.setShotControlEnabled(true);
+    shooter.periodic();
+    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
+    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
+    shooter.periodic();
+
+    assertTrue(shooter.isSpinupComplete());
+    assertFalse(shooter.isHubShotPredictedToScore());
+    assertFalse(shooter.isReadyToFire());
+  }
+
+  @Test
   void spinupCanCompleteEvenWhenShotSolutionIsInfeasible() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);
