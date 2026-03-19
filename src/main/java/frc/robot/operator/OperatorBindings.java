@@ -91,9 +91,7 @@ public class OperatorBindings {
         .onTrue(
             autoAssistController.scheduleAction(
                 "AutoAssist/DriveUnderTrench", fieldTargetingService::autoDriveUnderTrenchCommand));
-    driverController
-        .leftStick()
-        .whileTrue(Commands.run(drive::stopWithX, drive));
+    driverController.leftStick().whileTrue(Commands.run(drive::stopWithX, drive));
 
     if (!enableMechanismBringupBindings) {
       new Trigger(() -> driverController.getHID().getRawButton(topLeftPaddleButton))
