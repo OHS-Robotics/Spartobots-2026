@@ -21,7 +21,16 @@ public interface HopperIO {
 
   public default void setAgitatorOutput(double output) {}
 
+  public default void setAgitatorVelocitySetpointRotationsPerSec(double velocityRotationsPerSec) {}
+
   public default void setExtensionOutput(double output) {}
+
+  public default void setExtensionPositionSetpointRotations(double positionRotations) {}
+
+  public default void setAgitatorVelocityClosedLoopGains(
+      double kp, double ki, double kd, double kv) {}
+
+  public default void setExtensionPositionClosedLoopGains(double kp, double ki, double kd) {}
 
   public default void resetSimulationState() {}
 }

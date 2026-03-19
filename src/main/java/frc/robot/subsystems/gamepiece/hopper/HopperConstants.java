@@ -30,6 +30,20 @@ public final class HopperConstants {
   public static final double defaultHopperAgitatorSpeed = 0.5;
   public static final double defaultHopperExtensionSpeedScale = 1.0;
 
+  // Calibration-mode closed-loop defaults
+  public static final double estimatedAgitatorMaxVelocityRotationsPerSec = 12.0;
+  public static final double defaultCalibrationAgitatorVelocitySetpointRotationsPerSec = 0.0;
+  public static final double defaultCalibrationExtensionPositionSetpointRotations =
+      defaultHopperExtensionRetractedPositionRotations;
+  public static final double hopperAgitatorVelocityKp = 0.03;
+  public static final double hopperAgitatorVelocityKi = 0.0;
+  public static final double hopperAgitatorVelocityKd = 0.0;
+  public static final double hopperAgitatorVelocityKv =
+      1.0 / estimatedAgitatorMaxVelocityRotationsPerSec;
+  public static final double hopperExtensionPositionKp = 1.2;
+  public static final double hopperExtensionPositionKi = 0.0;
+  public static final double hopperExtensionPositionKd = 0.0;
+
   // Default direction/inversion
   public static final double defaultHopperAgitatorDirection = -1.0;
   public static final boolean defaultHopperExtensionInverted = false;

@@ -25,6 +25,15 @@ public final class IndexersConstants {
   public static final double defaultTopIndexerSpeedScale = 1.0;
   public static final double defaultBottomIndexerSpeedScale = 1.25;
 
+  // Calibration-mode closed-loop defaults
+  public static final double estimatedIndexerMaxVelocityRotationsPerSec = 12.0;
+  public static final double defaultCalibrationTopVelocitySetpointRotationsPerSec = 0.0;
+  public static final double defaultCalibrationBottomVelocitySetpointRotationsPerSec = 0.0;
+  public static final double indexerVelocityKp = 0.03;
+  public static final double indexerVelocityKi = 0.0;
+  public static final double indexerVelocityKd = 0.0;
+  public static final double indexerVelocityKv = 1.0 / estimatedIndexerMaxVelocityRotationsPerSec;
+
   // Default direction/inversion
   public static final double defaultTopIndexerDirection = 1.0;
   public static final double defaultBottomIndexerDirection = -1.0;

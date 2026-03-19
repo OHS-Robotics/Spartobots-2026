@@ -37,6 +37,18 @@ public class Intake extends SubsystemBase {
   private double intakePivotCalibrationStallSeconds = 0.0;
   private double intakePivotCalibrationRetractedHardStopRotations = 0.0;
   private double intakePivotCalibrationExtendedHardStopRotations = 0.0;
+  private boolean calibrationModeEnabled = false;
+  private double calibrationDriveVelocitySetpointRotationsPerSec =
+      IntakeConstants.defaultCalibrationDriveVelocitySetpointRotationsPerSec;
+  private double calibrationPivotPositionSetpointRotations =
+      IntakeConstants.defaultCalibrationPivotPositionSetpointRotations;
+  private double driveVelocityKp = IntakeConstants.intakeDriveVelocityKp;
+  private double driveVelocityKi = IntakeConstants.intakeDriveVelocityKi;
+  private double driveVelocityKd = IntakeConstants.intakeDriveVelocityKd;
+  private double driveVelocityKv = IntakeConstants.intakeDriveVelocityKv;
+  private double pivotPositionKp = IntakeConstants.intakePivotPositionKp;
+  private double pivotPositionKi = IntakeConstants.intakePivotPositionKi;
+  private double pivotPositionKd = IntakeConstants.intakePivotPositionKd;
 
   private final IntakeIO io;
   private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
@@ -44,7 +56,11 @@ public class Intake extends SubsystemBase {
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(IntakeConstants.configTableName);
   private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommon(subsystemTable);
+  private final NetworkTable pidTuningTable =
+      NetworkTablesUtil.tuningMode(subsystemTable).getSubTable("PID");
   private final NetworkTable telemetryTable = NetworkTablesUtil.telemetry(subsystemTable);
+  private final NetworkTable calibrationTuningTable = tuningTable.getSubTable("Calibration");
+  private final NetworkTable calibrationTelemetryTable = telemetryTable.getSubTable("Calibration");
 
   private final NetworkTableEntry intakeSpeedEntry = tuningTable.getEntry("Drive/Speed");
   private final NetworkTableEntry intakePivotSpeedScaleEntry =
@@ -56,6 +72,26 @@ public class Intake extends SubsystemBase {
       tuningTable.getEntry("Pivot/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry intakePivotExtendedPositionEntry =
       tuningTable.getEntry("Pivot/Calibration/ExtendedPositionRotations");
+  private final NetworkTableEntry driveVelocityKpEntry =
+      pidTuningTable.getEntry("Drive/Velocity/Kp");
+  private final NetworkTableEntry driveVelocityKiEntry =
+      pidTuningTable.getEntry("Drive/Velocity/Ki");
+  private final NetworkTableEntry driveVelocityKdEntry =
+      pidTuningTable.getEntry("Drive/Velocity/Kd");
+  private final NetworkTableEntry driveVelocityKvEntry =
+      pidTuningTable.getEntry("Drive/Velocity/Kv");
+  private final NetworkTableEntry pivotPositionKpEntry =
+      pidTuningTable.getEntry("Pivot/Position/Kp");
+  private final NetworkTableEntry pivotPositionKiEntry =
+      pidTuningTable.getEntry("Pivot/Position/Ki");
+  private final NetworkTableEntry pivotPositionKdEntry =
+      pidTuningTable.getEntry("Pivot/Position/Kd");
+  private final NetworkTableEntry calibrationModeEnabledEntry =
+      calibrationTuningTable.getEntry("Enabled");
+  private final NetworkTableEntry calibrationDriveVelocitySetpointEntry =
+      calibrationTuningTable.getEntry("Drive/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationPivotPositionSetpointEntry =
+      calibrationTuningTable.getEntry("Pivot/PositionSetpointRotations");
   private final NetworkTableEntry intakePivotEncoderPositionEntry =
       telemetryTable.getEntry("Pivot/EncoderPositionRotations");
   private final NetworkTableEntry intakePivotEncoderVelocityEntry =
@@ -70,6 +106,16 @@ public class Intake extends SubsystemBase {
       telemetryTable.getEntry("Drive/EstimatedVelocityRotationsPerSec");
   private final NetworkTableEntry intakeDriveEstimatedPositionEntry =
       telemetryTable.getEntry("Drive/EstimatedPositionRotations");
+  private final NetworkTableEntry calibrationModeTelemetryEntry =
+      calibrationTelemetryTable.getEntry("ModeEnabled");
+  private final NetworkTableEntry calibrationConfiguredDriveVelocityEntry =
+      calibrationTelemetryTable.getEntry("Configured/Drive/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationConfiguredPivotPositionEntry =
+      calibrationTelemetryTable.getEntry("Configured/Pivot/PositionSetpointRotations");
+  private final NetworkTableEntry calibrationMeasuredDriveVelocityEntry =
+      calibrationTelemetryTable.getEntry("Measured/Drive/VelocityRotationsPerSec");
+  private final NetworkTableEntry calibrationMeasuredPivotPositionEntry =
+      calibrationTelemetryTable.getEntry("Measured/Pivot/PositionRotations");
 
   public Intake() {
     this(new IntakeIO() {});
@@ -86,15 +132,24 @@ public class Intake extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs(NetworkTablesUtil.logPath("GamePiece/Intake/Inputs"), inputs);
     loadNetworkTableConfig();
+    io.setDriveVelocityClosedLoopGains(
+        driveVelocityKp, driveVelocityKi, driveVelocityKd, driveVelocityKv);
+    io.setPivotPositionClosedLoopGains(pivotPositionKp, pivotPositionKi, pivotPositionKd);
     if (intakePivotCalibrationActive) {
       updateIntakePivotCalibration();
+    } else if (calibrationModeEnabled) {
+      applyCalibrationControl();
     }
     publishPivotEncoderToNetworkTables();
     publishActuatorStateToNetworkTables();
+    publishCalibrationTelemetry();
     logTelemetry();
   }
 
   public void updateIntake() {
+    if (calibrationModeEnabled) {
+      return;
+    }
     lastAppliedIntakeDriveSpeed =
         applyDirection(
             targetIntakeSpeed,
@@ -129,7 +184,7 @@ public class Intake extends SubsystemBase {
   }
 
   public void setIntakePivotSpeed(double speed) {
-    if (intakePivotCalibrationActive) {
+    if (intakePivotCalibrationActive || calibrationModeEnabled) {
       return;
     }
     lastAppliedIntakePivotSpeed =
@@ -170,6 +225,39 @@ public class Intake extends SubsystemBase {
 
   public boolean didLastIntakePivotCalibrationSucceed() {
     return intakePivotCalibrationSucceeded;
+  }
+
+  public boolean isCalibrationModeEnabled() {
+    return calibrationModeEnabled;
+  }
+
+  public void setCalibrationModeEnabled(boolean enabled) {
+    calibrationModeEnabled = enabled;
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    if (!enabled) {
+      stopIntake();
+      stopIntakePivot();
+    }
+  }
+
+  public void setCalibrationDriveVelocitySetpointRotationsPerSec(double velocityRotationsPerSec) {
+    calibrationDriveVelocitySetpointRotationsPerSec =
+        sanitizeFinite(velocityRotationsPerSec, calibrationDriveVelocitySetpointRotationsPerSec);
+    calibrationDriveVelocitySetpointEntry.setDouble(
+        calibrationDriveVelocitySetpointRotationsPerSec);
+  }
+
+  public void setCalibrationPivotPositionSetpointRotations(double positionRotations) {
+    calibrationPivotPositionSetpointRotations = clampToPivotCalibrationRange(positionRotations);
+    calibrationPivotPositionSetpointEntry.setDouble(calibrationPivotPositionSetpointRotations);
+  }
+
+  public Command enableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(true), this).ignoringDisable(true);
+  }
+
+  public Command disableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(false), this).ignoringDisable(true);
   }
 
   public Command toggleIntakeCommand() {
@@ -214,6 +302,18 @@ public class Intake extends SubsystemBase {
         IntakeConstants.defaultIntakePivotExtendedPositionRotations);
     intakeDriveDirectionEntry.setDefaultDouble(IntakeConstants.defaultIntakeDriveDirection);
     intakePivotInvertedEntry.setDefaultBoolean(IntakeConstants.defaultIntakePivotInverted);
+    driveVelocityKpEntry.setDefaultDouble(IntakeConstants.intakeDriveVelocityKp);
+    driveVelocityKiEntry.setDefaultDouble(IntakeConstants.intakeDriveVelocityKi);
+    driveVelocityKdEntry.setDefaultDouble(IntakeConstants.intakeDriveVelocityKd);
+    driveVelocityKvEntry.setDefaultDouble(IntakeConstants.intakeDriveVelocityKv);
+    pivotPositionKpEntry.setDefaultDouble(IntakeConstants.intakePivotPositionKp);
+    pivotPositionKiEntry.setDefaultDouble(IntakeConstants.intakePivotPositionKi);
+    pivotPositionKdEntry.setDefaultDouble(IntakeConstants.intakePivotPositionKd);
+    calibrationModeEnabledEntry.setDefaultBoolean(false);
+    calibrationDriveVelocitySetpointEntry.setDefaultDouble(
+        IntakeConstants.defaultCalibrationDriveVelocitySetpointRotationsPerSec);
+    calibrationPivotPositionSetpointEntry.setDefaultDouble(
+        IntakeConstants.defaultCalibrationPivotPositionSetpointRotations);
   }
 
   private void loadNetworkTableConfig() {
@@ -232,6 +332,43 @@ public class Intake extends SubsystemBase {
         normalizeDirection(
             intakeDriveDirectionEntry.getDouble(IntakeConstants.defaultIntakeDriveDirection));
     intakeDriveDirectionEntry.setDouble(intakeDriveDirection);
+    driveVelocityKp =
+        sanitizeFinite(driveVelocityKpEntry.getDouble(driveVelocityKp), driveVelocityKp);
+    driveVelocityKi =
+        sanitizeFinite(driveVelocityKiEntry.getDouble(driveVelocityKi), driveVelocityKi);
+    driveVelocityKd =
+        sanitizeFinite(driveVelocityKdEntry.getDouble(driveVelocityKd), driveVelocityKd);
+    driveVelocityKv =
+        sanitizeFinite(driveVelocityKvEntry.getDouble(driveVelocityKv), driveVelocityKv);
+    pivotPositionKp =
+        sanitizeFinite(pivotPositionKpEntry.getDouble(pivotPositionKp), pivotPositionKp);
+    pivotPositionKi =
+        sanitizeFinite(pivotPositionKiEntry.getDouble(pivotPositionKi), pivotPositionKi);
+    pivotPositionKd =
+        sanitizeFinite(pivotPositionKdEntry.getDouble(pivotPositionKd), pivotPositionKd);
+    calibrationModeEnabled = calibrationModeEnabledEntry.getBoolean(calibrationModeEnabled);
+    calibrationDriveVelocitySetpointRotationsPerSec =
+        sanitizeFinite(
+            calibrationDriveVelocitySetpointEntry.getDouble(
+                calibrationDriveVelocitySetpointRotationsPerSec),
+            calibrationDriveVelocitySetpointRotationsPerSec);
+    calibrationPivotPositionSetpointRotations =
+        clampToPivotCalibrationRange(
+            sanitizeFinite(
+                calibrationPivotPositionSetpointEntry.getDouble(
+                    calibrationPivotPositionSetpointRotations),
+                calibrationPivotPositionSetpointRotations));
+    driveVelocityKpEntry.setDouble(driveVelocityKp);
+    driveVelocityKiEntry.setDouble(driveVelocityKi);
+    driveVelocityKdEntry.setDouble(driveVelocityKd);
+    driveVelocityKvEntry.setDouble(driveVelocityKv);
+    pivotPositionKpEntry.setDouble(pivotPositionKp);
+    pivotPositionKiEntry.setDouble(pivotPositionKi);
+    pivotPositionKdEntry.setDouble(pivotPositionKd);
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    calibrationDriveVelocitySetpointEntry.setDouble(
+        calibrationDriveVelocitySetpointRotationsPerSec);
+    calibrationPivotPositionSetpointEntry.setDouble(calibrationPivotPositionSetpointRotations);
   }
 
   private double applyScaleAndInversion(
@@ -257,6 +394,14 @@ public class Intake extends SubsystemBase {
     return MathUtil.clamp(speedScale, 0.0, 1.0);
   }
 
+  private void applyCalibrationControl() {
+    io.setDriveVelocitySetpointRotationsPerSec(calibrationDriveVelocitySetpointRotationsPerSec);
+    io.setPivotPositionSetpointRotations(calibrationPivotPositionSetpointRotations);
+    lastAppliedIntakeDriveSpeed = 0.0;
+    lastAppliedIntakePivotSpeed = 0.0;
+    intakeRunning = Math.abs(calibrationDriveVelocitySetpointRotationsPerSec) > 1e-3;
+  }
+
   private void publishPivotEncoderToNetworkTables() {
     intakePivotEncoderPositionEntry.setDouble(getIntakePivotMeasuredPositionRotations());
     intakePivotEncoderVelocityEntry.setDouble(inputs.pivotVelocityRpm);
@@ -268,6 +413,15 @@ public class Intake extends SubsystemBase {
     intakeDriveEstimatedVelocityEntry.setDouble(inputs.driveVelocityRotationsPerSec);
     intakeDriveEstimatedPositionEntry.setDouble(inputs.drivePositionRotations);
     intakePivotAppliedOutputEntry.setDouble(inputs.pivotAppliedOutput);
+  }
+
+  private void publishCalibrationTelemetry() {
+    calibrationModeTelemetryEntry.setBoolean(calibrationModeEnabled);
+    calibrationConfiguredDriveVelocityEntry.setDouble(
+        calibrationDriveVelocitySetpointRotationsPerSec);
+    calibrationConfiguredPivotPositionEntry.setDouble(calibrationPivotPositionSetpointRotations);
+    calibrationMeasuredDriveVelocityEntry.setDouble(inputs.driveVelocityRotationsPerSec);
+    calibrationMeasuredPivotPositionEntry.setDouble(inputs.pivotPositionRotations);
   }
 
   public double getIntakePivotMeasuredPositionRotations() {
@@ -316,6 +470,17 @@ public class Intake extends SubsystemBase {
 
   private static double normalizeDirection(double direction) {
     return direction < 0.0 ? -1.0 : 1.0;
+  }
+
+  private static double sanitizeFinite(double value, double fallback) {
+    return Double.isFinite(value) ? value : fallback;
+  }
+
+  private double clampToPivotCalibrationRange(double positionRotations) {
+    return MathUtil.clamp(
+        positionRotations,
+        intakePivotRetractedPositionRotations,
+        intakePivotExtendedPositionRotations);
   }
 
   private void startIntakePivotCalibration() {
@@ -397,6 +562,9 @@ public class Intake extends SubsystemBase {
     setPivotCalibrationFromHardStops(
         intakePivotCalibrationRetractedHardStopRotations,
         intakePivotCalibrationExtendedHardStopRotations);
+    calibrationPivotPositionSetpointRotations =
+        clampToPivotCalibrationRange(calibrationPivotPositionSetpointRotations);
+    calibrationPivotPositionSetpointEntry.setDouble(calibrationPivotPositionSetpointRotations);
   }
 
   private void setPivotCalibrationFromHardStops(
@@ -438,6 +606,17 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Intake/Config/PivotExtendedPositionRotations"),
         intakePivotExtendedPositionRotations);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Intake/Calibration/ClosedLoop/Enabled"),
+        calibrationModeEnabled);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Intake/Calibration/ClosedLoop/DriveVelocitySetpointRotationsPerSec"),
+        calibrationDriveVelocitySetpointRotationsPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Intake/Calibration/ClosedLoop/PivotPositionSetpointRotations"),
+        calibrationPivotPositionSetpointRotations);
 
     Logger.recordOutput(NetworkTablesUtil.logPath("GamePiece/Intake/State/Running"), intakeRunning);
     Logger.recordOutput(

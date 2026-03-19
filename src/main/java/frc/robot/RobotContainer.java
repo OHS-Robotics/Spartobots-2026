@@ -303,6 +303,30 @@ public class RobotContainer {
         "Calibration/GamePiece/Intake/CalibratePivotToHardStops",
         intake.calibrateIntakePivotToHardStopsCommand());
     operatorDashboard.registerAction(
+        "Intake/Calibration/EnableMode",
+        "Calibration/GamePiece/Intake/EnableClosedLoopMode",
+        intake.enableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Intake/Calibration/DisableMode",
+        "Calibration/GamePiece/Intake/DisableClosedLoopMode",
+        intake.disableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Hopper/Calibration/EnableMode",
+        "Calibration/GamePiece/Hopper/EnableClosedLoopMode",
+        hopper.enableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Hopper/Calibration/DisableMode",
+        "Calibration/GamePiece/Hopper/DisableClosedLoopMode",
+        hopper.disableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Indexers/Calibration/EnableMode",
+        "Calibration/GamePiece/Indexers/EnableClosedLoopMode",
+        indexers.enableCalibrationModeCommand());
+    operatorDashboard.registerAction(
+        "Indexers/Calibration/DisableMode",
+        "Calibration/GamePiece/Indexers/DisableClosedLoopMode",
+        indexers.disableCalibrationModeCommand());
+    operatorDashboard.registerAction(
         "Drive/WheelRadiusCharacterization",
         "Tuning/Drive/WheelRadiusCharacterization",
         DriveCommands.wheelRadiusCharacterization(drive));

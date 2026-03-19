@@ -21,7 +21,13 @@ public interface IndexersIO {
 
   public default void setTopOutput(double output) {}
 
+  public default void setTopVelocitySetpointRotationsPerSec(double velocityRotationsPerSec) {}
+
   public default void setBottomOutput(double output) {}
+
+  public default void setBottomVelocitySetpointRotationsPerSec(double velocityRotationsPerSec) {}
+
+  public default void setVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {}
 
   public default void resetSimulationState() {}
 }

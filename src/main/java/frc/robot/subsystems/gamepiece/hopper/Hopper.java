@@ -20,6 +20,18 @@ public class Hopper extends SubsystemBase {
       HopperConstants.defaultHopperExtensionRetractedPositionRotations;
   private double hopperExtensionExtendedPositionRotations =
       HopperConstants.defaultHopperExtensionExtendedPositionRotations;
+  private boolean calibrationModeEnabled = false;
+  private double calibrationAgitatorVelocitySetpointRotationsPerSec =
+      HopperConstants.defaultCalibrationAgitatorVelocitySetpointRotationsPerSec;
+  private double calibrationExtensionPositionSetpointRotations =
+      HopperConstants.defaultCalibrationExtensionPositionSetpointRotations;
+  private double agitatorVelocityKp = HopperConstants.hopperAgitatorVelocityKp;
+  private double agitatorVelocityKi = HopperConstants.hopperAgitatorVelocityKi;
+  private double agitatorVelocityKd = HopperConstants.hopperAgitatorVelocityKd;
+  private double agitatorVelocityKv = HopperConstants.hopperAgitatorVelocityKv;
+  private double extensionPositionKp = HopperConstants.hopperExtensionPositionKp;
+  private double extensionPositionKi = HopperConstants.hopperExtensionPositionKi;
+  private double extensionPositionKd = HopperConstants.hopperExtensionPositionKd;
 
   private final HopperIO io;
   private final HopperIOInputsAutoLogged inputs = new HopperIOInputsAutoLogged();
@@ -27,7 +39,11 @@ public class Hopper extends SubsystemBase {
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(HopperConstants.configTableName);
   private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommon(subsystemTable);
+  private final NetworkTable pidTuningTable =
+      NetworkTablesUtil.tuningMode(subsystemTable).getSubTable("PID");
   private final NetworkTable telemetryTable = NetworkTablesUtil.telemetry(subsystemTable);
+  private final NetworkTable calibrationTuningTable = tuningTable.getSubTable("Calibration");
+  private final NetworkTable calibrationTelemetryTable = telemetryTable.getSubTable("Calibration");
 
   private final NetworkTableEntry hopperAgitatorSpeedEntry = tuningTable.getEntry("Agitator/Speed");
   private final NetworkTableEntry hopperExtensionSpeedScaleEntry =
@@ -40,6 +56,26 @@ public class Hopper extends SubsystemBase {
       tuningTable.getEntry("Extension/Calibration/RetractedPositionRotations");
   private final NetworkTableEntry hopperExtensionExtendedPositionEntry =
       tuningTable.getEntry("Extension/Calibration/ExtendedPositionRotations");
+  private final NetworkTableEntry agitatorVelocityKpEntry =
+      pidTuningTable.getEntry("Agitator/Velocity/Kp");
+  private final NetworkTableEntry agitatorVelocityKiEntry =
+      pidTuningTable.getEntry("Agitator/Velocity/Ki");
+  private final NetworkTableEntry agitatorVelocityKdEntry =
+      pidTuningTable.getEntry("Agitator/Velocity/Kd");
+  private final NetworkTableEntry agitatorVelocityKvEntry =
+      pidTuningTable.getEntry("Agitator/Velocity/Kv");
+  private final NetworkTableEntry extensionPositionKpEntry =
+      pidTuningTable.getEntry("Extension/Position/Kp");
+  private final NetworkTableEntry extensionPositionKiEntry =
+      pidTuningTable.getEntry("Extension/Position/Ki");
+  private final NetworkTableEntry extensionPositionKdEntry =
+      pidTuningTable.getEntry("Extension/Position/Kd");
+  private final NetworkTableEntry calibrationModeEnabledEntry =
+      calibrationTuningTable.getEntry("Enabled");
+  private final NetworkTableEntry calibrationAgitatorVelocitySetpointEntry =
+      calibrationTuningTable.getEntry("Agitator/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationExtensionPositionSetpointEntry =
+      calibrationTuningTable.getEntry("Extension/PositionSetpointRotations");
   private final NetworkTableEntry hopperExtensionEncoderPositionEntry =
       telemetryTable.getEntry("Extension/EncoderPositionRotations");
   private final NetworkTableEntry hopperExtensionEncoderVelocityEntry =
@@ -54,6 +90,16 @@ public class Hopper extends SubsystemBase {
       telemetryTable.getEntry("Agitator/EstimatedVelocityRotationsPerSec");
   private final NetworkTableEntry hopperAgitatorEstimatedPositionEntry =
       telemetryTable.getEntry("Agitator/EstimatedPositionRotations");
+  private final NetworkTableEntry calibrationModeTelemetryEntry =
+      calibrationTelemetryTable.getEntry("ModeEnabled");
+  private final NetworkTableEntry calibrationConfiguredAgitatorVelocityEntry =
+      calibrationTelemetryTable.getEntry("Configured/Agitator/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationConfiguredExtensionPositionEntry =
+      calibrationTelemetryTable.getEntry("Configured/Extension/PositionSetpointRotations");
+  private final NetworkTableEntry calibrationMeasuredAgitatorVelocityEntry =
+      calibrationTelemetryTable.getEntry("Measured/Agitator/VelocityRotationsPerSec");
+  private final NetworkTableEntry calibrationMeasuredExtensionPositionEntry =
+      calibrationTelemetryTable.getEntry("Measured/Extension/PositionRotations");
 
   public Hopper() {
     this(new HopperIO() {});
@@ -70,12 +116,23 @@ public class Hopper extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs(NetworkTablesUtil.logPath("GamePiece/Hopper/Inputs"), inputs);
     loadNetworkTableConfig();
+    io.setAgitatorVelocityClosedLoopGains(
+        agitatorVelocityKp, agitatorVelocityKi, agitatorVelocityKd, agitatorVelocityKv);
+    io.setExtensionPositionClosedLoopGains(
+        extensionPositionKp, extensionPositionKi, extensionPositionKd);
+    if (calibrationModeEnabled) {
+      applyCalibrationControl();
+    }
     publishExtensionEncoderToNetworkTables();
     publishActuatorStateToNetworkTables();
+    publishCalibrationTelemetry();
     logTelemetry();
   }
 
   public void updateAgitator() {
+    if (calibrationModeEnabled) {
+      return;
+    }
     lastAppliedAgitatorSpeed =
         applyDirection(
             targetAgitatorSpeed,
@@ -110,6 +167,9 @@ public class Hopper extends SubsystemBase {
   }
 
   public void setHopperExtensionSpeed(double speed) {
+    if (calibrationModeEnabled) {
+      return;
+    }
     lastAppliedExtensionSpeed =
         applyScaleAndInversion(speed, hopperExtensionSpeedScaleEntry, hopperExtensionInvertedEntry);
     io.setExtensionOutput(lastAppliedExtensionSpeed);
@@ -118,6 +178,42 @@ public class Hopper extends SubsystemBase {
   public void stopHopperExtension() {
     lastAppliedExtensionSpeed = 0.0;
     io.setExtensionOutput(0.0);
+  }
+
+  public boolean isCalibrationModeEnabled() {
+    return calibrationModeEnabled;
+  }
+
+  public void setCalibrationModeEnabled(boolean enabled) {
+    calibrationModeEnabled = enabled;
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    if (!enabled) {
+      stopAgitator();
+      stopHopperExtension();
+    }
+  }
+
+  public void setCalibrationAgitatorVelocitySetpointRotationsPerSec(
+      double velocityRotationsPerSec) {
+    calibrationAgitatorVelocitySetpointRotationsPerSec =
+        sanitizeFinite(velocityRotationsPerSec, calibrationAgitatorVelocitySetpointRotationsPerSec);
+    calibrationAgitatorVelocitySetpointEntry.setDouble(
+        calibrationAgitatorVelocitySetpointRotationsPerSec);
+  }
+
+  public void setCalibrationExtensionPositionSetpointRotations(double positionRotations) {
+    calibrationExtensionPositionSetpointRotations =
+        clampToExtensionCalibrationRange(positionRotations);
+    calibrationExtensionPositionSetpointEntry.setDouble(
+        calibrationExtensionPositionSetpointRotations);
+  }
+
+  public Command enableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(true), this).ignoringDisable(true);
+  }
+
+  public Command disableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(false), this).ignoringDisable(true);
   }
 
   public Command toggleAgitatorCommand() {
@@ -163,6 +259,18 @@ public class Hopper extends SubsystemBase {
         HopperConstants.defaultHopperExtensionExtendedPositionRotations);
     hopperAgitatorDirectionEntry.setDefaultDouble(HopperConstants.defaultHopperAgitatorDirection);
     hopperExtensionInvertedEntry.setDefaultBoolean(HopperConstants.defaultHopperExtensionInverted);
+    agitatorVelocityKpEntry.setDefaultDouble(HopperConstants.hopperAgitatorVelocityKp);
+    agitatorVelocityKiEntry.setDefaultDouble(HopperConstants.hopperAgitatorVelocityKi);
+    agitatorVelocityKdEntry.setDefaultDouble(HopperConstants.hopperAgitatorVelocityKd);
+    agitatorVelocityKvEntry.setDefaultDouble(HopperConstants.hopperAgitatorVelocityKv);
+    extensionPositionKpEntry.setDefaultDouble(HopperConstants.hopperExtensionPositionKp);
+    extensionPositionKiEntry.setDefaultDouble(HopperConstants.hopperExtensionPositionKi);
+    extensionPositionKdEntry.setDefaultDouble(HopperConstants.hopperExtensionPositionKd);
+    calibrationModeEnabledEntry.setDefaultBoolean(false);
+    calibrationAgitatorVelocitySetpointEntry.setDefaultDouble(
+        HopperConstants.defaultCalibrationAgitatorVelocitySetpointRotationsPerSec);
+    calibrationExtensionPositionSetpointEntry.setDefaultDouble(
+        HopperConstants.defaultCalibrationExtensionPositionSetpointRotations);
   }
 
   private void loadNetworkTableConfig() {
@@ -182,6 +290,47 @@ public class Hopper extends SubsystemBase {
         normalizeDirection(
             hopperAgitatorDirectionEntry.getDouble(HopperConstants.defaultHopperAgitatorDirection));
     hopperAgitatorDirectionEntry.setDouble(hopperAgitatorDirection);
+    agitatorVelocityKp =
+        sanitizeFinite(agitatorVelocityKpEntry.getDouble(agitatorVelocityKp), agitatorVelocityKp);
+    agitatorVelocityKi =
+        sanitizeFinite(agitatorVelocityKiEntry.getDouble(agitatorVelocityKi), agitatorVelocityKi);
+    agitatorVelocityKd =
+        sanitizeFinite(agitatorVelocityKdEntry.getDouble(agitatorVelocityKd), agitatorVelocityKd);
+    agitatorVelocityKv =
+        sanitizeFinite(agitatorVelocityKvEntry.getDouble(agitatorVelocityKv), agitatorVelocityKv);
+    extensionPositionKp =
+        sanitizeFinite(
+            extensionPositionKpEntry.getDouble(extensionPositionKp), extensionPositionKp);
+    extensionPositionKi =
+        sanitizeFinite(
+            extensionPositionKiEntry.getDouble(extensionPositionKi), extensionPositionKi);
+    extensionPositionKd =
+        sanitizeFinite(
+            extensionPositionKdEntry.getDouble(extensionPositionKd), extensionPositionKd);
+    calibrationModeEnabled = calibrationModeEnabledEntry.getBoolean(calibrationModeEnabled);
+    calibrationAgitatorVelocitySetpointRotationsPerSec =
+        sanitizeFinite(
+            calibrationAgitatorVelocitySetpointEntry.getDouble(
+                calibrationAgitatorVelocitySetpointRotationsPerSec),
+            calibrationAgitatorVelocitySetpointRotationsPerSec);
+    calibrationExtensionPositionSetpointRotations =
+        clampToExtensionCalibrationRange(
+            sanitizeFinite(
+                calibrationExtensionPositionSetpointEntry.getDouble(
+                    calibrationExtensionPositionSetpointRotations),
+                calibrationExtensionPositionSetpointRotations));
+    agitatorVelocityKpEntry.setDouble(agitatorVelocityKp);
+    agitatorVelocityKiEntry.setDouble(agitatorVelocityKi);
+    agitatorVelocityKdEntry.setDouble(agitatorVelocityKd);
+    agitatorVelocityKvEntry.setDouble(agitatorVelocityKv);
+    extensionPositionKpEntry.setDouble(extensionPositionKp);
+    extensionPositionKiEntry.setDouble(extensionPositionKi);
+    extensionPositionKdEntry.setDouble(extensionPositionKd);
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    calibrationAgitatorVelocitySetpointEntry.setDouble(
+        calibrationAgitatorVelocitySetpointRotationsPerSec);
+    calibrationExtensionPositionSetpointEntry.setDouble(
+        calibrationExtensionPositionSetpointRotations);
   }
 
   private double applyScaleAndInversion(
@@ -207,6 +356,15 @@ public class Hopper extends SubsystemBase {
     return MathUtil.clamp(speedScale, 0.0, 1.0);
   }
 
+  private void applyCalibrationControl() {
+    io.setAgitatorVelocitySetpointRotationsPerSec(
+        calibrationAgitatorVelocitySetpointRotationsPerSec);
+    io.setExtensionPositionSetpointRotations(calibrationExtensionPositionSetpointRotations);
+    lastAppliedAgitatorSpeed = 0.0;
+    lastAppliedExtensionSpeed = 0.0;
+    agitatorRunning = Math.abs(calibrationAgitatorVelocitySetpointRotationsPerSec) > 1e-3;
+  }
+
   private void publishExtensionEncoderToNetworkTables() {
     hopperExtensionEncoderPositionEntry.setDouble(getHopperExtensionMeasuredPositionRotations());
     hopperExtensionEncoderVelocityEntry.setDouble(inputs.extensionVelocityRpm);
@@ -219,6 +377,16 @@ public class Hopper extends SubsystemBase {
     hopperAgitatorEstimatedVelocityEntry.setDouble(inputs.agitatorVelocityRotationsPerSec);
     hopperAgitatorEstimatedPositionEntry.setDouble(inputs.agitatorPositionRotations);
     hopperExtensionAppliedOutputEntry.setDouble(inputs.extensionAppliedOutput);
+  }
+
+  private void publishCalibrationTelemetry() {
+    calibrationModeTelemetryEntry.setBoolean(calibrationModeEnabled);
+    calibrationConfiguredAgitatorVelocityEntry.setDouble(
+        calibrationAgitatorVelocitySetpointRotationsPerSec);
+    calibrationConfiguredExtensionPositionEntry.setDouble(
+        calibrationExtensionPositionSetpointRotations);
+    calibrationMeasuredAgitatorVelocityEntry.setDouble(inputs.agitatorVelocityRotationsPerSec);
+    calibrationMeasuredExtensionPositionEntry.setDouble(inputs.extensionPositionRotations);
   }
 
   public double getHopperExtensionMeasuredPositionRotations() {
@@ -261,6 +429,17 @@ public class Hopper extends SubsystemBase {
     return direction < 0.0 ? -1.0 : 1.0;
   }
 
+  private static double sanitizeFinite(double value, double fallback) {
+    return Double.isFinite(value) ? value : fallback;
+  }
+
+  private double clampToExtensionCalibrationRange(double positionRotations) {
+    return MathUtil.clamp(
+        positionRotations,
+        hopperExtensionRetractedPositionRotations,
+        hopperExtensionExtendedPositionRotations);
+  }
+
   private void stopCommand(Command command) {
     if (command != null) {
       CommandScheduler.getInstance().cancel(command);
@@ -290,6 +469,17 @@ public class Hopper extends SubsystemBase {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Hopper/Config/ExtensionExtendedPositionRotations"),
         hopperExtensionExtendedPositionRotations);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Hopper/Calibration/ClosedLoop/Enabled"),
+        calibrationModeEnabled);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Hopper/Calibration/ClosedLoop/AgitatorVelocitySetpointRotationsPerSec"),
+        calibrationAgitatorVelocitySetpointRotationsPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Hopper/Calibration/ClosedLoop/ExtensionPositionSetpointRotations"),
+        calibrationExtensionPositionSetpointRotations);
 
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Hopper/State/AgitatorRunning"), agitatorRunning);

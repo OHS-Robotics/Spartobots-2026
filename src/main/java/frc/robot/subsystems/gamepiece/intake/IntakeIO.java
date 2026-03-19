@@ -21,7 +21,15 @@ public interface IntakeIO {
 
   public default void setDriveOutput(double output) {}
 
+  public default void setDriveVelocitySetpointRotationsPerSec(double velocityRotationsPerSec) {}
+
   public default void setPivotOutput(double output) {}
+
+  public default void setPivotPositionSetpointRotations(double positionRotations) {}
+
+  public default void setDriveVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {}
+
+  public default void setPivotPositionClosedLoopGains(double kp, double ki, double kd) {}
 
   public default void resetSimulationState() {}
 }

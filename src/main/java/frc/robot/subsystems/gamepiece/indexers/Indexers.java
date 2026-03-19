@@ -19,6 +19,15 @@ public class Indexers extends SubsystemBase {
   private boolean indexerRunning = false;
   private double lastAppliedTopIndexerSpeed = 0.0;
   private double lastAppliedBottomIndexerSpeed = 0.0;
+  private boolean calibrationModeEnabled = false;
+  private double calibrationTopVelocitySetpointRotationsPerSec =
+      IndexersConstants.defaultCalibrationTopVelocitySetpointRotationsPerSec;
+  private double calibrationBottomVelocitySetpointRotationsPerSec =
+      IndexersConstants.defaultCalibrationBottomVelocitySetpointRotationsPerSec;
+  private double velocityKp = IndexersConstants.indexerVelocityKp;
+  private double velocityKi = IndexersConstants.indexerVelocityKi;
+  private double velocityKd = IndexersConstants.indexerVelocityKd;
+  private double velocityKv = IndexersConstants.indexerVelocityKv;
 
   private final IndexersIO io;
   private final IndexersIOInputsAutoLogged inputs = new IndexersIOInputsAutoLogged();
@@ -26,7 +35,11 @@ public class Indexers extends SubsystemBase {
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(IndexersConstants.configTableName);
   private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommon(subsystemTable);
+  private final NetworkTable pidTuningTable =
+      NetworkTablesUtil.tuningMode(subsystemTable).getSubTable("PID");
   private final NetworkTable telemetryTable = NetworkTablesUtil.telemetry(subsystemTable);
+  private final NetworkTable calibrationTuningTable = tuningTable.getSubTable("Calibration");
+  private final NetworkTable calibrationTelemetryTable = telemetryTable.getSubTable("Calibration");
 
   private final NetworkTableEntry topIndexerSpeedEntry = tuningTable.getEntry("Top/Speed");
   private final NetworkTableEntry bottomIndexerSpeedEntry = tuningTable.getEntry("Bottom/Speed");
@@ -37,6 +50,16 @@ public class Indexers extends SubsystemBase {
   private final NetworkTableEntry topIndexerDirectionEntry = tuningTable.getEntry("Top/Direction");
   private final NetworkTableEntry bottomIndexerDirectionEntry =
       tuningTable.getEntry("Bottom/Direction");
+  private final NetworkTableEntry velocityKpEntry = pidTuningTable.getEntry("Velocity/Kp");
+  private final NetworkTableEntry velocityKiEntry = pidTuningTable.getEntry("Velocity/Ki");
+  private final NetworkTableEntry velocityKdEntry = pidTuningTable.getEntry("Velocity/Kd");
+  private final NetworkTableEntry velocityKvEntry = pidTuningTable.getEntry("Velocity/Kv");
+  private final NetworkTableEntry calibrationModeEnabledEntry =
+      calibrationTuningTable.getEntry("Enabled");
+  private final NetworkTableEntry calibrationTopVelocitySetpointEntry =
+      calibrationTuningTable.getEntry("Top/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationBottomVelocitySetpointEntry =
+      calibrationTuningTable.getEntry("Bottom/VelocitySetpointRotationsPerSec");
   private final NetworkTableEntry topIndexerAppliedOutputEntry =
       telemetryTable.getEntry("Top/AppliedOutput");
   private final NetworkTableEntry bottomIndexerAppliedOutputEntry =
@@ -49,6 +72,16 @@ public class Indexers extends SubsystemBase {
       telemetryTable.getEntry("Top/EstimatedPositionRotations");
   private final NetworkTableEntry bottomIndexerEstimatedPositionEntry =
       telemetryTable.getEntry("Bottom/EstimatedPositionRotations");
+  private final NetworkTableEntry calibrationModeTelemetryEntry =
+      calibrationTelemetryTable.getEntry("ModeEnabled");
+  private final NetworkTableEntry calibrationConfiguredTopVelocityEntry =
+      calibrationTelemetryTable.getEntry("Configured/Top/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationConfiguredBottomVelocityEntry =
+      calibrationTelemetryTable.getEntry("Configured/Bottom/VelocitySetpointRotationsPerSec");
+  private final NetworkTableEntry calibrationMeasuredTopVelocityEntry =
+      calibrationTelemetryTable.getEntry("Measured/Top/VelocityRotationsPerSec");
+  private final NetworkTableEntry calibrationMeasuredBottomVelocityEntry =
+      calibrationTelemetryTable.getEntry("Measured/Bottom/VelocityRotationsPerSec");
 
   public Indexers() {
     this(new IndexersIO() {});
@@ -65,11 +98,19 @@ public class Indexers extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs(NetworkTablesUtil.logPath("GamePiece/Indexers/Inputs"), inputs);
     loadNetworkTableConfig();
+    io.setVelocityClosedLoopGains(velocityKp, velocityKi, velocityKd, velocityKv);
+    if (calibrationModeEnabled) {
+      applyCalibrationControl();
+    }
     publishActuatorStateToNetworkTables();
+    publishCalibrationTelemetry();
     logTelemetry();
   }
 
   public void updateIndexers() {
+    if (calibrationModeEnabled) {
+      return;
+    }
     lastAppliedTopIndexerSpeed =
         applyDirectionAndScale(
             targetTopIndexerSpeed,
@@ -114,6 +155,9 @@ public class Indexers extends SubsystemBase {
   }
 
   public void setManualOutputs(double topOutput, double bottomOutput) {
+    if (calibrationModeEnabled) {
+      return;
+    }
     lastAppliedTopIndexerSpeed =
         applyDirection(
             topOutput, topIndexerDirectionEntry, IndexersConstants.defaultTopIndexerDirection);
@@ -127,6 +171,38 @@ public class Indexers extends SubsystemBase {
     indexerRunning =
         Math.abs(lastAppliedTopIndexerSpeed) > 1e-3
             || Math.abs(lastAppliedBottomIndexerSpeed) > 1e-3;
+  }
+
+  public boolean isCalibrationModeEnabled() {
+    return calibrationModeEnabled;
+  }
+
+  public void setCalibrationModeEnabled(boolean enabled) {
+    calibrationModeEnabled = enabled;
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    if (!enabled) {
+      stopIndexers();
+    }
+  }
+
+  public void setCalibrationVelocitySetpointsRotationsPerSec(
+      double topVelocityRotationsPerSec, double bottomVelocityRotationsPerSec) {
+    calibrationTopVelocitySetpointRotationsPerSec =
+        sanitizeFinite(topVelocityRotationsPerSec, calibrationTopVelocitySetpointRotationsPerSec);
+    calibrationBottomVelocitySetpointRotationsPerSec =
+        sanitizeFinite(
+            bottomVelocityRotationsPerSec, calibrationBottomVelocitySetpointRotationsPerSec);
+    calibrationTopVelocitySetpointEntry.setDouble(calibrationTopVelocitySetpointRotationsPerSec);
+    calibrationBottomVelocitySetpointEntry.setDouble(
+        calibrationBottomVelocitySetpointRotationsPerSec);
+  }
+
+  public Command enableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(true), this).ignoringDisable(true);
+  }
+
+  public Command disableCalibrationModeCommand() {
+    return Commands.runOnce(() -> setCalibrationModeEnabled(false), this).ignoringDisable(true);
   }
 
   public double getTargetIndexerSpeed() {
@@ -185,6 +261,15 @@ public class Indexers extends SubsystemBase {
     bottomIndexerSpeedScaleEntry.setDefaultDouble(IndexersConstants.defaultBottomIndexerSpeedScale);
     topIndexerDirectionEntry.setDefaultDouble(IndexersConstants.defaultTopIndexerDirection);
     bottomIndexerDirectionEntry.setDefaultDouble(IndexersConstants.defaultBottomIndexerDirection);
+    velocityKpEntry.setDefaultDouble(IndexersConstants.indexerVelocityKp);
+    velocityKiEntry.setDefaultDouble(IndexersConstants.indexerVelocityKi);
+    velocityKdEntry.setDefaultDouble(IndexersConstants.indexerVelocityKd);
+    velocityKvEntry.setDefaultDouble(IndexersConstants.indexerVelocityKv);
+    calibrationModeEnabledEntry.setDefaultBoolean(false);
+    calibrationTopVelocitySetpointEntry.setDefaultDouble(
+        IndexersConstants.defaultCalibrationTopVelocitySetpointRotationsPerSec);
+    calibrationBottomVelocitySetpointEntry.setDefaultDouble(
+        IndexersConstants.defaultCalibrationBottomVelocitySetpointRotationsPerSec);
   }
 
   private void loadNetworkTableConfig() {
@@ -210,6 +295,29 @@ public class Indexers extends SubsystemBase {
             bottomIndexerDirectionEntry.getDouble(IndexersConstants.defaultBottomIndexerDirection));
     topIndexerDirectionEntry.setDouble(topDirection);
     bottomIndexerDirectionEntry.setDouble(bottomDirection);
+    velocityKp = sanitizeFinite(velocityKpEntry.getDouble(velocityKp), velocityKp);
+    velocityKi = sanitizeFinite(velocityKiEntry.getDouble(velocityKi), velocityKi);
+    velocityKd = sanitizeFinite(velocityKdEntry.getDouble(velocityKd), velocityKd);
+    velocityKv = sanitizeFinite(velocityKvEntry.getDouble(velocityKv), velocityKv);
+    calibrationModeEnabled = calibrationModeEnabledEntry.getBoolean(calibrationModeEnabled);
+    calibrationTopVelocitySetpointRotationsPerSec =
+        sanitizeFinite(
+            calibrationTopVelocitySetpointEntry.getDouble(
+                calibrationTopVelocitySetpointRotationsPerSec),
+            calibrationTopVelocitySetpointRotationsPerSec);
+    calibrationBottomVelocitySetpointRotationsPerSec =
+        sanitizeFinite(
+            calibrationBottomVelocitySetpointEntry.getDouble(
+                calibrationBottomVelocitySetpointRotationsPerSec),
+            calibrationBottomVelocitySetpointRotationsPerSec);
+    velocityKpEntry.setDouble(velocityKp);
+    velocityKiEntry.setDouble(velocityKi);
+    velocityKdEntry.setDouble(velocityKd);
+    velocityKvEntry.setDouble(velocityKv);
+    calibrationModeEnabledEntry.setBoolean(calibrationModeEnabled);
+    calibrationTopVelocitySetpointEntry.setDouble(calibrationTopVelocitySetpointRotationsPerSec);
+    calibrationBottomVelocitySetpointEntry.setDouble(
+        calibrationBottomVelocitySetpointRotationsPerSec);
   }
 
   private double applyDirectionAndScale(
@@ -231,8 +339,22 @@ public class Indexers extends SubsystemBase {
     return MathUtil.clamp(speedScale, 0.0, 2.0);
   }
 
+  private void applyCalibrationControl() {
+    io.setTopVelocitySetpointRotationsPerSec(calibrationTopVelocitySetpointRotationsPerSec);
+    io.setBottomVelocitySetpointRotationsPerSec(calibrationBottomVelocitySetpointRotationsPerSec);
+    lastAppliedTopIndexerSpeed = 0.0;
+    lastAppliedBottomIndexerSpeed = 0.0;
+    indexerRunning =
+        Math.abs(calibrationTopVelocitySetpointRotationsPerSec) > 1e-3
+            || Math.abs(calibrationBottomVelocitySetpointRotationsPerSec) > 1e-3;
+  }
+
   private static double normalizeDirection(double direction) {
     return direction < 0.0 ? -1.0 : 1.0;
+  }
+
+  private static double sanitizeFinite(double value, double fallback) {
+    return Double.isFinite(value) ? value : fallback;
   }
 
   public double getTopIndexerCurrentAmps() {
@@ -274,6 +396,15 @@ public class Indexers extends SubsystemBase {
     bottomIndexerEstimatedPositionEntry.setDouble(inputs.bottomPositionRotations);
   }
 
+  private void publishCalibrationTelemetry() {
+    calibrationModeTelemetryEntry.setBoolean(calibrationModeEnabled);
+    calibrationConfiguredTopVelocityEntry.setDouble(calibrationTopVelocitySetpointRotationsPerSec);
+    calibrationConfiguredBottomVelocityEntry.setDouble(
+        calibrationBottomVelocitySetpointRotationsPerSec);
+    calibrationMeasuredTopVelocityEntry.setDouble(inputs.topVelocityRotationsPerSec);
+    calibrationMeasuredBottomVelocityEntry.setDouble(inputs.bottomVelocityRotationsPerSec);
+  }
+
   private void logTelemetry() {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Indexers/Config/TargetTopSpeed"),
@@ -295,6 +426,17 @@ public class Indexers extends SubsystemBase {
         normalizeDirection(
             bottomIndexerDirectionEntry.getDouble(
                 IndexersConstants.defaultBottomIndexerDirection)));
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Indexers/Calibration/ClosedLoop/Enabled"),
+        calibrationModeEnabled);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Indexers/Calibration/ClosedLoop/TopVelocitySetpointRotationsPerSec"),
+        calibrationTopVelocitySetpointRotationsPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath(
+            "GamePiece/Indexers/Calibration/ClosedLoop/BottomVelocitySetpointRotationsPerSec"),
+        calibrationBottomVelocitySetpointRotationsPerSec);
 
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Indexers/State/Running"), indexerRunning);

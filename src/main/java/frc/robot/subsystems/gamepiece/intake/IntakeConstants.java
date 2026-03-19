@@ -37,6 +37,18 @@ public final class IntakeConstants {
   public static final double defaultIntakeSpeed = 0.5;
   public static final double defaultIntakePivotSpeedScale = 1.0;
 
+  // Calibration-mode closed-loop defaults
+  public static final double defaultCalibrationDriveVelocitySetpointRotationsPerSec = 0.0;
+  public static final double defaultCalibrationPivotPositionSetpointRotations =
+      defaultIntakePivotRetractedPositionRotations;
+  public static final double intakeDriveVelocityKp = 0.02;
+  public static final double intakeDriveVelocityKi = 0.0;
+  public static final double intakeDriveVelocityKd = 0.0;
+  public static final double intakeDriveVelocityKv = 1.0 / 32.0;
+  public static final double intakePivotPositionKp = 1.5;
+  public static final double intakePivotPositionKi = 0.0;
+  public static final double intakePivotPositionKd = 0.0;
+
   // Default direction/inversion
   public static final double defaultIntakeDriveDirection = -1.0;
   public static final boolean defaultIntakePivotInverted = false;
