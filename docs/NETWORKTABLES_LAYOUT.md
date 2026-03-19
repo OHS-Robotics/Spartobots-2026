@@ -64,6 +64,22 @@ Not every domain uses every section. AdvantageKit `Logger.recordOutput(...)` val
 - `/Spartobots2026/Drive/Tuning/Modes/<MODE>/PathPlanner/RotationPID/...`
 - `/Spartobots2026/Drive/Actions/AlignToAngle/Tuning/Modes/<MODE>/...`
 
+### Path Following Logs
+
+- `/Spartobots2026/Drive/Odometry/Trajectory`
+- `/Spartobots2026/Drive/Odometry/TrajectorySetpoint`
+- `/Spartobots2026/Drive/PathFollowing/Enabled`
+- `/Spartobots2026/Drive/PathFollowing/RotationOverrideActive`
+- `/Spartobots2026/Drive/PathFollowing/TargetPose`
+- `/Spartobots2026/Drive/PathFollowing/TargetRotationDegrees`
+- `/Spartobots2026/Drive/PathFollowing/TranslationErrorX`
+- `/Spartobots2026/Drive/PathFollowing/TranslationErrorY`
+- `/Spartobots2026/Drive/PathFollowing/RotationErrorRadians`
+- `/Spartobots2026/Drive/PathFollowing/RotationErrorDegrees`
+- `/Spartobots2026/Drive/PathFollowing/FeedforwardSpeeds`
+- `/Spartobots2026/Drive/PathFollowing/FeedbackSpeeds`
+- `/Spartobots2026/Drive/PathFollowing/OutputSpeeds`
+
 ### Shooter Calibration
 
 - `/Spartobots2026/GamePiece/Shooter/Tuning/Common/Calibration/...`

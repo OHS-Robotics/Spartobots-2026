@@ -48,6 +48,7 @@ public final class ShooterConstants {
   public static final double defaultPair2Direction = -1.0;
   public static final double wheelCommandRampUpRadPerSecSquared = 100000.0;
   public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
+  public static final double simWheelCommandRampDownRadPerSecSquared = 100000.0;
 
   // Hardware geometry
   public static final double shooterWheelDiameterInches = 3.965;
@@ -75,6 +76,9 @@ public final class ShooterConstants {
   // Shooter geometry
   public static final double defaultLaunchHeightMeters = Units.inchesToMeters(30.0);
   public static final double hubCenterHeightMeters = Units.inchesToMeters(104.0);
+  public static final double defaultHubAimHeightOffsetMeters = 0.0;
+  public static final double defaultHubAimHeightMeters =
+      hubCenterHeightMeters + defaultHubAimHeightOffsetMeters;
 
   // Distance range used for preferred-angle interpolation
   public static final double hubShotNearDistanceMeters = Units.feetToMeters(6.0);
@@ -135,7 +139,7 @@ public final class ShooterConstants {
       Units.rotationsPerMinuteToRadiansPerSecond(300.0);
 
   // Simulated shot behavior
-  public static final double simShotCadenceSeconds = 0.10;
+  public static final double simShotCadenceSeconds = 0.05;
   public static final double simWheelReadyRatio = 0.88;
 
   // Shooter muzzle relative to robot center (robot frame)
@@ -145,6 +149,8 @@ public final class ShooterConstants {
   // MapleSim target matching tolerance for projectile hit checks
   public static final double projectileTargetToleranceXYMeters = Units.inchesToMeters(10.0);
   public static final double projectileTargetToleranceZMeters = Units.inchesToMeters(8.0);
+  public static final double hubPredictedScoreToleranceXYMeters = projectileTargetToleranceXYMeters;
+  public static final double hubPredictedScoreToleranceZMeters = projectileTargetToleranceZMeters;
 
   // Estimated simulation configuration
   public static final double simNominalVoltage = 12.0;

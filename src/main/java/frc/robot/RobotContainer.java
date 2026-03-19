@@ -133,7 +133,8 @@ public class RobotContainer {
       case SIM:
         SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
         driveSimulationLocal =
-            new SwerveDriveSimulation(DriveConstants.mapleSimConfig, Constants.simulationStartPose);
+            new SwerveDriveSimulation(
+                DriveConstants.getMapleSimConfig(), Constants.simulationStartPose);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulationLocal);
         intakeLocal = new Intake(new IntakeIOSim());
         hopperLocal = new Hopper(new HopperIOSim());

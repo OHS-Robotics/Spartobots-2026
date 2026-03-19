@@ -44,6 +44,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.gamepiece.shooter.ShooterConstants;
+import frc.robot.targeting.HubTargetingGeometry;
 import frc.robot.util.LocalADStarAK;
 import frc.robot.util.NetworkTablesUtil;
 import java.util.Optional;
@@ -58,13 +59,16 @@ import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
   // PathPlanner PID values
-  private static final double defaultPathTranslationKp = 40.0;
+  // Conservative starting values for PathPlanner holonomic control. Final values still need
+  // carpet tuning, but these avoid the severe saturation caused by the previous defaults.
+  private static final double defaultPathTranslationKp = 6.0;
   private static final double defaultPathTranslationKi = 0.0;
-  private static final double defaultPathTranslationKd = 5.0;
-  private static final double defaultPathRotationKp = 40.0;
+  private static final double defaultPathTranslationKd = 0.3;
+  private static final double defaultPathRotationKp = 5.5;
   private static final double defaultPathRotationKi = 0.0;
-  private static final double defaultPathRotationKd = 5.0;
+  private static final double defaultPathRotationKd = 0.2;
   private static final double minAimVectorMagnitudeMeters = 0.10;
+  private static final double maxHubAutoAimAccelerationMetersPerSecSquared = 20.0;
 
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
@@ -114,6 +118,10 @@ public class Drive extends SubsystemBase {
       hubMotionCompTuningTable.getEntry("VelocityScale");
   private final NetworkTableEntry hubMotionCompLeadSecondsEntry =
       hubMotionCompTuningTable.getEntry("LeadSeconds");
+  private final NetworkTable hubAutoAimTuningTable =
+      NetworkTablesUtil.tuningMode("Targeting/Hub").getSubTable("AutoAim");
+  private final NetworkTableEntry hubAutoAimLinearAccelerationLimitEntry =
+      hubAutoAimTuningTable.getEntry("MaxLinearAccelerationMetersPerSecSquared");
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   private boolean wasHubAimVectorLoggingEnabled = false;
@@ -131,6 +139,8 @@ public class Drive extends SubsystemBase {
   private double pathRotationKd = defaultPathRotationKd;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
+  private double hubAutoAimLinearAccelerationLimitMetersPerSecSquared =
+      DriveConstants.maxAccelerationMeterPerSecSquared;
   public int octant;
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
@@ -170,7 +180,7 @@ public class Drive extends SubsystemBase {
     logHubAimVectorEntry.setDefaultBoolean(false);
     configureDrivePidDefaults();
     loadDrivePidTuning();
-    configureHubMotionCompDefaults();
+    configureHubTargetingDefaults();
 
     // Usage reporting for swerve template
     HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
@@ -218,7 +228,7 @@ public class Drive extends SubsystemBase {
   @Override
   public void periodic() {
     loadDrivePidTuning();
-    loadHubMotionCompTuning();
+    loadHubTargetingTuning();
 
     odometryLock.lock(); // Prevents odometry updates while reading data
     try {
@@ -618,12 +628,11 @@ public class Drive extends SubsystemBase {
   }
 
   private Rotation2d getRotationToHub(Pose2d hub) {
-    Translation2d toTarget = hub.getTranslation().minus(getPose().getTranslation());
+    Translation2d toTarget = HubTargetingGeometry.getVectorFromLaunchOriginToHub(getPose(), hub);
     if (toTarget.getNorm() < minAimVectorMagnitudeMeters) {
       return getRotation();
     }
-    return new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()))
-        .plus(ShooterConstants.shooterFacingOffset);
+    return HubTargetingGeometry.getRobotRotationToAimAtHub(getPose(), hub);
   }
 
   public Command alignToHub() {
@@ -633,7 +642,11 @@ public class Drive extends SubsystemBase {
   public Command alignToHub(
       DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
     return DriveCommands.joystickDriveAtAngle(
-        this, x, y, () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()));
+        this,
+        x,
+        y,
+        () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()),
+        () -> hubAutoAimLinearAccelerationLimitMetersPerSecSquared);
   }
 
   private Command pathfindToTranslationWithRotationOverride(
@@ -657,19 +670,22 @@ public class Drive extends SubsystemBase {
     }
 
     Pose2d robotPose = getPose();
+    Translation2d launchOrigin = HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
     Translation2d compensationOffset =
         compensatedHub.getTranslation().minus(baseHub.getTranslation());
-    Translation2d vectorToTarget =
-        compensatedHub.getTranslation().minus(robotPose.getTranslation());
+    Translation2d vectorToTarget = compensatedHub.getTranslation().minus(launchOrigin);
 
     Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/RobotPose"), robotPose);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/LaunchOriginPose"),
+        new Pose2d(launchOrigin, Rotation2d.kZero));
     Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/BaseTargetPose"), baseHub);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Drive/CompensatedTargetPose"), compensatedHub);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Drive/TargetVectorEndpoints"),
         new Pose2d[] {
-          new Pose2d(robotPose.getTranslation(), Rotation2d.kZero),
+          new Pose2d(launchOrigin, Rotation2d.kZero),
           new Pose2d(compensatedHub.getTranslation(), Rotation2d.kZero)
         });
     Logger.recordOutput(
@@ -695,6 +711,8 @@ public class Drive extends SubsystemBase {
 
   private void clearHubAimLogs() {
     Logger.recordOutput(NetworkTablesUtil.logPath("Targeting/Hub/Drive/RobotPose"), Pose2d.kZero);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Drive/LaunchOriginPose"), Pose2d.kZero);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Drive/BaseTargetPose"), Pose2d.kZero);
     Logger.recordOutput(
@@ -774,22 +792,36 @@ public class Drive extends SubsystemBase {
     return Double.isFinite(value) ? value : fallback;
   }
 
-  private void configureHubMotionCompDefaults() {
+  private void configureHubTargetingDefaults() {
     hubMotionCompVelocityScaleEntry.setDefaultDouble(
         ShooterConstants.hubMotionCompensationVelocityScale);
     hubMotionCompLeadSecondsEntry.setDefaultDouble(
         ShooterConstants.hubMotionCompensationLeadSeconds);
+    hubAutoAimLinearAccelerationLimitEntry.setDefaultDouble(
+        DriveConstants.maxAccelerationMeterPerSecSquared);
   }
 
-  private void loadHubMotionCompTuning() {
+  private void loadHubTargetingTuning() {
     hubMotionCompVelocityScale =
         MathUtil.clamp(
             hubMotionCompVelocityScaleEntry.getDouble(hubMotionCompVelocityScale), 0.0, 3.0);
     hubMotionCompLeadSeconds =
         MathUtil.clamp(
             hubMotionCompLeadSecondsEntry.getDouble(hubMotionCompLeadSeconds), -0.25, 0.25);
+    hubAutoAimLinearAccelerationLimitMetersPerSecSquared =
+        MathUtil.clamp(
+            hubAutoAimLinearAccelerationLimitEntry.getDouble(
+                hubAutoAimLinearAccelerationLimitMetersPerSecSquared),
+            0.0,
+            maxHubAutoAimAccelerationMetersPerSecSquared);
     hubMotionCompVelocityScaleEntry.setDouble(hubMotionCompVelocityScale);
     hubMotionCompLeadSecondsEntry.setDouble(hubMotionCompLeadSeconds);
+    hubAutoAimLinearAccelerationLimitEntry.setDouble(
+        hubAutoAimLinearAccelerationLimitMetersPerSecSquared);
+  }
+
+  double getHubAutoAimLinearAccelerationLimitMetersPerSecSquared() {
+    return hubAutoAimLinearAccelerationLimitMetersPerSecSquared;
   }
 
   public Command alignToOutpost(DoubleSupplier x, DoubleSupplier y) {

@@ -89,9 +89,9 @@ public class DriveConstants {
   // Wheel Rad/Sec
 
   // Drive PID configuration
-  public static final double driveKp = 0.0010645;
+  public static final double driveKp = 0.00115;
   public static final double driveKi = 0.0;
-  public static final double driveKd = 0.01;
+  public static final double driveKd = 0.004;
   public static final double driveKs = 0.0;
   // Approximate volts per wheel rad/s for a NEO on MK4 L2 gearing.
   // Replace with measured characterization data when available.
@@ -115,9 +115,9 @@ public class DriveConstants {
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 2.5;
-  public static final double turnKi = 0.5;
-  public static final double turnKd = 0.1;
+  public static final double turnKp = 3.4;
+  public static final double turnKi = 0.0;
+  public static final double turnKd = 0.2;
   public static final double turnMaxIntegralOutputVolts = 2.0;
   public static final double turnSetpointResetThresholdRadians = Units.degreesToRadians(90.0);
   public static final double turnSimP = 8.0;
@@ -156,25 +156,33 @@ public class DriveConstants {
   public static final double mapleTurnFrictionVolts = 0.1;
   public static final double mapleSteerInertiaKgMetersSq = 0.004;
 
-  public static final DriveTrainSimulationConfig mapleSimConfig =
-      DriveTrainSimulationConfig.Default()
-          .withRobotMass(Kilograms.of(robotMassKg))
-          .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
-          .withCustomModuleTranslations(moduleTranslations)
-          .withTrackLengthTrackWidth(Meters.of(wheelBase), Meters.of(trackWidth))
-          .withGyro(COTS.ofNav2X())
-          .withSwerveModule(
-              new SwerveModuleSimulationConfig(
-                  driveGearbox,
-                  turnGearbox,
-                  driveMotorReduction,
-                  turnMotorReduction,
-                  Volts.of(mapleDriveFrictionVolts),
-                  Volts.of(mapleTurnFrictionVolts),
-                  Meters.of(wheelRadiusMeters),
-                  KilogramSquareMeters.of(mapleSteerInertiaKgMetersSq),
-                  wheelCOF));
-
   // alignment config
   public static final double trenchSnapTo = Units.degreesToRadians(180);
+
+  public static DriveTrainSimulationConfig getMapleSimConfig() {
+    return MapleSimConfigHolder.mapleSimConfig;
+  }
+
+  private static final class MapleSimConfigHolder {
+    private static final DriveTrainSimulationConfig mapleSimConfig =
+        DriveTrainSimulationConfig.Default()
+            .withRobotMass(Kilograms.of(robotMassKg))
+            .withBumperSize(Meters.of(bumperLengthXMeters), Meters.of(bumperWidthYMeters))
+            .withCustomModuleTranslations(moduleTranslations)
+            .withTrackLengthTrackWidth(Meters.of(wheelBase), Meters.of(trackWidth))
+            .withGyro(COTS.ofNav2X())
+            .withSwerveModule(
+                new SwerveModuleSimulationConfig(
+                    driveGearbox,
+                    turnGearbox,
+                    driveMotorReduction,
+                    turnMotorReduction,
+                    Volts.of(mapleDriveFrictionVolts),
+                    Volts.of(mapleTurnFrictionVolts),
+                    Meters.of(wheelRadiusMeters),
+                    KilogramSquareMeters.of(mapleSteerInertiaKgMetersSq),
+                    wheelCOF));
+
+    private MapleSimConfigHolder() {}
+  }
 }

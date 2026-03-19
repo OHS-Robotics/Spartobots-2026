@@ -251,6 +251,10 @@ public class Indexers extends SubsystemBase {
     return 0.5 * (inputs.topAppliedOutput + inputs.bottomAppliedOutput);
   }
 
+  public double getAverageAppliedOutputMagnitude() {
+    return 0.5 * (Math.abs(inputs.topAppliedOutput) + Math.abs(inputs.bottomAppliedOutput));
+  }
+
   public void resetSimulationState() {
     io.resetSimulationState();
   }

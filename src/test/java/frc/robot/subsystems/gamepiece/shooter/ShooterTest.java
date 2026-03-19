@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import frc.robot.targeting.HubTargetingGeometry;
 import frc.robot.util.NetworkTablesUtil;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +15,7 @@ class ShooterTest {
   @Test
   void hubShotSolverReturnsFeasibleSolutionWithinEnvelope() {
     Shooter shooter = new Shooter(new FakeShooterIO());
+    shooter.setCalibrationModeEnabled(false);
     Shooter.HubShotSolution solution =
         shooter.updateHubShotSolution(
             new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(5.0, 2.0, Rotation2d.kZero));
@@ -29,8 +31,15 @@ class ShooterTest {
   void readyToFireTracksMeasuredWheelReadiness() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);
-    shooter.updateHubShotSolution(
-        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(5.0, 2.0, Rotation2d.kZero));
+    shooter.setCalibrationModeEnabled(false);
+    Pose2d hubPose = new Pose2d(5.0, 2.0, Rotation2d.kZero);
+    Pose2d robotPose =
+        new Pose2d(
+            2.0,
+            2.0,
+            HubTargetingGeometry.getRobotRotationToAimAtHub(
+                new Pose2d(2.0, 2.0, Rotation2d.kZero), hubPose));
+    shooter.updateHubShotSolution(robotPose, hubPose);
 
     shooter.setShotControlEnabled(true);
     shooter.periodic();
@@ -47,8 +56,52 @@ class ShooterTest {
   }
 
   @Test
+  void readyToFireRejectsShotWhenRobotHeadingWouldMissHub() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    shooter.setCalibrationModeEnabled(false);
+    Pose2d robotPose = new Pose2d(2.0, 2.0, Rotation2d.kZero);
+    Pose2d hubPose = new Pose2d(5.0, 2.0, Rotation2d.kZero);
+    Shooter.HubShotSolution solution = shooter.updateHubShotSolution(robotPose, hubPose);
+
+    assertTrue(solution.feasible());
+
+    shooter.setShotControlEnabled(true);
+    shooter.periodic();
+    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
+    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
+    shooter.periodic();
+
+    assertTrue(shooter.isSpinupComplete());
+    assertFalse(shooter.isHubShotPredictedToScore());
+    assertFalse(shooter.isReadyToFire());
+  }
+
+  @Test
+  void spinupCanCompleteEvenWhenShotSolutionIsInfeasible() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    shooter.setCalibrationModeEnabled(false);
+    Shooter.HubShotSolution solution =
+        shooter.updateHubShotSolution(
+            new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(100.0, 2.0, Rotation2d.kZero));
+
+    assertFalse(solution.feasible());
+
+    shooter.setShotControlEnabled(true);
+    shooter.periodic();
+    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
+    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
+    shooter.periodic();
+
+    assertTrue(shooter.isSpinupComplete());
+    assertFalse(shooter.isReadyToFire());
+  }
+
+  @Test
   void hubShotSolverCompensatesForRobotVelocityAndConverges() {
     Shooter shooter = new Shooter(new FakeShooterIO());
+    shooter.setCalibrationModeEnabled(false);
     Pose2d robotPose = new Pose2d(2.0, 2.0, Rotation2d.kZero);
     Pose2d hubPose = new Pose2d(6.0, 2.0, Rotation2d.kZero);
 
@@ -71,8 +124,25 @@ class ShooterTest {
   }
 
   @Test
+  void hubShotSolverMeasuresDistanceFromLaunchOrigin() {
+    Shooter shooter = new Shooter(new FakeShooterIO());
+    shooter.setCalibrationModeEnabled(false);
+    Pose2d robotPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(180.0));
+    Pose2d hubPose = new Pose2d(5.0, 2.0, Rotation2d.kZero);
+
+    shooter.setCalibrationModeEnabled(false);
+    Shooter.HubShotSolution solution = shooter.updateHubShotSolution(robotPose, hubPose);
+
+    assertEquals(
+        HubTargetingGeometry.getDistanceFromLaunchOriginToHub(robotPose, hubPose),
+        solution.distanceMeters(),
+        1e-9);
+  }
+
+  @Test
   void hubShotSolverPrefersDescendingEntryAtHub() {
     Shooter shooter = new Shooter(new FakeShooterIO());
+    shooter.setCalibrationModeEnabled(false);
     Shooter.HubShotSolution solution =
         shooter.updateHubShotSolution(
             new Pose2d(2.0, 2.0, Rotation2d.kZero),

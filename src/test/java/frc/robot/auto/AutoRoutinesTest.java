@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
@@ -28,11 +29,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AutoRoutinesTest {
   private static final String competitionAutoName = "Competition: Outpost -> Shoot -> Ladder";
   private static final String doNothingAutoName = "Do Nothing";
@@ -40,7 +40,13 @@ class AutoRoutinesTest {
       Pattern.compile(
           "\"type\"\\s*:\\s*\"named\"\\s*,\\s*\"data\"\\s*:\\s*\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"",
           Pattern.DOTALL);
-  private final AutoRoutines autoRoutines = createAutoRoutines();
+  private AutoRoutines autoRoutines;
+
+  @BeforeEach
+  void setUp() {
+    AutoBuilder.resetForTesting();
+    autoRoutines = createAutoRoutines();
+  }
 
   @Test
   void exposesOnlyCompetitionAutoAndDoNothing() {
@@ -60,14 +66,14 @@ class AutoRoutinesTest {
   }
 
   @Test
-  void readyShotFeedsToCompletion() {
+  void spunUpShotFeedsToCompletion() {
     runToCompletion(autoRoutines.buildCompetitionShotCommandForTest(true));
 
     assertEquals("FEED_COMPLETE", autoRoutines.getCompetitionAutoShotState());
   }
 
   @Test
-  void unreadyShotSkipsFeedAndFinishes() {
+  void spinupIncompleteShotSkipsFeedAndFinishes() {
     runToCompletion(autoRoutines.buildCompetitionShotCommandForTest(false));
 
     assertEquals("SKIPPED_NOT_READY", autoRoutines.getCompetitionAutoShotState());

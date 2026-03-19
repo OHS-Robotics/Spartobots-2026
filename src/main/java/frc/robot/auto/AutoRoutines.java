@@ -153,12 +153,13 @@ public class AutoRoutines {
     return namedCommandNames;
   }
 
-  Command buildCompetitionShotCommandForTest(boolean readyToFire) {
-    return buildCompetitionShotCommandForTest(readyToFire, true);
+  Command buildCompetitionShotCommandForTest(boolean spinupComplete) {
+    return buildCompetitionShotCommandForTest(spinupComplete, true);
   }
 
-  Command buildCompetitionShotCommandForTest(boolean readyToFire, boolean inShotWindow) {
-    return buildCompetitionShooterShotCommand(() -> readyToFire, () -> inShotWindow, 0.0, 0.0, 0.0);
+  Command buildCompetitionShotCommandForTest(boolean spinupComplete, boolean inShotWindow) {
+    return buildCompetitionShooterShotCommand(
+        () -> spinupComplete, () -> inShotWindow, 0.0, 0.0, 0.0);
   }
 
   private void addDefaultAutoOption(
@@ -205,7 +206,9 @@ public class AutoRoutines {
   private Command buildCompetitionDriveAndShootCommand(Pose2d openingShotPose) {
     return Commands.deadline(
             buildCompetitionShotCommand(
-                shooter::isReadyToFire,
+                // Keep the shooter spun up through the auto shot phase even if the current hub
+                // solution is infeasible. The feed interlock remains the final gate on the indexer.
+                shooter::isSpinupComplete,
                 () ->
                     drive.isNearTranslation(
                         openingShotPose.getTranslation(),
@@ -219,9 +222,9 @@ public class AutoRoutines {
   }
 
   private Command buildCompetitionShotCommand(
-      BooleanSupplier shooterReadySupplier, BooleanSupplier inShotWindowSupplier) {
+      BooleanSupplier shooterSpinupCompleteSupplier, BooleanSupplier inShotWindowSupplier) {
     return buildCompetitionShooterShotCommand(
-        shooterReadySupplier,
+        shooterSpinupCompleteSupplier,
         inShotWindowSupplier,
         competitionAutoShotSpinUpTimeoutSeconds,
         competitionAutoDriveToShotTimeoutSeconds,
@@ -229,14 +232,14 @@ public class AutoRoutines {
   }
 
   private Command buildCompetitionShooterShotCommand(
-      BooleanSupplier shooterReadySupplier,
+      BooleanSupplier shooterSpinupCompleteSupplier,
       BooleanSupplier inShotWindowSupplier,
       double spinUpTimeoutSeconds,
       double positionWaitTimeoutSeconds,
       double feedSeconds) {
     Command spinUp =
         Commands.deadline(
-                Commands.waitUntil(shooterReadySupplier).withTimeout(spinUpTimeoutSeconds),
+                Commands.waitUntil(shooterSpinupCompleteSupplier).withTimeout(spinUpTimeoutSeconds),
                 Commands.run(
                     () -> {
                       hubTargetingService.updateAndGetAirtimeSeconds();
@@ -315,7 +318,7 @@ public class AutoRoutines {
                     waitForShotWindow,
                     Commands.either(feedWhileAligned, skipShotWindow, inShotWindowSupplier)),
                 skipFeed,
-                shooterReadySupplier))
+                shooterSpinupCompleteSupplier))
         .finallyDo(
             () -> {
               shooter.setShotControlEnabled(false);

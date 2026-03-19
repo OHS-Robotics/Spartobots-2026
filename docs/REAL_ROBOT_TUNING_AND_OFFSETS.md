@@ -181,6 +181,7 @@ Common wheel configuration:
 - `/Spartobots2026/GamePiece/Shooter/Tuning/Common/Wheels/SpeedScale`
 - `/Spartobots2026/GamePiece/Shooter/Tuning/Common/Wheels/Pair1Direction`
 - `/Spartobots2026/GamePiece/Shooter/Tuning/Common/Wheels/Pair2Direction`
+- `/Spartobots2026/GamePiece/Shooter/Tuning/Common/Hub/AimHeightOffsetMeters`
 
 Useful telemetry:
 
@@ -194,6 +195,8 @@ Suggested pass targets:
 
 - wheel steady-state error below `8%`
 - hood steady-state error below `1.5 deg`
+- hub center trim near `0.0 m`; only adjust `AimHeightOffsetMeters` if real shots consistently hit
+  above or below the visual center after hood/wheel calibration is already correct
 
 For fixed-setpoint real-shot characterization, use [Shooter Calibration Mode](SHOOTER_CALIBRATION_MODE.md).
 
@@ -226,6 +229,9 @@ Run these SmartDashboard actions:
 
 Then tune:
 
+- Code baseline defaults are currently `TranslationPID = {Kp: 6.0, Ki: 0.0, Kd: 0.3}` and
+  `RotationPID = {Kp: 5.5, Ki: 0.0, Kd: 0.2}`. Treat these as a conservative starting point, not a
+  final tune.
 - `/Spartobots2026/Drive/Tuning/Modes/REAL/Module/DrivePID/Kp`
 - `/Spartobots2026/Drive/Tuning/Modes/REAL/Module/DrivePID/Ki`
 - `/Spartobots2026/Drive/Tuning/Modes/REAL/Module/DrivePID/Kd`

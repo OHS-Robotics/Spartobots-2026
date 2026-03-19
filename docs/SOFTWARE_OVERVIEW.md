@@ -37,6 +37,12 @@ The competition routine is generated in code rather than loaded from a committed
 3. feeds only when the robot is both ready and inside the shot window,
 4. aligns to the ladder at the end.
 
+Current pathing posture:
+
+- Most auto-assist movement relies on runtime `pathfindToPose(...)` calls rather than authored PathPlanner path files.
+- `src/main/deploy/pathplanner` currently contains field settings and the navigation grid, but no committed path or auto folder contents.
+- Dynamic obstacle support exists in the local AD* wrapper, but the robot code does not currently feed live obstacle updates into pathfinding.
+
 PathPlanner named commands are still registered for future authored paths:
 
 - `collectStart`
@@ -58,6 +64,7 @@ Default teleop is currently a single-driver layout. The driver controller on USB
 - Live tuning is split between `Tuning/Common` and `Tuning/Modes/<MODE>` under the `Spartobots2026` root.
 - High-value telemetry also appears as AdvantageKit log outputs under the same root, but not every logged path lives inside a `Telemetry` subtree.
 - The operator dashboard publishes action state and auto-chooser state through NetworkTables in addition to SmartDashboard actions.
+- Path following logs its target pose, translation error, rotation error, and feedforward/feedback/output chassis speeds under `Drive/PathFollowing/...`.
 
 See:
 

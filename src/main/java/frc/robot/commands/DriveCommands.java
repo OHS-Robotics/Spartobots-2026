@@ -37,12 +37,13 @@ import java.util.function.Supplier;
 
 public class DriveCommands {
   private static final double DEADBAND = 0.1;
-  private static final double ANGLE_KP = 5.5;
+  private static final double CONTROL_LOOP_PERIOD_SECONDS = 0.02;
+  private static final double ANGLE_KP = 5.0;
   private static final double ANGLE_KI = 0.0;
-  private static final double ANGLE_KD = 2.1;
-  private static final double ANGLE_KFF = 0.0;
-  private static final double ANGLE_MAX_VELOCITY = 45.0;
-  private static final double ANGLE_MAX_ACCELERATION = 90.0;
+  private static final double ANGLE_KD = 1.0;
+  private static final double ANGLE_KFF = 0.9;
+  private static final double ANGLE_MAX_VELOCITY = 3.8;
+  private static final double ANGLE_MAX_ACCELERATION = 12.0;
   private static final double ANGLE_POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.5);
   private static final double ANGLE_VELOCITY_TOLERANCE_RAD_PER_SEC = Units.degreesToRadians(8.0);
   private static final double ANGLE_GOAL_JUMP_REJECT_RAD = Units.degreesToRadians(120.0);
@@ -141,6 +142,16 @@ public class DriveCommands {
       DoubleSupplier xSupplier,
       DoubleSupplier ySupplier,
       Supplier<Rotation2d> rotationSupplier) {
+    return joystickDriveAtAngle(
+        drive, xSupplier, ySupplier, rotationSupplier, () -> Double.POSITIVE_INFINITY);
+  }
+
+  public static Command joystickDriveAtAngle(
+      Drive drive,
+      DoubleSupplier xSupplier,
+      DoubleSupplier ySupplier,
+      Supplier<Rotation2d> rotationSupplier,
+      DoubleSupplier linearAccelerationLimitMetersPerSecSquaredSupplier) {
     double initialAngleKp = getTunedValue(angleKpEntry, ANGLE_KP, 0.0, 30.0);
     double initialAngleKi = getTunedValue(angleKiEntry, ANGLE_KI, 0.0, 10.0);
     double initialAngleKd = getTunedValue(angleKdEntry, ANGLE_KD, 0.0, 10.0);
@@ -165,6 +176,7 @@ public class DriveCommands {
         -ANGLE_INTEGRATOR_MAX_ABS_OUTPUT, ANGLE_INTEGRATOR_MAX_ABS_OUTPUT);
     final double[] lastGoalRadians = {Double.NaN};
     final double[] lastErrorRadians = {Double.POSITIVE_INFINITY};
+    final Translation2d[] lastLinearVelocityMetersPerSec = {Translation2d.kZero};
 
     // Construct command
     return Commands.run(
@@ -188,6 +200,15 @@ public class DriveCommands {
               // Get linear velocity
               Translation2d linearVelocity =
                   getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
+              Translation2d requestedLinearVelocityMetersPerSec =
+                  linearVelocity.times(drive.getMaxLinearSpeedMetersPerSec());
+              Translation2d limitedLinearVelocityMetersPerSec =
+                  applyLinearAccelerationLimit(
+                      lastLinearVelocityMetersPerSec[0],
+                      requestedLinearVelocityMetersPerSec,
+                      linearAccelerationLimitMetersPerSecSquaredSupplier.getAsDouble(),
+                      CONTROL_LOOP_PERIOD_SECONDS);
+              lastLinearVelocityMetersPerSec[0] = limitedLinearVelocityMetersPerSec;
 
               double currentHeadingRadians = drive.getRotation().getRadians();
               double targetHeadingRadians = rotationSupplier.get().getRadians();
@@ -225,8 +246,8 @@ public class DriveCommands {
               // Convert to field relative speeds & send command
               ChassisSpeeds speeds =
                   new ChassisSpeeds(
-                      linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
-                      linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
+                      limitedLinearVelocityMetersPerSec.getX(),
+                      limitedLinearVelocityMetersPerSec.getY(),
                       omega);
 
               boolean isFlipped = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
@@ -247,7 +268,40 @@ public class DriveCommands {
               angleController.reset(currentHeadingRadians);
               lastGoalRadians[0] = currentHeadingRadians;
               lastErrorRadians[0] = Double.POSITIVE_INFINITY;
+              lastLinearVelocityMetersPerSec[0] = drive.getFieldRelativeVelocityMetersPerSecond();
             });
+  }
+
+  static Translation2d applyLinearAccelerationLimit(
+      Translation2d currentVelocityMetersPerSec,
+      Translation2d targetVelocityMetersPerSec,
+      double maxAccelerationMetersPerSecSquared,
+      double dtSeconds) {
+    if (!Double.isFinite(maxAccelerationMetersPerSecSquared)
+        || maxAccelerationMetersPerSecSquared <= 0.0
+        || !Double.isFinite(dtSeconds)
+        || dtSeconds <= 0.0) {
+      return targetVelocityMetersPerSec;
+    }
+
+    Translation2d sanitizedCurrentVelocityMetersPerSec =
+        new Translation2d(
+            Double.isFinite(currentVelocityMetersPerSec.getX())
+                ? currentVelocityMetersPerSec.getX()
+                : 0.0,
+            Double.isFinite(currentVelocityMetersPerSec.getY())
+                ? currentVelocityMetersPerSec.getY()
+                : 0.0);
+    Translation2d deltaVelocityMetersPerSec =
+        targetVelocityMetersPerSec.minus(sanitizedCurrentVelocityMetersPerSec);
+    double maxVelocityStepMetersPerSec = maxAccelerationMetersPerSecSquared * dtSeconds;
+    double deltaNormMetersPerSec = deltaVelocityMetersPerSec.getNorm();
+    if (deltaNormMetersPerSec <= maxVelocityStepMetersPerSec) {
+      return targetVelocityMetersPerSec;
+    }
+
+    return sanitizedCurrentVelocityMetersPerSec.plus(
+        deltaVelocityMetersPerSec.times(maxVelocityStepMetersPerSec / deltaNormMetersPerSec));
   }
 
   private static double getTunedValue(

@@ -10,6 +10,8 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
+import frc.robot.targeting.HubTargetingGeometry;
 import frc.robot.util.NetworkTablesUtil;
 import java.util.OptionalDouble;
 import org.littletonrobotics.junction.Logger;
@@ -28,6 +30,13 @@ public class Shooter extends SubsystemBase {
       double launchSpeedMetersPerSec,
       Rotation2d launchAngle,
       boolean valid) {}
+
+  private static record PredictedHubShot(
+      boolean scoring,
+      double horizontalErrorMeters,
+      double verticalErrorMeters,
+      double evaluationTimeSeconds,
+      boolean descendingAtTarget) {}
 
   public static record HubShotSolution(
       double distanceMeters,
@@ -70,19 +79,23 @@ public class Shooter extends SubsystemBase {
   private double hoodHomingStallSeconds = 0.0;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
+  private double hubAimHeightOffsetMeters = ShooterConstants.defaultHubAimHeightOffsetMeters;
   private boolean calibrationModeEnabled = false;
   private double calibrationHoodSetpointRotations = 0.0;
   private double calibrationPair1WheelSetpointRadPerSec = 0.0;
   private double calibrationPair2WheelSetpointRadPerSec = 0.0;
   private double calibrationMeasuredDistanceMeters = 0.0;
   private double calibrationMeasuredHeightDeltaMeters =
-      ShooterConstants.hubCenterHeightMeters - ShooterConstants.defaultLaunchHeightMeters;
+      ShooterConstants.defaultHubAimHeightMeters - ShooterConstants.defaultLaunchHeightMeters;
   private double calibrationMeasuredAirtimeSeconds = Double.NaN;
   private double calibrationVideoLaunchAngleDegrees = Double.NaN;
   private String calibrationNotes = "";
   private int calibrationRecordedSampleCount = 0;
   private double calibrationLastRecordedTimestampSeconds = Double.NaN;
   private double lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
+  private Pose2d latestHubRobotPose = Pose2d.kZero;
+  private Pose2d latestHubPose = Pose2d.kZero;
+  private Translation2d latestRobotFieldVelocityMetersPerSec = new Translation2d();
   private HubShotSolution latestHubShotSolution =
       new HubShotSolution(
           0.0,
@@ -91,6 +104,8 @@ public class Shooter extends SubsystemBase {
           speedToPower(ShooterConstants.defaultLaunchSpeedMetersPerSec),
           ShooterConstants.fallbackAirtimeSeconds,
           false);
+  private PredictedHubShot latestPredictedHubShot =
+      new PredictedHubShot(false, Double.NaN, Double.NaN, Double.NaN, false);
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(ShooterConstants.configTableName);
   private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommon(subsystemTable);
@@ -160,6 +175,8 @@ public class Shooter extends SubsystemBase {
       tuningTable.getEntry("Wheels/Pair1Direction");
   private final NetworkTableEntry pair2DirectionEntry =
       tuningTable.getEntry("Wheels/Pair2Direction");
+  private final NetworkTableEntry hubAimHeightOffsetEntry =
+      tuningTable.getEntry("Hub/AimHeightOffsetMeters");
   private final NetworkTableEntry wheelVelocityKpEntry =
       pidTuningTable.getEntry("Wheels/Velocity/Kp");
   private final NetworkTableEntry wheelVelocityKiEntry =
@@ -310,6 +327,7 @@ public class Shooter extends SubsystemBase {
     publishHoodShotOverlayToNetworkTables(
         pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     publishCalibrationTelemetry();
+    refreshPredictedHubShot();
 
     logControlState(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
   }
@@ -330,8 +348,13 @@ public class Shooter extends SubsystemBase {
     return latestHubShotSolution.airtimeSeconds();
   }
 
+  public boolean isHubShotPredictedToScore() {
+    return calibrationModeEnabled
+        || (latestHubShotSolution.feasible() && latestPredictedHubShot.scoring());
+  }
+
   public boolean isHubShotSolutionFeasible() {
-    return calibrationModeEnabled || latestHubShotSolution.feasible();
+    return isHubShotPredictedToScore();
   }
 
   public HubShotSolution getLatestHubShotSolution() {
@@ -371,6 +394,10 @@ public class Shooter extends SubsystemBase {
 
   public double getLaunchHeightMeters() {
     return launchHeightMeters;
+  }
+
+  public double getHubAimHeightMeters() {
+    return ShooterConstants.hubCenterHeightMeters + hubAimHeightOffsetMeters;
   }
 
   public boolean isManualHoodOverrideEnabled() {
@@ -506,26 +533,33 @@ public class Shooter extends SubsystemBase {
 
   public HubShotSolution updateHubShotSolution(
       Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
-    if (calibrationModeEnabled) {
-      latestHubShotSolution = createCalibrationModeShotSolution();
-      applyHubShotSetpoints(latestHubShotSolution);
-      return latestHubShotSolution;
-    }
-
     Translation2d robotFieldVelocity =
         robotFieldVelocityMetersPerSec != null
             ? robotFieldVelocityMetersPerSec
             : new Translation2d();
-    double targetHeightDeltaMeters = ShooterConstants.hubCenterHeightMeters - launchHeightMeters;
+    latestHubRobotPose = robotPose;
+    latestHubPose = hubPose;
+    latestRobotFieldVelocityMetersPerSec = robotFieldVelocity;
+    if (calibrationModeEnabled) {
+      latestHubShotSolution = createCalibrationModeShotSolution();
+      refreshPredictedHubShot();
+      applyHubShotSetpoints(latestHubShotSolution);
+      return latestHubShotSolution;
+    }
+
+    double targetHeightMeters = getHubAimHeightMeters();
+    double targetHeightDeltaMeters = targetHeightMeters - launchHeightMeters;
     MotionCompensatedHubShotSolution motionCompensatedSolution =
         solveHubShotWithMotionCompensation(
             robotPose, hubPose, robotFieldVelocity, targetHeightDeltaMeters);
     latestHubShotSolution = motionCompensatedSolution.shotSolution();
+    refreshPredictedHubShot();
     applyHubShotSetpoints(latestHubShotSolution);
     logHubShotSolution(
         latestHubShotSolution,
         hubPose,
         motionCompensatedSolution.compensatedHubPose(),
+        targetHeightMeters,
         robotFieldVelocity,
         motionCompensatedSolution.iterations(),
         motionCompensatedSolution.converged());
@@ -550,6 +584,7 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScaleEntry.setDefaultDouble(ShooterConstants.defaultWheelSpeedScale);
     pair1DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair1Direction);
     pair2DirectionEntry.setDefaultDouble(ShooterConstants.defaultPair2Direction);
+    hubAimHeightOffsetEntry.setDefaultDouble(ShooterConstants.defaultHubAimHeightOffsetMeters);
     wheelVelocityKpEntry.setDefaultDouble(ShooterConstants.shooterVelocityKp);
     wheelVelocityKiEntry.setDefaultDouble(ShooterConstants.shooterVelocityKi);
     wheelVelocityKdEntry.setDefaultDouble(ShooterConstants.shooterVelocityKd);
@@ -586,6 +621,9 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScale = clampWheelSpeedScale(wheelSpeedScaleEntry.getDouble(wheelSpeedScale));
     pair1Direction = normalizeDirection(pair1DirectionEntry.getDouble(pair1Direction));
     pair2Direction = normalizeDirection(pair2DirectionEntry.getDouble(pair2Direction));
+    hubAimHeightOffsetMeters =
+        sanitizeFinite(
+            hubAimHeightOffsetEntry.getDouble(hubAimHeightOffsetMeters), hubAimHeightOffsetMeters);
     wheelVelocityKp =
         sanitizeFinite(wheelVelocityKpEntry.getDouble(wheelVelocityKp), wheelVelocityKp);
     wheelVelocityKi =
@@ -646,6 +684,7 @@ public class Shooter extends SubsystemBase {
     wheelSpeedScaleEntry.setDouble(wheelSpeedScale);
     pair1DirectionEntry.setDouble(pair1Direction);
     pair2DirectionEntry.setDouble(pair2Direction);
+    hubAimHeightOffsetEntry.setDouble(hubAimHeightOffsetMeters);
     wheelVelocityKpEntry.setDouble(wheelVelocityKp);
     wheelVelocityKiEntry.setDouble(wheelVelocityKi);
     wheelVelocityKdEntry.setDouble(wheelVelocityKd);
@@ -717,7 +756,7 @@ public class Shooter extends SubsystemBase {
     double targetHeightMeters =
         calibrationModeEnabled
             ? launchHeightMeters + calibrationMeasuredHeightDeltaMeters
-            : ShooterConstants.hubCenterHeightMeters;
+            : getHubAimHeightMeters();
     Rotation2d solutionAngle =
         calibrationModeEnabled
             ? motorRotationsToHoodAngle(calibrationHoodSetpointRotations)
@@ -798,6 +837,78 @@ public class Shooter extends SubsystemBase {
       return OptionalDouble.empty();
     }
     return OptionalDouble.of(projectileHeightMeters);
+  }
+
+  private void refreshPredictedHubShot() {
+    latestPredictedHubShot =
+        predictCurrentHubShot(
+            latestHubRobotPose, latestHubPose, latestRobotFieldVelocityMetersPerSec);
+  }
+
+  private PredictedHubShot predictCurrentHubShot(
+      Pose2d robotPose, Pose2d hubPose, Translation2d robotFieldVelocityMetersPerSec) {
+    Translation2d launchOrigin = HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
+    Rotation2d launchYaw = robotPose.getRotation().plus(ShooterConstants.shooterFacingOffset);
+    Rotation2d launchPitch = getMeasuredHoodAngle();
+    double launchSpeedMetersPerSec =
+        MathUtil.clamp(
+            getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec(),
+            0.0,
+            ShooterConstants.maxLaunchSpeedMetersPerSec);
+    double horizontalLaunchSpeedMetersPerSec =
+        launchSpeedMetersPerSec * Math.cos(launchPitch.getRadians());
+    Translation2d projectileFieldVelocityMetersPerSec =
+        robotFieldVelocityMetersPerSec.plus(
+            new Translation2d(horizontalLaunchSpeedMetersPerSec, launchYaw));
+    double horizontalVelocityMagnitudeSquared =
+        projectileFieldVelocityMetersPerSec.getNorm()
+            * projectileFieldVelocityMetersPerSec.getNorm();
+    if (horizontalVelocityMagnitudeSquared
+        < (ShooterConstants.minHorizontalVelocityMetersPerSec
+            * ShooterConstants.minHorizontalVelocityMetersPerSec)) {
+      return new PredictedHubShot(false, Double.NaN, Double.NaN, Double.NaN, false);
+    }
+
+    Translation2d vectorToHub = hubPose.getTranslation().minus(launchOrigin);
+    // Evaluate the measured shot at the point of closest horizontal approach to the hub center.
+    double evaluationTimeSeconds =
+        Math.max(
+                0.0,
+                vectorToHub.getX() * projectileFieldVelocityMetersPerSec.getX()
+                    + vectorToHub.getY() * projectileFieldVelocityMetersPerSec.getY())
+            / horizontalVelocityMagnitudeSquared;
+    if (!Double.isFinite(evaluationTimeSeconds)
+        || evaluationTimeSeconds > ShooterConstants.maxAirtimeSeconds) {
+      return new PredictedHubShot(false, Double.NaN, Double.NaN, Double.NaN, false);
+    }
+
+    Translation2d predictedFieldPosition =
+        launchOrigin.plus(projectileFieldVelocityMetersPerSec.times(evaluationTimeSeconds));
+    double predictedHeightMeters =
+        launchHeightMeters
+            + (launchSpeedMetersPerSec * Math.sin(launchPitch.getRadians()) * evaluationTimeSeconds)
+            - (0.5
+                * ShooterConstants.gravityMetersPerSecSquared
+                * evaluationTimeSeconds
+                * evaluationTimeSeconds);
+    double targetHeightMeters = getHubAimHeightMeters();
+    double horizontalErrorMeters = predictedFieldPosition.getDistance(hubPose.getTranslation());
+    double verticalErrorMeters = predictedHeightMeters - targetHeightMeters;
+    double verticalVelocityMetersPerSec =
+        (launchSpeedMetersPerSec * Math.sin(launchPitch.getRadians()))
+            - (ShooterConstants.gravityMetersPerSecSquared * evaluationTimeSeconds);
+    boolean descendingAtTarget =
+        verticalVelocityMetersPerSec <= -ShooterConstants.hubTopEntryMinDescentVelocityMetersPerSec;
+    boolean scoring =
+        horizontalErrorMeters <= ShooterConstants.hubPredictedScoreToleranceXYMeters
+            && Math.abs(verticalErrorMeters) <= ShooterConstants.hubPredictedScoreToleranceZMeters
+            && descendingAtTarget;
+    return new PredictedHubShot(
+        scoring,
+        horizontalErrorMeters,
+        verticalErrorMeters,
+        evaluationTimeSeconds,
+        descendingAtTarget);
   }
 
   private void clampHoodSetpointToCalibrationRange() {
@@ -1028,10 +1139,9 @@ public class Shooter extends SubsystemBase {
       double targetHeightDeltaMeters) {
     double airtimeGuessSeconds = sanitizeAirtimeSeed(latestHubShotSolution.airtimeSeconds());
     Pose2d compensatedHubPose = hubPose;
+    Translation2d launchOrigin = HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
     HubShotSolution solvedShot =
-        solveHubShot(
-            robotPose.getTranslation().getDistance(hubPose.getTranslation()),
-            targetHeightDeltaMeters);
+        solveHubShot(launchOrigin.getDistance(hubPose.getTranslation()), targetHeightDeltaMeters);
     int iterations = 0;
     boolean converged = false;
 
@@ -1039,7 +1149,7 @@ public class Shooter extends SubsystemBase {
       compensatedHubPose =
           getCompensatedHubPose(hubPose, robotFieldVelocityMetersPerSec, airtimeGuessSeconds);
       double compensatedDistanceMeters =
-          robotPose.getTranslation().getDistance(compensatedHubPose.getTranslation());
+          launchOrigin.getDistance(compensatedHubPose.getTranslation());
       solvedShot = solveHubShot(compensatedDistanceMeters, targetHeightDeltaMeters);
       iterations = i + 1;
 
@@ -1056,7 +1166,7 @@ public class Shooter extends SubsystemBase {
       compensatedHubPose =
           getCompensatedHubPose(hubPose, robotFieldVelocityMetersPerSec, airtimeGuessSeconds);
       double compensatedDistanceMeters =
-          robotPose.getTranslation().getDistance(compensatedHubPose.getTranslation());
+          launchOrigin.getDistance(compensatedHubPose.getTranslation());
       solvedShot = solveHubShot(compensatedDistanceMeters, targetHeightDeltaMeters);
     }
 
@@ -1456,14 +1566,17 @@ public class Shooter extends SubsystemBase {
     return areWheelsAtSpeed(ShooterConstants.wheelReadyToleranceRatio);
   }
 
-  public boolean isReadyToFire() {
+  public boolean isSpinupComplete() {
     return shotControlEnabled
         && !hoodHomingActive
-        && (calibrationModeEnabled || latestHubShotSolution.feasible())
         && inputs.pair1Connected
         && inputs.pair2Connected
         && inputs.hoodConnected
         && areWheelsAtSpeedForShot();
+  }
+
+  public boolean isReadyToFire() {
+    return isSpinupComplete() && isHubShotPredictedToScore();
   }
 
   public boolean shouldTriggerSimulatedShot(double timestampSeconds, double feedRateRatio) {
@@ -1558,7 +1671,9 @@ public class Shooter extends SubsystemBase {
     double rampRateRadPerSecSquared =
         Math.abs(targetRadPerSec) > Math.abs(currentRadPerSec)
             ? ShooterConstants.wheelCommandRampUpRadPerSecSquared
-            : ShooterConstants.wheelCommandRampDownRadPerSecSquared;
+            : Constants.currentMode == Constants.Mode.SIM
+                ? ShooterConstants.simWheelCommandRampDownRadPerSecSquared
+                : ShooterConstants.wheelCommandRampDownRadPerSecSquared;
     double maxStepRadPerSec = rampRateRadPerSecSquared * loopPeriodSeconds;
     double deltaRadPerSec = targetRadPerSec - currentRadPerSec;
     if (Math.abs(deltaRadPerSec) <= maxStepRadPerSec) {
@@ -1728,7 +1843,28 @@ public class Shooter extends SubsystemBase {
         NetworkTablesUtil.logPath("GamePiece/Shooter/Interlock/WheelsReadyForShot"),
         areWheelsAtSpeedForShot());
     Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Interlock/HubShotPredictedToScore"),
+        isHubShotPredictedToScore());
+    Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Interlock/ReadyToFire"), isReadyToFire());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedHorizontalErrorMeters"),
+        latestPredictedHubShot.horizontalErrorMeters());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedVerticalErrorMeters"),
+        latestPredictedHubShot.verticalErrorMeters());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedEvaluationTimeSeconds"),
+        latestPredictedHubShot.evaluationTimeSeconds());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedDescendingAtTarget"),
+        latestPredictedHubShot.descendingAtTarget());
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedScoreToleranceXYMeters"),
+        ShooterConstants.hubPredictedScoreToleranceXYMeters);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/PredictedScoreToleranceZMeters"),
+        ShooterConstants.hubPredictedScoreToleranceZMeters);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Status/Pair1Connected"),
         inputs.pair1Connected);
@@ -1743,6 +1879,7 @@ public class Shooter extends SubsystemBase {
       HubShotSolution solution,
       Pose2d baseHubPose,
       Pose2d compensatedHubPose,
+      double targetHeightMeters,
       Translation2d robotFieldVelocityMetersPerSec,
       int motionSolveIterations,
       boolean motionSolveConverged) {
@@ -1779,6 +1916,11 @@ public class Shooter extends SubsystemBase {
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/AirtimeSeconds"),
         solution.airtimeSeconds());
     Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/TargetHeightMeters"), targetHeightMeters);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/TargetHeightOffsetMeters"),
+        hubAimHeightOffsetMeters);
+    Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/Feasible"), solution.feasible());
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/BaseTargetPose"), baseHubPose);
@@ -1799,6 +1941,9 @@ public class Shooter extends SubsystemBase {
         compensationOffset.getY());
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/ApexHeightMeters"), apexHeightMeters);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Targeting/Hub/Shooter/ApexAboveTargetMeters"),
+        apexHeightMeters - targetHeightMeters);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Targeting/Hub/Shooter/ApexAboveHubCenterMeters"),
         apexHeightMeters - ShooterConstants.hubCenterHeightMeters);

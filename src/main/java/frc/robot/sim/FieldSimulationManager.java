@@ -188,7 +188,8 @@ public class FieldSimulationManager {
     if (basicFeedIndexerSpeed <= 1e-6) {
       return 0.0;
     }
-    return MathUtil.clamp(indexers.getAverageAppliedOutput() / basicFeedIndexerSpeed, 0.0, 1.0);
+    return MathUtil.clamp(
+        indexers.getAverageAppliedOutputMagnitude() / basicFeedIndexerSpeed, 0.0, 1.0);
   }
 
   private void maybeLaunchSimulatedFuel(Pose2d robotPose, ChassisSpeeds fieldRelativeSpeeds) {
@@ -223,9 +224,7 @@ public class FieldSimulationManager {
         .withTargetPosition(
             () ->
                 new Translation3d(
-                    targetHubPose.getX(),
-                    targetHubPose.getY(),
-                    ShooterConstants.hubCenterHeightMeters))
+                    targetHubPose.getX(), targetHubPose.getY(), shooter.getHubAimHeightMeters()))
         .withTargetTolerance(
             new Translation3d(
                 ShooterConstants.projectileTargetToleranceXYMeters,
