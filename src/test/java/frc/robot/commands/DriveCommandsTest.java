@@ -54,6 +54,7 @@ class DriveCommandsTest {
 
     command.initialize();
     command.execute();
+    command.execute();
     command.end(false);
 
     assertEquals(

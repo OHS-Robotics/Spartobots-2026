@@ -280,8 +280,7 @@ public class Drive extends SubsystemBase {
       }
 
       // Apply update
-      poseEstimator.updateWithTime(
-          sampleTimestamps[i], rawGyroRotation.unaryMinus(), modulePositions);
+      poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
     }
 
     // Update gyro alert
@@ -427,7 +426,7 @@ public class Drive extends SubsystemBase {
 
   /** Resets the current odometry pose. */
   public void setPose(Pose2d pose) {
-    poseEstimator.resetPosition(rawGyroRotation.unaryMinus(), getModulePositions(), pose);
+    poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
     setSimulationPoseCallback.accept(pose);
   }
 
