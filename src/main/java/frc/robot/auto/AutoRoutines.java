@@ -9,6 +9,7 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.gamepiece.hopper.Hopper;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.intake.Intake;
+import frc.robot.subsystems.gamepiece.intake.IntakeConstants;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
 import frc.robot.targeting.FieldTargetingService;
@@ -178,6 +179,7 @@ public class AutoRoutines {
             () -> {
               Pose2d outpostStartPose = fieldTargetingService.getOutpostStartPose();
               Pose2d openingShotPose = fieldTargetingService.getOpeningShotPose();
+              Pose2d endingShotPose = fieldTargetingService.getEndingShotPose();
 
               return Commands.sequence(
                       Commands.runOnce(
@@ -191,7 +193,10 @@ public class AutoRoutines {
                       Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_TO_LADDER")),
                       fieldTargetingService
                           .alignToLadderCommand()
-                          .withTimeout(competitionAutoLadderAlignTimeoutSeconds))
+                          .withTimeout(competitionAutoLadderAlignTimeoutSeconds),
+                      drive.autoDriveUnderTrenchCommand(2.0),
+                      buildCompetitionMiddleLoadCommand(),
+                      buildCompetitionDriveAndShootCommand(endingShotPose))
                   .finallyDo(
                       () -> {
                         shooter.setShotControlEnabled(false);
@@ -219,6 +224,31 @@ public class AutoRoutines {
                     hubTargetingService::updateAndGetAirtimeSeconds)
                 .withTimeout(competitionAutoDriveToShotTimeoutSeconds + competitionAutoFeedSeconds))
         .finallyDo(() -> recordCompetitionAutoShotState("SHOT_PHASE_COMPLETE"));
+  }
+
+  private Command buildCompetitionMiddleLoadCommand() {
+    return Commands.defer(
+        () -> {
+          Logger.recordOutput("hrnn", drive.octant);
+          String middlePath;
+          if (drive.octant == 5 || drive.octant == 2) {
+            middlePath = "Middle Right";
+          } else {
+            middlePath = "Middle Left";
+          }
+          return Commands.sequence(
+              Commands.runOnce(
+                  () -> {
+                    intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
+                  }),
+              drive.followNamedPath(middlePath),
+              Commands.runOnce(
+                  () -> {
+                    intake.stopIntake();
+                  }),
+              drive.autoDriveUnderTrenchCommand(0.0));
+        },
+        Set.of(drive, intake));
   }
 
   private Command buildCompetitionShotCommand(
