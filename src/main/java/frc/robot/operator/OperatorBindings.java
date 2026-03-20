@@ -59,8 +59,9 @@ public class OperatorBindings {
   }
 
   private void configureDriverBindings() {
-    DoubleSupplier driverForwardSupplier = driverController::getLeftY;
-    DoubleSupplier driverStrafeSupplier = driverController::getLeftX;
+    // Match the drivetrain convention used by DriveCommands: +X forward, +Y left.
+    DoubleSupplier driverForwardSupplier = () -> -driverController.getLeftY();
+    DoubleSupplier driverStrafeSupplier = () -> -driverController.getLeftX();
 
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
