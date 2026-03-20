@@ -454,23 +454,25 @@ public class Drive extends SubsystemBase {
     return maxSpeedMetersPerSec / driveBaseRadius;
   }
 
-  public Command autoDriveUnderTrenchCommand() {
+  public Command autoDriveUnderTrenchCommand(double goalEndVelocity) {
     return Commands.defer(
         () -> {
           Translation2d[] trenchPoses = determineTrenchPoses();
           double snappedAngleRadians =
               DriveConstants.trenchSnapTo
                   * Math.round(getRotation().getRadians() / DriveConstants.trenchSnapTo);
-          return buildTrenchPathCommand(trenchPoses[1], snappedAngleRadians);
+          return buildTrenchPathCommand(trenchPoses[1], snappedAngleRadians, goalEndVelocity);
         },
         Set.of(this));
   }
 
-  private Command buildTrenchPathCommand(Translation2d targetPose, double angleRadians) {
+  private Command buildTrenchPathCommand(
+      Translation2d targetPose, double angleRadians, double goalEndVelocity) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
     return alignToHeadingCommand(trenchHeading)
         .andThen(
-            AutoBuilder.pathfindToPose(new Pose2d(targetPose, trenchHeading), pathConstraints, 0));
+            AutoBuilder.pathfindToPose(
+                new Pose2d(targetPose, trenchHeading), pathConstraints, goalEndVelocity));
   }
 
   private Command alignToHeadingCommand(Rotation2d targetHeading) {

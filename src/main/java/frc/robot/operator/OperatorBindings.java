@@ -91,7 +91,10 @@ public class OperatorBindings {
         .rightBumper()
         .onTrue(
             autoAssistController.scheduleAction(
-                "AutoAssist/DriveUnderTrench", fieldTargetingService::autoDriveUnderTrenchCommand));
+                "AutoAssist/DriveUnderTrench",
+                () -> {
+                  return fieldTargetingService.autoDriveUnderTrenchCommand(0.0);
+                }));
     driverController.leftStick().whileTrue(Commands.run(drive::stopWithX, drive));
 
     if (!enableMechanismBringupBindings) {

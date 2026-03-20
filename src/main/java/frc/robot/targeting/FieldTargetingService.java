@@ -17,6 +17,11 @@ public class FieldTargetingService {
   private static final Pose2d redOutpostOpeningShotPose =
       new Pose2d(
           Constants.fieldLength - 2.85, Constants.fieldWidth - 2.1, Rotation2d.fromDegrees(50.0));
+  private static final Pose2d blueOutpostEndingShotPose =
+      new Pose2d(2.85, 6.3, Rotation2d.fromDegrees(-50));
+  private static final Pose2d redOutpostEndingShotPose =
+      new Pose2d(
+          Constants.fieldLength - 2.85, Constants.fieldWidth - 6.3, Rotation2d.fromDegrees(130));
   private static final Pose2d blueLadderAlignPose =
       new Pose2d(1.25, Constants.fieldWidth - 0.75, Rotation2d.kZero);
   private static final Pose2d redLadderAlignPose =
@@ -32,8 +37,8 @@ public class FieldTargetingService {
     this.drive = drive;
   }
 
-  public Command autoDriveUnderTrenchCommand() {
-    return drive.autoDriveUnderTrenchCommand();
+  public Command autoDriveUnderTrenchCommand(double goalEndVelocity) {
+    return drive.autoDriveUnderTrenchCommand(goalEndVelocity);
   }
 
   public Command driveToOutpostCommand() {
@@ -64,6 +69,10 @@ public class FieldTargetingService {
     return selectOpeningShotPose(DriverStation.getAlliance());
   }
 
+  public Pose2d getEndingShotPose() {
+    return selectEndingShotPose(DriverStation.getAlliance());
+  }
+
   public Command driveToOpeningShotCommand() {
     return drive.pathfindToTranslation(getOpeningShotPose().getTranslation());
   }
@@ -90,6 +99,10 @@ public class FieldTargetingService {
 
   static Pose2d selectOpeningShotPose(Optional<Alliance> alliance) {
     return getAlliancePose(alliance, blueOutpostOpeningShotPose, redOutpostOpeningShotPose);
+  }
+
+  static Pose2d selectEndingShotPose(Optional<Alliance> alliance) {
+    return getAlliancePose(alliance, blueOutpostEndingShotPose, redOutpostEndingShotPose);
   }
 
   private static Pose2d getAlliancePose(
