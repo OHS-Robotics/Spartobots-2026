@@ -7,6 +7,10 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -66,6 +70,14 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   private static final int driverControllerPort = 0;
   private static final int operatorControllerPort = 1;
+  private static final int visionPoseSyncMinTagCount = 2;
+  private static final double visionPoseSyncMaxAgeSeconds = 0.25;
+  private static final double visionPoseSyncMaxAverageTagDistanceMeters = 4.5;
+  private static final double visionPoseSyncMaxLinearSpeedMetersPerSec = 0.20;
+  private static final double visionPoseSyncMaxAngularSpeedRadPerSec = Units.degreesToRadians(20.0);
+  private static final double visionPoseSyncMinTranslationErrorMeters = 0.08;
+  private static final double visionPoseSyncMinRotationErrorRadians = Units.degreesToRadians(3.0);
+  private static final double visionPoseSyncCooldownSeconds = 0.5;
 
   private final Drive drive;
   private final Shooter shooter;
@@ -92,6 +104,7 @@ public class RobotContainer {
   private final AutoAssistController autoAssistController;
   private final RobotVisualizationPublisher robotVisualizationPublisher;
   private final FieldSimulationManager fieldSimulationManager;
+  private double lastVisionPoseSyncTimestampSeconds = Double.NEGATIVE_INFINITY;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -258,6 +271,7 @@ public class RobotContainer {
   }
 
   public void periodic() {
+    syncDrivePoseToVisionIfNeeded();
     hubTargetingService.update();
     robotVisualizationPublisher.publish();
     operatorFeedbackController.periodic();
@@ -273,6 +287,51 @@ public class RobotContainer {
 
   public void updateSimulation() {
     fieldSimulationManager.update();
+  }
+
+  private void syncDrivePoseToVisionIfNeeded() {
+    var estimate = vision.getBestRobotPoseEstimate();
+    if (estimate.isEmpty()) {
+      return;
+    }
+
+    double nowSeconds = Timer.getFPGATimestamp();
+    var poseEstimate = estimate.get();
+    if (nowSeconds - poseEstimate.timestampSeconds() > visionPoseSyncMaxAgeSeconds) {
+      return;
+    }
+    if (poseEstimate.tagCount() < visionPoseSyncMinTagCount) {
+      return;
+    }
+    if (poseEstimate.averageTagDistanceMeters() > visionPoseSyncMaxAverageTagDistanceMeters) {
+      return;
+    }
+    if (nowSeconds - lastVisionPoseSyncTimestampSeconds < visionPoseSyncCooldownSeconds) {
+      return;
+    }
+
+    boolean disabled = DriverStation.isDisabled();
+    double linearSpeedMetersPerSec = drive.getFieldRelativeVelocityMetersPerSecond().getNorm();
+    double angularSpeedRadPerSec = Math.abs(drive.getYawVelocityRadPerSec());
+    if (!disabled
+        && (linearSpeedMetersPerSec > visionPoseSyncMaxLinearSpeedMetersPerSec
+            || angularSpeedRadPerSec > visionPoseSyncMaxAngularSpeedRadPerSec)) {
+      return;
+    }
+
+    double translationErrorMeters =
+        drive.getPose().getTranslation().getDistance(poseEstimate.pose().getTranslation());
+    double rotationErrorRadians =
+        Math.abs(
+            MathUtil.angleModulus(
+                drive.getRotation().minus(poseEstimate.pose().getRotation()).getRadians()));
+    if (translationErrorMeters < visionPoseSyncMinTranslationErrorMeters
+        && rotationErrorRadians < visionPoseSyncMinRotationErrorRadians) {
+      return;
+    }
+
+    drive.setPose(poseEstimate.pose());
+    lastVisionPoseSyncTimestampSeconds = nowSeconds;
   }
 
   private void registerDashboardActions() {

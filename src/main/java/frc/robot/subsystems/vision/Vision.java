@@ -27,6 +27,7 @@ import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 import frc.robot.util.NetworkTablesUtil;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -36,6 +37,7 @@ public class Vision extends SubsystemBase {
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
+  private VisionPoseEstimate bestRobotPoseEstimate = null;
 
   public Vision(VisionConsumer consumer, Supplier<Pose2d> robotPoseSupplier, VisionIO... io) {
     this.consumer = consumer;
@@ -66,8 +68,15 @@ public class Vision extends SubsystemBase {
     return inputs[cameraIndex].latestTargetObservation.tx();
   }
 
+  /** Returns the best accepted robot pose observation from the most recent cycle. */
+  public Optional<VisionPoseEstimate> getBestRobotPoseEstimate() {
+    return Optional.ofNullable(bestRobotPoseEstimate);
+  }
+
   @Override
   public void periodic() {
+    bestRobotPoseEstimate = null;
+
     for (var cameraIo : io) {
       if (cameraIo instanceof VisionIOPhotonVisionSim simIo) {
         simIo.updateSimulationPose();
@@ -165,6 +174,17 @@ public class Vision extends SubsystemBase {
         // Skip if rejected
         if (rejectPose) {
           continue;
+        }
+
+        VisionPoseEstimate candidateEstimate =
+            new VisionPoseEstimate(
+                observation.pose().toPose2d(),
+                observation.timestamp(),
+                observation.tagCount(),
+                observation.averageTagDistance(),
+                cameraIndex);
+        if (isBetterRobotPoseEstimate(candidateEstimate, bestRobotPoseEstimate)) {
+          bestRobotPoseEstimate = candidateEstimate;
         }
 
         // Calculate standard deviations
@@ -329,6 +349,28 @@ public class Vision extends SubsystemBase {
     double halfDiagonalFovTangent = Math.tan(visualizationConfig.diagonalFov().getRadians() * 0.5);
     return halfDiagonalFovTangent / Math.hypot(aspectRatio, 1.0);
   }
+
+  private static boolean isBetterRobotPoseEstimate(
+      VisionPoseEstimate candidate, VisionPoseEstimate currentBest) {
+    if (currentBest == null) {
+      return true;
+    }
+    if (candidate.tagCount() != currentBest.tagCount()) {
+      return candidate.tagCount() > currentBest.tagCount();
+    }
+    if (Math.abs(candidate.averageTagDistanceMeters() - currentBest.averageTagDistanceMeters())
+        > 1e-9) {
+      return candidate.averageTagDistanceMeters() < currentBest.averageTagDistanceMeters();
+    }
+    return candidate.timestampSeconds() > currentBest.timestampSeconds();
+  }
+
+  public static record VisionPoseEstimate(
+      Pose2d pose,
+      double timestampSeconds,
+      int tagCount,
+      double averageTagDistanceMeters,
+      int cameraIndex) {}
 
   @FunctionalInterface
   public static interface VisionConsumer {
