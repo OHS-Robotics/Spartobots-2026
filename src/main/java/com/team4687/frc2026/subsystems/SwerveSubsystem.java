@@ -37,7 +37,7 @@ public class SwerveSubsystem extends SubsystemBase {
     public SwerveSubsystem(File directory) {
         //VisionSubsystem.initVision();
 
-        SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
+        SwerveDriveTelemetry.verbosity = TelemetryVerbosity.POSE;
         
         try {
             swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED);
@@ -52,6 +52,10 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public void drive(Translation2d translation, double rotation, boolean fieldRelative) {
         swerveDrive.drive(translation, rotation, fieldRelative, false);
+    }
+
+    public void drive(ChassisSpeeds speeds) {
+        swerveDrive.drive(speeds);
     }
 
     public Command driveCommand(DoubleSupplier translationX, DoubleSupplier translationY,
