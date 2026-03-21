@@ -194,7 +194,9 @@ public class AutoRoutines {
                       fieldTargetingService
                           .alignToLadderCommand()
                           .withTimeout(competitionAutoLadderAlignTimeoutSeconds),
+                      Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_UNDER_TRENCH")),
                       drive.autoDriveUnderTrenchCommand(2.0),
+                      Commands.runOnce(() -> recordCompetitionAutoShotState("MIDDLE_LOAD")),
                       buildCompetitionMiddleLoadCommand(),
                       buildCompetitionDriveAndShootCommand(endingShotPose))
                   .finallyDo(

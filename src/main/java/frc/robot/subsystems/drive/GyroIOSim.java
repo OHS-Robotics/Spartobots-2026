@@ -8,7 +8,6 @@
 package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static frc.robot.subsystems.drive.DriveConstants.navxYawInverted;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import frc.robot.util.SparkUtil;
@@ -25,7 +24,8 @@ public class GyroIOSim implements GyroIO {
 
   @Override
   public void updateInputs(GyroIOInputs inputs) {
-    double yawSign = navxYawInverted ? -1.0 : 1.0;
+    // double yawSign = DriveConstants.navxYawInverted ? -1.0 : 1.0;
+    double yawSign = 1.0;
 
     inputs.connected = true;
     inputs.yawPosition =
