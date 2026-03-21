@@ -1,37 +1,15 @@
 package com.team4687.frc2026.subsystems.body;
 
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 
 public final class ShooterConstants {
-  private ShooterConstants() {}
+  public static final double minAngle = Units.degreesToRadians(47.0);   // the shooter can go up to a max of 45 degrees
+  public static final double maxAngle = Units.degreesToRadians(90.0);   // the zero on the shooter is 90 degrees
+  public static final double minPower = 0.02; // 2% power
+  public static final double maxPower = 12.0; // 100% power
 
-  public static final double gravityMetersPerSecSquared = 9.80665;
+  public static final double preferredAngle = Units.degreesToRadians(75.0); // we want to prefer steeper angles so the balls don't hit the side of the hub
+  public static final double preferredPower = maxPower * 0.8;  // 80% seems okay for now
 
-  // Shooter geometry
-  public static final double defaultLaunchHeightMeters = Units.inchesToMeters(30.0);
-  public static final double hubCenterHeightMeters = Units.inchesToMeters(104.0);
-
-  // Distance range used for preferred-angle interpolation
-  public static final double hubShotNearDistanceMeters = Units.feetToMeters(6.0);
-  public static final double hubShotFarDistanceMeters = Units.feetToMeters(20.0);
-
-  // Preferred hood profile, tuned by distance (near = steeper, far = flatter)
-  public static final Rotation2d hubShotNearPreferredAngle = Rotation2d.fromDegrees(10.0);
-  public static final Rotation2d hubShotFarPreferredAngle = Rotation2d.fromDegrees(40.0);
-
-  // Allowed launch envelope searched by solver
-  public static final Rotation2d minLaunchAngle = Rotation2d.fromDegrees(5.0);
-  public static final Rotation2d maxLaunchAngle = Rotation2d.fromDegrees(45.0);
-  public static final double launchAngleSearchStepDegrees = 0.5;
-
-  // Measured/estimated launch capability of the mechanism
-  public static final double minLaunchSpeedMetersPerSec = 4.0;
-  public static final double maxLaunchSpeedMetersPerSec = 19.0;
-  public static final double defaultLaunchSpeedMetersPerSec = 11.5;
-  public static final Rotation2d defaultLaunchAngle = Rotation2d.fromDegrees(25.0);
-  public static final double minAirtimeSeconds = 0.05;
-  public static final double maxAirtimeSeconds = 3.0;
-  public static final double fallbackAirtimeSeconds = 0.6;
-  public static final double minHorizontalVelocityMetersPerSec = 0.25;
+  // todo: account for shooter height?
 }

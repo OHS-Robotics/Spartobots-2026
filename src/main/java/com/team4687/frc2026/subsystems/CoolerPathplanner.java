@@ -7,6 +7,7 @@ import com.team4687.frc2026.subsystems.body.LauncherSubsystem;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -38,7 +39,7 @@ public class CoolerPathplanner extends SubsystemBase {
     // helper functions
     
     public Command goToPose(Pose2d pose, double translationSpeed, double rotationSpeed) {
-        final double translationTolerance = 0.1; // when to end
+        final double translationTolerance = 0.05; // when to end
         final double rotationTolerance = Units.degreesToRadians(1.5);
 
         PIDController rotationController = new PIDController(rotationSpeed, .3, 0.0);
@@ -93,7 +94,7 @@ public class CoolerPathplanner extends SubsystemBase {
             driveController.close();
             swerve.driveFieldOriented(new ChassisSpeeds());
         });
-        
+
     }
 
     public Pose2d newPose(double x, double y, double t) { return new Pose2d(x, y, new Rotation2d(t)); }
@@ -109,6 +110,9 @@ public class CoolerPathplanner extends SubsystemBase {
         double AUTO_TRANSLATION_SPEED = Units.feetToMeters(3.0);
         double AUTO_ROTATION_SPEED    = Units.degreesToRadians(90.0);
 
+        Command waitCommand = Commands.waitSeconds(0.15);
+        waitCommand.addRequirements(swerve);
+
         // initialize gyroscope to starting position
         // might not play nice with photonvision
         return Commands.sequence(
@@ -118,20 +122,24 @@ public class CoolerPathplanner extends SubsystemBase {
             )),
             goToPose(newPose(1.413, 5.956, rotFlip(0)), AUTO_TRANSLATION_SPEED, AUTO_ROTATION_SPEED),
             intake.runIntake(),
-            goToPose(newPose(1.072, 5.956, rotFlip(0)), AUTO_TRANSLATION_SPEED*.5, AUTO_ROTATION_SPEED*.5),
+            goToPose(newPose(0.872, 5.956, rotFlip(0)), AUTO_TRANSLATION_SPEED*.5, AUTO_ROTATION_SPEED*.5),
             intake.stopIntakeCommand(),
-            goToPose(newPose(3.198, 4.430, rotFlip(156.783)), AUTO_TRANSLATION_SPEED, AUTO_ROTATION_SPEED),
-            swerve.runOnce(() -> swerve.swerveDrive.lockPose()), // stop the wheels from moving
-            launcher.autoRunLauncherCommand(),
-            intake.startBeltCommand(),
-            Commands.waitSeconds(6.0),
-            launcher.autoStopLauncherCommand()
-        );
-        /*.finallyDo(() -> {
+            goToPose(newPose(2.913, 4.675, rotFlip(156.783)), AUTO_TRANSLATION_SPEED, AUTO_ROTATION_SPEED)
+        )
+        .andThen(Commands.parallel(
+            swerve.run(() -> swerve.swerveDrive.lockPose()), // stop the wheels from moving
+            Commands.sequence(
+                launcher.autoRunLauncherCommand(),
+                intake.startBeltCommand(),
+                Commands.waitSeconds(6.0),
+                launcher.autoStopLauncherCommand()
+            )
+        ))
+        .finallyDo(() -> {
             // clean up in case we got interrupted
             launcher.stopLauncher();
             intake.stopIntake();
-            //swerve.driveFieldOriented(new ChassisSpeeds(0.0, 0.0, 0.0));
-        });*/
+            swerve.swerveDrive.drive(new Translation2d(), 0, false, true);
+        });
     }
 }
