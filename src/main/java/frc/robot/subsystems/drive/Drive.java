@@ -62,12 +62,22 @@ public class Drive extends SubsystemBase {
   // PathPlanner PID values
   // Conservative starting values for PathPlanner holonomic control. Final values still need
   // carpet tuning, but these avoid the severe saturation caused by the previous defaults.
-  private static final double defaultPathTranslationKp = 6.0;
+  // private static final double defaultPathTranslationKp = 6.0;
+  // private static final double defaultPathTranslationKi = 0.0;
+  // private static final double defaultPathTranslationKd = 0.3;
+
+  private static final double defaultPathTranslationKp = 4.0;
   private static final double defaultPathTranslationKi = 0.0;
-  private static final double defaultPathTranslationKd = 0.3;
-  private static final double defaultPathRotationKp = 5.5;
+  private static final double defaultPathTranslationKd = 0.0;
+
+  /*private static final double defaultPathRotationKp = 5.5;
   private static final double defaultPathRotationKi = 0.0;
-  private static final double defaultPathRotationKd = 0.2;
+  private static final double defaultPathRotationKd = 0.2;*/
+
+  private static final double defaultPathRotationKp = 4.0;
+  private static final double defaultPathRotationKi = 0.0;
+  private static final double defaultPathRotationKd = 0.0;
+
   private static final double minAimVectorMagnitudeMeters = 0.10;
 
   static final Lock odometryLock = new ReentrantLock();
@@ -137,6 +147,8 @@ public class Drive extends SubsystemBase {
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   public int octant;
 
+  private Pose2d startingPose = new Pose2d(3, 3, Rotation2d.fromDegrees(0));
+
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
   private SwerveModulePosition[] lastModulePositions = // For delta tracking
@@ -147,7 +159,7 @@ public class Drive extends SubsystemBase {
         new SwerveModulePosition()
       };
   private SwerveDrivePoseEstimator poseEstimator =
-      new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
+      new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, startingPose);
 
   public Drive(
       GyroIO gyroIO,
@@ -278,6 +290,8 @@ public class Drive extends SubsystemBase {
         Twist2d twist = kinematics.toTwist2d(moduleDeltas);
         rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
       }
+
+      Logger.recordOutput("gyro test", rawGyroRotation);
 
       // Apply update
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
