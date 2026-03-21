@@ -145,8 +145,8 @@ public class DriveConstants {
       new PathConstraints(
           maxSpeedMetersPerSec,
           maxAccelerationMeterPerSecSquared,
-          maxRotationalSpeedRadiansPerSec / 3,
-          maxRotationalAccelerationRadiansPerSecSquared / 3);
+          maxRotationalSpeedRadiansPerSec,
+          maxRotationalAccelerationRadiansPerSecSquared);
   public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
 
   // MapleSim configuration

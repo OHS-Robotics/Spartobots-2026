@@ -2,6 +2,7 @@ package frc.robot.auto;
 
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -190,15 +191,27 @@ public class AutoRoutines {
                           drive),
                       Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_AND_SHOOT")),
                       buildCompetitionDriveAndShootCommand(openingShotPose),
-                      Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_TO_LADDER")),
-                      fieldTargetingService
-                          .alignToLadderCommand()
-                          .withTimeout(competitionAutoLadderAlignTimeoutSeconds),
+                      // Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_TO_LADDER")),
+                      // fieldTargetingService
+                      // .alignToLadderCommand()
+                      // .withTimeout(competitionAutoLadderAlignTimeoutSeconds),
                       Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_UNDER_TRENCH")),
                       drive.autoDriveUnderTrenchCommand(2.0),
                       Commands.runOnce(() -> recordCompetitionAutoShotState("MIDDLE_LOAD")),
                       buildCompetitionMiddleLoadCommand(),
-                      buildCompetitionDriveAndShootCommand(endingShotPose))
+                      Commands.defer(
+                          () -> {
+                            Pose2d shotPose;
+                            if (drive.octant == 0) {
+                              shotPose = endingShotPose;
+                            } else if (drive.octant == 4) {
+                              shotPose = openingShotPose;
+                            } else {
+                              shotPose = new Pose2d(0.0, 0.0, Rotation2d.fromDegrees(0));
+                            }
+                            return buildCompetitionDriveAndShootCommand(shotPose);
+                          },
+                          Set.of(drive, shooter)))
                   .finallyDo(
                       () -> {
                         shooter.setShotControlEnabled(false);
@@ -231,7 +244,6 @@ public class AutoRoutines {
   private Command buildCompetitionMiddleLoadCommand() {
     return Commands.defer(
         () -> {
-          Logger.recordOutput("hrnn", drive.octant);
           String middlePath;
           if (drive.octant == 5 || drive.octant == 2) {
             middlePath = "Middle Right";
