@@ -554,7 +554,7 @@ public class Drive extends SubsystemBase {
 
   public Command pathfindToTranslation(Translation2d target) {
     return Commands.defer(
-        () -> AutoBuilder.pathfindToPose(new Pose2d(target, getRotation()), pathConstraints),
+        () -> AutoBuilder.pathfindToPose(new Pose2d(target, getRotation()), pathConstraints, 0.0),
         Set.of(this));
   }
 

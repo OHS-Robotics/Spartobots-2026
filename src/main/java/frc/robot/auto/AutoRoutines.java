@@ -3,6 +3,7 @@ package frc.robot.auto;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -32,6 +33,7 @@ public class AutoRoutines {
   private static final double competitionAutoShotPositionToleranceMeters = 0.35;
   private static final String competitionAutoName = "Competition: Outpost -> Shoot -> Ladder";
   private static final String doNothingAutoName = "Do Nothing";
+  private static final String testAutoName = "Test";
   private static final String autoShotStateLogKey = "Auto/Competition/ShotState";
   private static final List<String> namedCommandNames =
       List.of(
@@ -55,9 +57,10 @@ public class AutoRoutines {
   private final FieldTargetingService fieldTargetingService;
   private final Map<Command, String> autoNamesByCommand = new IdentityHashMap<>();
   private final List<String> autoOptionNames =
-      new ArrayList<>(List.of(competitionAutoName, doNothingAutoName));
+      new ArrayList<>(List.of(competitionAutoName, doNothingAutoName, testAutoName));
   private final Command competitionAutoCommand;
   private final Command doNothingAutoCommand = Commands.none().withName(doNothingAutoName);
+  private final Command testAutoCommand;
   private String competitionAutoShotState = "IDLE";
 
   public AutoRoutines(
@@ -78,12 +81,24 @@ public class AutoRoutines {
     this.hubTargetingService = hubTargetingService;
     this.fieldTargetingService = fieldTargetingService;
     competitionAutoCommand = buildCompetitionAutoRoutine();
+    testAutoCommand = buildTestAutoRoutine();
+  }
+
+  private Command buildTestAutoRoutine() {
+    return Commands.defer(
+        () -> {
+          Translation2d newPose =
+              new Translation2d(drive.getPose().getX() + 1, drive.getPose().getY());
+          return drive.pathfindToTranslation(newPose);
+        },
+        Set.of(drive));
   }
 
   public LoggedDashboardChooser<Command> buildAutoChooser() {
     SendableChooser<Command> baseChooser = new SendableChooser<>();
     addDefaultAutoOption(baseChooser, competitionAutoName, competitionAutoCommand);
     addAutoOption(baseChooser, doNothingAutoName, doNothingAutoCommand);
+    addAutoOption(baseChooser, testAutoName, testAutoCommand);
     return new LoggedDashboardChooser<>("Auto Choices", baseChooser);
   }
 
