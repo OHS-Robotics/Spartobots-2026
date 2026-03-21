@@ -279,10 +279,15 @@ public class RobotContainer {
   }
 
   public void onDisabledInit() {
+    disableMechanismCalibrationModes();
     gamePieceCoordinator.onDisabledInit();
     autoAssistController.onDisabledInit();
     operatorFeedbackController.onDisabledInit();
     fieldSimulationManager.resetField();
+  }
+
+  public void onTeleopInit() {
+    disableMechanismCalibrationModes();
   }
 
   public void updateSimulation() {
@@ -332,6 +337,13 @@ public class RobotContainer {
 
     drive.setPose(poseEstimate.pose());
     lastVisionPoseSyncTimestampSeconds = nowSeconds;
+  }
+
+  private void disableMechanismCalibrationModes() {
+    shooter.setCalibrationModeEnabled(false);
+    intake.setCalibrationModeEnabled(false);
+    hopper.setCalibrationModeEnabled(false);
+    indexers.setCalibrationModeEnabled(false);
   }
 
   private void registerDashboardActions() {
