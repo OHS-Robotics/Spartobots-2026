@@ -48,7 +48,7 @@ public class DriveConstants {
   public static final double chassisOmegaCommandScalar = 1.0;
 
   // NavX yaw sign to match WPILib's CCW-positive convention.
-  public static final boolean navxYawInverted = true;
+  public static final boolean navxYawInverted = false;
 
   // Zeroed rotation values for each module, see setup instructions
   public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
