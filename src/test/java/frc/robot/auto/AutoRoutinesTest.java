@@ -36,6 +36,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 class AutoRoutinesTest {
   private static final String competitionAutoName = "Competition: Outpost -> Shoot -> Ladder";
   private static final String doNothingAutoName = "Do Nothing";
+  private static final String testAutoName = "Test";
   private static final Pattern namedCommandPattern =
       Pattern.compile(
           "\"type\"\\s*:\\s*\"named\"\\s*,\\s*\"data\"\\s*:\\s*\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"",
@@ -51,7 +52,8 @@ class AutoRoutinesTest {
   @Test
   void exposesOnlyCompetitionAutoAndDoNothing() {
     assertArrayEquals(
-        new String[] {competitionAutoName, doNothingAutoName}, autoRoutines.getAutoOptionNames());
+        new String[] {competitionAutoName, doNothingAutoName, testAutoName},
+        autoRoutines.getAutoOptionNames());
   }
 
   @Test
