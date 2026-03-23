@@ -53,7 +53,7 @@ public class DriveConstants {
   // Zeroed rotation values for each module, see setup instructions
   public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
   public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543 - .24);
   public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
 
   // Device CAN IDs
@@ -75,7 +75,8 @@ public class DriveConstants {
   // Drive motor configuration
   public static final int driveMotorCurrentLimit = 50;
   public static final int driveSimMotorCurrentLimit = 150;
-  public static final double wheelRadiusMeters = Units.inchesToMeters(1.975);
+  public static final double wheelRadiusMeters = 0.05;
+  // public static final double wheelRadiusMeters = Units.inchesToMeters(1.975);
   public static final double driveMotorReduction = 6.75; // Swerve MK4 L2
   // and 22 spur teeth
   public static final DCMotor driveGearbox = DCMotor.getNEO(1);
@@ -143,10 +144,10 @@ public class DriveConstants {
           moduleTranslations);
   public static final PathConstraints pathConstraints =
       new PathConstraints(
-          maxSpeedMetersPerSec,
-          maxAccelerationMeterPerSecSquared,
-          maxRotationalSpeedRadiansPerSec,
-          maxRotationalAccelerationRadiansPerSecSquared);
+          maxSpeedMetersPerSec / 4,
+          maxAccelerationMeterPerSecSquared / 4,
+          maxRotationalSpeedRadiansPerSec / 4,
+          maxRotationalAccelerationRadiansPerSecSquared / 4);
   public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
 
   // MapleSim configuration
