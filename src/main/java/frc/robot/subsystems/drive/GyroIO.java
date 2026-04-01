@@ -23,4 +23,6 @@ public interface GyroIO {
   public default void updateInputs(GyroIOInputs inputs) {}
 
   public default void zeroYaw() {}
+
+  public default void setAngle(Rotation2d angle) {}
 }

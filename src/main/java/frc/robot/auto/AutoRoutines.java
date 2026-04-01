@@ -89,10 +89,38 @@ public class AutoRoutines {
         () -> {
           Translation2d newPose =
               new Translation2d(drive.getPose().getX() - 2, drive.getPose().getY());
+
           // return drive.followNamedPath("Test");
-          return drive.pathfindToTranslation(newPose);
+          // return drive.pathfindToTranslation(newPose);
+
+          return Commands.sequence(
+              drive.pathfindToTranslation(newPose),
+              Commands.runOnce(
+                  () -> {
+                    hopper.setTargetAgitatorSpeed(.1);
+                  }),
+              buildCompetitionShotCommand(
+                  // Keep the shooter spun up through the auto shot phase even if the current hub
+                  // solution is infeasible. The feed interlock remains the final gate on the
+                  // indexer.
+                  shooter::isSpinupComplete,
+                  () ->
+                      drive.isNearTranslation(
+                          drive.getPose().getTranslation(),
+                          competitionAutoShotPositionToleranceMeters)),
+              drive
+                  .pathfindToTranslationAndAlignToHub(
+                      drive.getPose().getTranslation(),
+                      hubTargetingService::updateAndGetAirtimeSeconds)
+                  .withTimeout(
+                      competitionAutoDriveToShotTimeoutSeconds + competitionAutoFeedSeconds)
+                  .finallyDo(() -> recordCompetitionAutoShotState("SHOT_PHASE_COMPLETE")),
+              Commands.runOnce(
+                  () -> {
+                    hopper.stopAgitator();
+                  }));
         },
-        Set.of(drive));
+        Set.of(drive, shooter, intake, hopper, indexers));
   }
 
   public LoggedDashboardChooser<Command> buildAutoChooser() {

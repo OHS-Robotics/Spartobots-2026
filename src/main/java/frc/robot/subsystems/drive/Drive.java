@@ -148,7 +148,7 @@ public class Drive extends SubsystemBase {
   public int octant;
 
   // private Pose2d startingPose = new Pose2d(3.5, 3.9, Rotation2d.fromDegrees(0));
-  private Pose2d startingPose = new Pose2d(3.3, 1.7, Rotation2d.fromDegrees(0));
+  private Pose2d startingPose = new Pose2d(3.584, 4, Rotation2d.fromDegrees(0));
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = Rotation2d.kZero;
@@ -179,7 +179,7 @@ public class Drive extends SubsystemBase {
       ModuleIO brModuleIO,
       Consumer<Pose2d> setSimulationPoseCallback) {
     this.gyroIO = gyroIO;
-    this.gyroIO.zeroYaw();
+    this.gyroIO.setAngle(startingPose.getRotation());
 
     this.setSimulationPoseCallback = setSimulationPoseCallback;
     modules[0] = new Module(flModuleIO, 0);
