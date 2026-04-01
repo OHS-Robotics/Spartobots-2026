@@ -88,7 +88,7 @@ public class AutoRoutines {
     return Commands.defer(
         () -> {
           Translation2d newPose =
-              new Translation2d(drive.getPose().getX() + 1, drive.getPose().getY());
+              new Translation2d(drive.getPose().getX() - 2, drive.getPose().getY());
           // return drive.followNamedPath("Test");
           return drive.pathfindToTranslation(newPose);
         },
