@@ -94,31 +94,7 @@ public class AutoRoutines {
           // return drive.pathfindToTranslation(newPose);
 
           return Commands.sequence(
-              drive.pathfindToTranslation(newPose),
-              Commands.runOnce(
-                  () -> {
-                    hopper.setTargetAgitatorSpeed(.1);
-                  }),
-              buildCompetitionShotCommand(
-                  // Keep the shooter spun up through the auto shot phase even if the current hub
-                  // solution is infeasible. The feed interlock remains the final gate on the
-                  // indexer.
-                  shooter::isSpinupComplete,
-                  () ->
-                      drive.isNearTranslation(
-                          drive.getPose().getTranslation(),
-                          competitionAutoShotPositionToleranceMeters)),
-              drive
-                  .pathfindToTranslationAndAlignToHub(
-                      drive.getPose().getTranslation(),
-                      hubTargetingService::updateAndGetAirtimeSeconds)
-                  .withTimeout(
-                      competitionAutoDriveToShotTimeoutSeconds + competitionAutoFeedSeconds)
-                  .finallyDo(() -> recordCompetitionAutoShotState("SHOT_PHASE_COMPLETE")),
-              Commands.runOnce(
-                  () -> {
-                    hopper.stopAgitator();
-                  }));
+              drive.pathfindToTranslation(newPose), drive.autoDriveUnderTrenchCommand(0.0));
         },
         Set.of(drive, shooter, intake, hopper, indexers));
   }
