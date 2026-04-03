@@ -148,10 +148,10 @@ public class Drive extends SubsystemBase {
   public int octant;
 
   // private Pose2d startingPose = new Pose2d(3.5, 3.9, Rotation2d.fromDegrees(0));
-  private Pose2d startingPose = new Pose2d(3.584, 4, Rotation2d.fromDegrees(0));
+  private Pose2d startingPose = new Pose2d(3.584, 4, Rotation2d.fromDegrees(180));
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
-  private Rotation2d rawGyroRotation = Rotation2d.kZero;
+  private Rotation2d rawGyroRotation = startingPose.getRotation();
   private SwerveModulePosition[] lastModulePositions = // For delta tracking
       new SwerveModulePosition[] {
         new SwerveModulePosition(),
@@ -860,7 +860,7 @@ public class Drive extends SubsystemBase {
         });
   }
 
-  public void ZeroGyro() {
+  public void zeroGyro() {
     gyroIO.zeroYaw();
   }
 }

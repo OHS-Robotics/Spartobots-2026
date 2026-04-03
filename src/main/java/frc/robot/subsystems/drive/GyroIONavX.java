@@ -53,6 +53,6 @@ public class GyroIONavX implements GyroIO {
   @Override
   public void setAngle(Rotation2d angle) {
     navX.zeroYaw();
-    navX.setAngleAdjustment(navX.getAngleAdjustment() + 180);
+    navX.setAngleAdjustment(angle.getDegrees());
   }
 }
