@@ -893,21 +893,4 @@ public class Drive extends SubsystemBase {
             this)
         .ignoringDisable(true);
   }
-
-  public Command resetTurnZeroOffsetsToDefaultsCommand() {
-    return Commands.runOnce(
-            () -> {
-              boolean allReset = true;
-              for (var module : modules) {
-                allReset &= module.resetTurnZeroOffsetToDefault();
-              }
-              if (!allReset) {
-                DriverStation.reportWarning(
-                    "Drive turn zero reset to code defaults did not complete for every module.",
-                    false);
-              }
-            },
-            this)
-        .ignoringDisable(true);
-  }
 }

@@ -407,10 +407,6 @@ public class RobotContainer {
         "Calibration/Drive/CaptureTurnZeroOffsetsFromCurrentPosition",
         drive.captureTurnZeroOffsetsFromCurrentPositionCommand());
     operatorDashboard.registerAction(
-        "Drive/ResetTurnZeroOffsetsToDefaults",
-        "Calibration/Drive/ResetTurnZeroOffsetsToDefaults",
-        drive.resetTurnZeroOffsetsToDefaultsCommand());
-    operatorDashboard.registerAction(
         "Drive/SimpleFFCharacterization",
         "Tuning/Drive/SimpleFFCharacterization",
         DriveCommands.feedforwardCharacterization(drive));

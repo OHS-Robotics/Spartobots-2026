@@ -48,8 +48,8 @@ public class DriveConstants {
   // NavX yaw sign to match WPILib's CCW-positive convention.
   public static final boolean navxYawInverted = false;
 
-  // Use the CANcoder to establish steering zero, then run on the steering motor's relative
-  // encoder during normal operation. This avoids hunting if the CANcoder momentarily drops out.
+  // Use the CANcoder to establish steering zero and keep the steering motor's relative encoder
+  // aligned. The relative encoder remains the primary sensor for the fast turn control loop.
   public static final boolean zeroRelativeTurnEncoderFromAbsolute = true;
 
   // Zeroed rotation values for each module, see setup instructions
@@ -92,10 +92,9 @@ public class DriveConstants {
   // Wheel Rad/Sec
 
   // Drive PID configuration
-  // Conservative real-robot baseline to avoid velocity-loop kick while modules are still aligning.
-  public static final double driveKp = 0.0009;
+  public static final double driveKp = 0.00115;
   public static final double driveKi = 0.0;
-  public static final double driveKd = 0.0;
+  public static final double driveKd = 0.004;
   public static final double driveKs = 0.0;
   // Approximate volts per wheel rad/s for a NEO on MK4 L2 gearing.
   // Replace with measured characterization data when available.
@@ -119,11 +118,12 @@ public class DriveConstants {
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  // Softer real-robot steering baseline to reduce startup chatter and overshoot.
-  public static final double turnKp = 2.4;
+  public static final double turnKp = 2.2;
   public static final double turnKi = 0.0;
-  public static final double turnKd = 0.08;
-  public static final double turnMaxOutputVolts = 8.0;
+  public static final double turnKd = 0.06;
+  public static final double turnPositionToleranceRadians = Units.degreesToRadians(0.75);
+  public static final double turnAbsoluteMismatchAlertThresholdRadians =
+      Units.degreesToRadians(8.0);
   public static final double turnMaxIntegralOutputVolts = 2.0;
   public static final double turnSetpointResetThresholdRadians = Units.degreesToRadians(90.0);
   public static final double turnSimP = 8.0;

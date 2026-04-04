@@ -22,6 +22,8 @@ public interface ModuleIO {
     public boolean turnRelativeEncoderSeeded = false;
     public Rotation2d turnPosition = Rotation2d.kZero;
     public Rotation2d turnAbsolutePosition = Rotation2d.kZero;
+    public Rotation2d turnRelativePosition = Rotation2d.kZero;
+    public double turnRelativeToAbsoluteErrorRad = 0.0;
     public double turnVelocityRadPerSec = 0.0;
     public double turnAppliedVolts = 0.0;
     public double turnCurrentAmps = 0.0;
@@ -59,12 +61,6 @@ public interface ModuleIO {
   public default boolean captureTurnZeroOffsetFromAbsolute() {
     return false;
   }
-
-  /** Restores the steering zero offset to the code-defined default. */
-  public default boolean resetTurnZeroOffsetToDefault() {
-    return false;
-  }
-
   /** Update drive motor velocity loop gains. */
   public default void setDriveVelocityGains(double kp, double ki, double kd) {}
 

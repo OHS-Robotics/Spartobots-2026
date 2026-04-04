@@ -22,6 +22,7 @@ public class Module {
 
   private final Alert driveDisconnectedAlert;
   private final Alert turnDisconnectedAlert;
+  private final Alert turnEncoderMismatchAlert;
   private SwerveModulePosition[] odometryPositions = new SwerveModulePosition[] {};
   private Rotation2d angleSetpoint = null;
   private boolean holdingAngle = false;
@@ -36,6 +37,9 @@ public class Module {
     turnDisconnectedAlert =
         new Alert(
             "Disconnected turn motor on module " + Integer.toString(index) + ".", AlertType.kError);
+    turnEncoderMismatchAlert =
+        new Alert(
+            "Turn encoder mismatch on module " + Integer.toString(index) + ".", AlertType.kWarning);
   }
 
   public void periodic() {
@@ -55,6 +59,11 @@ public class Module {
     // Update alerts
     driveDisconnectedAlert.set(!inputs.driveConnected);
     turnDisconnectedAlert.set(!inputs.turnConnected);
+    turnEncoderMismatchAlert.set(
+        inputs.turnAbsoluteConnected
+            && inputs.turnRelativeEncoderSeeded
+            && Math.abs(inputs.turnRelativeToAbsoluteErrorRad)
+                > turnAbsoluteMismatchAlertThresholdRadians);
   }
 
   /** Runs the module with the specified setpoint state. Mutates the state to optimize it. */
@@ -174,12 +183,5 @@ public class Module {
     angleSetpoint = getAngle();
     holdingAngle = false;
     return captured;
-  }
-
-  public boolean resetTurnZeroOffsetToDefault() {
-    boolean reset = io.resetTurnZeroOffsetToDefault();
-    angleSetpoint = getAngle();
-    holdingAngle = false;
-    return reset;
   }
 }

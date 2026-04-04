@@ -64,12 +64,13 @@ Procedure:
 
 1. Disable the robot.
 2. Physically align all wheels straight forward.
-3. Redeploy. The values in `DriveConstants.java` are applied on boot and should immediately affect
-   the reported module angles.
-4. If you want to temporarily capture from the robot's current physical alignment instead, run
-   `Drive/CaptureTurnZeroOffsetsFromCurrentPosition` while the wheels are straight, then copy the
-   resulting values back into `DriveConstants.java`.
-5. Verify each module reports near `0 rad` when physically straight.
+3. Read the module turn positions in logs.
+4. Update:
+   - `frontLeftZeroRotation`
+   - `frontRightZeroRotation`
+   - `backLeftZeroRotation`
+   - `backRightZeroRotation`
+5. Redeploy and verify each module reports near `0 rad` when physically straight.
 
 ### 4.2 Intake Pivot Calibration
 

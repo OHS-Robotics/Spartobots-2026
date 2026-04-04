@@ -16,7 +16,7 @@ import java.util.function.DoubleSupplier;
 public class OperatorBindings {
   private static final double manualHoodStepDegrees = 0.35;
   private static final double controllerActivityDeadband = 0.05;
-  private static final double intakePivotManualSpeed = 0.12;
+  private static final double intakePivotManualSpeed = 0.25;
 
   private final CommandXboxController driverController;
   private final CommandXboxController operatorController;

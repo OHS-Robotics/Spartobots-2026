@@ -96,10 +96,8 @@ public class ModuleIOSpark implements ModuleIO {
     NetworkTable moduleTable = NetworkTablesUtil.domain("Drive/Module" + Integer.toString(module));
     zeroOffsetEntry =
         NetworkTablesUtil.tuningCommon(moduleTable).getEntry("Turn/ZeroOffsetRadians");
-    // Code constants are the source of truth on boot. Clear any previously captured persistent
-    // value so edits in DriveConstants take effect immediately after redeploy.
-    zeroOffsetEntry.clearPersistent();
-    zeroOffsetEntry.setDouble(defaultZeroOffsetRad);
+    zeroOffsetEntry.setDefaultDouble(defaultZeroOffsetRad);
+    zeroOffsetEntry.setPersistent();
     driveSpark =
         new SparkFlex(
             switch (hardwareIndex) {
@@ -238,13 +236,14 @@ public class ModuleIOSpark implements ModuleIO {
     sparkStickyFault = false;
     inputs.turnAbsoluteConnected = false;
     inputs.turnRelativeEncoderSeeded = turnRelativeEncoderSeeded;
-    boolean relativeTurnOk;
-    if (zeroRelativeTurnEncoderFromAbsolute) {
+    boolean relativeTurnOk = false;
+    if (zeroRelativeTurnEncoderFromAbsolute && turnCanCoder != null) {
       boolean cancoderOk =
           BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity).equals(StatusCode.OK);
       inputs.turnAbsoluteConnected = cancoderOk;
       if (cancoderOk) {
-        inputs.turnAbsolutePosition = new Rotation2d(getAngleFromAbsoluteTurnEncoderRadians());
+        double absolutePositionRad = getAngleFromAbsoluteTurnEncoderRadians();
+        inputs.turnAbsolutePosition = new Rotation2d(absolutePositionRad);
       }
       if (DriverStation.isDisabled() && cancoderOk && !turnClosedLoop) {
         syncTurnEncoderToAbsolute();
@@ -255,8 +254,15 @@ public class ModuleIOSpark implements ModuleIO {
         turnEncoder::getPosition,
         (value) -> {
           double positionRad = MathUtil.angleModulus(value);
+          inputs.turnRelativePosition = new Rotation2d(positionRad);
+          inputs.turnPosition = inputs.turnRelativePosition;
           lastTurnPositionRad = positionRad;
-          inputs.turnPosition = new Rotation2d(positionRad);
+          if (inputs.turnAbsoluteConnected) {
+            inputs.turnRelativeToAbsoluteErrorRad =
+                MathUtil.angleModulus(positionRad - inputs.turnAbsolutePosition.getRadians());
+          } else {
+            inputs.turnRelativeToAbsoluteErrorRad = 0.0;
+          }
         });
     ifOk(turnSpark, turnEncoder::getVelocity, (value) -> inputs.turnVelocityRadPerSec = value);
     relativeTurnOk = !sparkStickyFault;
@@ -267,7 +273,9 @@ public class ModuleIOSpark implements ModuleIO {
     ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
     inputs.turnConnected =
         turnConnectedDebounce.calculate(
-            relativeTurnOk && !sparkStickyFault && turnRelativeEncoderSeeded);
+            relativeTurnOk
+                && !sparkStickyFault
+                && (!zeroRelativeTurnEncoderFromAbsolute || turnRelativeEncoderSeeded));
     inputs.turnRelativeEncoderSeeded = turnRelativeEncoderSeeded;
 
     // Update odometry inputs
@@ -323,8 +331,12 @@ public class ModuleIOSpark implements ModuleIO {
       turnClosedLoop = true;
     }
     lastTurnSetpointRad = setpointRad;
+    double setpointErrorRad = MathUtil.angleModulus(setpointRad - lastTurnPositionRad);
     turnAppliedVolts =
         MathUtil.clamp(turnController.calculate(lastTurnPositionRad, setpointRad), -12.0, 12.0);
+    if (Math.abs(setpointErrorRad) <= turnPositionToleranceRadians) {
+      turnAppliedVolts = 0.0;
+    }
     turnSpark.setVoltage(turnAppliedVolts);
   }
 
@@ -376,16 +388,7 @@ public class ModuleIOSpark implements ModuleIO {
 
     double rawAbsolutePositionRad = MathUtil.angleModulus(getRawAbsoluteTurnEncoderRadians());
     zeroOffsetEntry.setDouble(rawAbsolutePositionRad);
-    return syncTurnEncoderToAbsolute();
-  }
-
-  @Override
-  public boolean resetTurnZeroOffsetToDefault() {
-    if (!zeroRelativeTurnEncoderFromAbsolute || turnCanCoder == null) {
-      return false;
-    }
-
-    zeroOffsetEntry.setDouble(defaultZeroOffsetRad);
+    zeroOffsetEntry.setPersistent();
     return syncTurnEncoderToAbsolute();
   }
 
@@ -441,6 +444,14 @@ public class ModuleIOSpark implements ModuleIO {
       positionRad = -positionRad;
     }
     return positionRad;
+  }
+
+  private double getAbsoluteTurnEncoderVelocityRadPerSec() {
+    double velocityRadPerSec = Units.rotationsToRadians(turnVelocity.getValueAsDouble());
+    if (turnEncoderInverted) {
+      velocityRadPerSec = -velocityRadPerSec;
+    }
+    return velocityRadPerSec;
   }
 
   private double getConfiguredZeroOffsetRad() {
