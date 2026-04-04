@@ -11,7 +11,6 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.gamepiece.hopper.Hopper;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.intake.Intake;
-import frc.robot.subsystems.gamepiece.intake.IntakeConstants;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
 import frc.robot.targeting.FieldTargetingService;
@@ -94,7 +93,9 @@ public class AutoRoutines {
           // return drive.pathfindToTranslation(newPose);
 
           return Commands.sequence(
-              drive.pathfindToTranslation(newPose), drive.autoDriveUnderTrenchCommand(0.0));
+              drive.pathfindToTranslation(newPose),
+              drive.autoDriveUnderTrenchCommand(0.5),
+              buildCompetitionMiddleLoadCommand());
         },
         Set.of(drive, shooter, intake, hopper, indexers));
   }
@@ -266,19 +267,19 @@ public class AutoRoutines {
         () -> {
           String middlePath;
           if (drive.octant == 5 || drive.octant == 2) {
-            middlePath = "Middle Right";
+            middlePath = "Middle Right Test";
           } else {
-            middlePath = "Middle Left";
+            middlePath = "Middle Left Test";
           }
           return Commands.sequence(
               Commands.runOnce(
                   () -> {
-                    intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
+                    // intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
                   }),
               drive.followNamedPath(middlePath),
               Commands.runOnce(
                   () -> {
-                    intake.stopIntake();
+                    // intake.stopIntake();
                   }),
               drive.autoDriveUnderTrenchCommand(0.0));
         },
