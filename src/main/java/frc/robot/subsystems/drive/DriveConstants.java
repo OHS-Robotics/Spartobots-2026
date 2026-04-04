@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.drive;
 
@@ -50,22 +48,26 @@ public class DriveConstants {
   // NavX yaw sign to match WPILib's CCW-positive convention.
   public static final boolean navxYawInverted = false;
 
+  // Use the CANcoder to establish steering zero and keep the steering motor's relative encoder
+  // aligned. The relative encoder remains the primary sensor for the fast turn control loop.
+  public static final boolean zeroRelativeTurnEncoderFromAbsolute = true;
+
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543 - .24);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
+  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.259 - 0.919);
+  public static final Rotation2d frontRightZeroRotation = new Rotation2d(0.3146 + 2.310);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.311 + 2.295);
+  public static final Rotation2d backRightZeroRotation = new Rotation2d(-2.879 + 1.228 - 0.026);
 
   // Device CAN IDs
-  public static final int frontLeftDriveCanId = 8;
-  public static final int backLeftDriveCanId = 10;
-  public static final int frontRightDriveCanId = 6;
-  public static final int backRightDriveCanId = 12;
+  public static final int frontLeftDriveCanId = 13;
+  public static final int backLeftDriveCanId = 17;
+  public static final int frontRightDriveCanId = 11;
+  public static final int backRightDriveCanId = 15;
 
-  public static final int frontLeftTurnCanId = 7;
-  public static final int backLeftTurnCanId = 9;
-  public static final int frontRightTurnCanId = 5;
-  public static final int backRightTurnCanId = 11;
+  public static final int frontLeftTurnCanId = 12;
+  public static final int backLeftTurnCanId = 16;
+  public static final int frontRightTurnCanId = 10;
+  public static final int backRightTurnCanId = 14;
 
   public static final int frontLeftCANcoderId = 21;
   public static final int frontRightCANcoderId = 22;
@@ -116,9 +118,12 @@ public class DriveConstants {
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 3.4;
+  public static final double turnKp = 2.2;
   public static final double turnKi = 0.0;
-  public static final double turnKd = 0.2;
+  public static final double turnKd = 0.06;
+  public static final double turnPositionToleranceRadians = Units.degreesToRadians(0.75);
+  public static final double turnAbsoluteMismatchAlertThresholdRadians =
+      Units.degreesToRadians(8.0);
   public static final double turnMaxIntegralOutputVolts = 2.0;
   public static final double turnSetpointResetThresholdRadians = Units.degreesToRadians(90.0);
   public static final double turnSimP = 8.0;

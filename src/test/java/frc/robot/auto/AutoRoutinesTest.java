@@ -140,14 +140,7 @@ class AutoRoutinesTest {
     HubTargetingService hubTargetingService = new HubTargetingService(drive, shooter);
     FieldTargetingService fieldTargetingService = new FieldTargetingService(drive);
     return new AutoRoutines(
-        drive,
-        shooter,
-        hopper,
-        indexers,
-        intake,
-        coordinator,
-        hubTargetingService,
-        fieldTargetingService);
+        drive, shooter, indexers, intake, coordinator, hubTargetingService, fieldTargetingService);
   }
 
   private static void runToCompletion(Command command) {

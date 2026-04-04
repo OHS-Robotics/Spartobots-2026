@@ -1,14 +1,12 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.drive;
 
 import com.revrobotics.REVLibError;
-import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkBase;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
 import java.util.ArrayList;
@@ -24,7 +22,7 @@ import java.util.function.DoubleSupplier;
  * all measurements in the sample are valid.
  */
 public class SparkOdometryThread {
-  private final List<SparkMax> sparks = new ArrayList<>();
+  private final List<SparkBase> sparks = new ArrayList<>();
   private final List<DoubleSupplier> sparkSignals = new ArrayList<>();
   private final List<DoubleSupplier> genericSignals = new ArrayList<>();
   private final List<Queue<Double>> sparkQueues = new ArrayList<>();
@@ -52,7 +50,7 @@ public class SparkOdometryThread {
   }
 
   /** Registers a Spark signal to be read from the thread. */
-  public Queue<Double> registerSignal(SparkMax spark, DoubleSupplier signal) {
+  public Queue<Double> registerSignal(SparkBase spark, DoubleSupplier signal) {
     Queue<Double> queue = new ArrayBlockingQueue<>(20);
     Drive.odometryLock.lock();
     try {

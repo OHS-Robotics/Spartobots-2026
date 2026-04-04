@@ -6,14 +6,18 @@ import com.revrobotics.ResetMode;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkFlexConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 
 public class IntakeIOSparkMax implements IntakeIO {
-  private final SparkMax intakeDrive =
-      new SparkMax(IntakeConstants.intakeDriveCanId, MotorType.kBrushless);
+  private final SparkFlex intakeDrive =
+      new SparkFlex(IntakeConstants.intakeDriveCanId, MotorType.kBrushless);
+  private final SparkFlex intakeFollower =
+      new SparkFlex(IntakeConstants.intakeFollowerCanId, MotorType.kBrushless);
   private final SparkMax intakePivot =
       new SparkMax(IntakeConstants.intakePivotCanId, MotorType.kBrushless);
 
@@ -33,7 +37,7 @@ public class IntakeIOSparkMax implements IntakeIO {
   private double pivotPositionKd = IntakeConstants.intakePivotPositionKd;
 
   public IntakeIOSparkMax() {
-    SparkMaxConfig intakeDriveConfig = new SparkMaxConfig();
+    SparkFlexConfig intakeDriveConfig = new SparkFlexConfig();
     intakeDriveConfig.idleMode(IdleMode.kCoast);
     intakeDriveConfig.smartCurrentLimit(IntakeConstants.intakeDriveCurrentLimitAmps);
     intakeDriveConfig.voltageCompensation(12.0);
@@ -43,6 +47,12 @@ public class IntakeIOSparkMax implements IntakeIO {
         IntakeConstants.intakeDriveVelocityKi,
         IntakeConstants.intakeDriveVelocityKd);
     intakeDriveConfig.closedLoop.feedForward.kV(IntakeConstants.intakeDriveVelocityKv);
+
+    SparkFlexConfig intakeFollowerConfig = new SparkFlexConfig();
+    intakeFollowerConfig.follow(intakeDrive, false);
+    intakeFollowerConfig.idleMode(IdleMode.kCoast);
+    intakeFollowerConfig.smartCurrentLimit(IntakeConstants.intakeDriveCurrentLimitAmps);
+    intakeFollowerConfig.voltageCompensation(12.0);
 
     SparkMaxConfig intakePivotConfig = new SparkMaxConfig();
     intakePivotConfig.idleMode(IdleMode.kCoast);
@@ -55,6 +65,8 @@ public class IntakeIOSparkMax implements IntakeIO {
 
     intakeDrive.configure(
         intakeDriveConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+    intakeFollower.configure(
+        intakeFollowerConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
     intakePivot.configure(
         intakePivotConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
   }
@@ -96,6 +108,11 @@ public class IntakeIOSparkMax implements IntakeIO {
   }
 
   @Override
+  public void setPivotEncoderPositionRotations(double positionRotations) {
+    intakePivotEncoder.setPosition(positionRotations);
+  }
+
+  @Override
   public void setDriveVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {
     if (!hasGainChange(driveVelocityKp, kp)
         && !hasGainChange(driveVelocityKi, ki)
@@ -109,7 +126,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     driveVelocityKd = kd;
     driveVelocityKv = kv;
 
-    SparkMaxConfig driveVelocityConfig = new SparkMaxConfig();
+    SparkFlexConfig driveVelocityConfig = new SparkFlexConfig();
     driveVelocityConfig.closedLoop.pid(kp, ki, kd);
     driveVelocityConfig.closedLoop.feedForward.kV(kv);
     intakeDrive.configure(

@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.drive;
 
@@ -24,6 +22,7 @@ public class Module {
 
   private final Alert driveDisconnectedAlert;
   private final Alert turnDisconnectedAlert;
+  private final Alert turnEncoderMismatchAlert;
   private SwerveModulePosition[] odometryPositions = new SwerveModulePosition[] {};
   private Rotation2d angleSetpoint = null;
   private boolean holdingAngle = false;
@@ -38,6 +37,9 @@ public class Module {
     turnDisconnectedAlert =
         new Alert(
             "Disconnected turn motor on module " + Integer.toString(index) + ".", AlertType.kError);
+    turnEncoderMismatchAlert =
+        new Alert(
+            "Turn encoder mismatch on module " + Integer.toString(index) + ".", AlertType.kWarning);
   }
 
   public void periodic() {
@@ -57,6 +59,11 @@ public class Module {
     // Update alerts
     driveDisconnectedAlert.set(!inputs.driveConnected);
     turnDisconnectedAlert.set(!inputs.turnConnected);
+    turnEncoderMismatchAlert.set(
+        inputs.turnAbsoluteConnected
+            && inputs.turnRelativeEncoderSeeded
+            && Math.abs(inputs.turnRelativeToAbsoluteErrorRad)
+                > turnAbsoluteMismatchAlertThresholdRadians);
   }
 
   /** Runs the module with the specified setpoint state. Mutates the state to optimize it. */
@@ -65,8 +72,16 @@ public class Module {
   }
 
   void runSetpoint(SwerveModuleState state, boolean preserveAngleAtLowSpeed) {
+    if (!inputs.driveConnected || !inputs.turnConnected) {
+      stop();
+      return;
+    }
+
+    Rotation2d currentAngle = getAngle();
+    state.optimize(currentAngle);
+
     if (angleSetpoint == null) {
-      angleSetpoint = getAngle();
+      angleSetpoint = currentAngle;
     }
 
     if (preserveAngleAtLowSpeed
@@ -82,6 +97,7 @@ public class Module {
       angleSetpoint = state.angle;
     }
 
+    state.cosineScale(currentAngle);
     io.setDriveVelocity(state.speedMetersPerSecond / wheelRadiusMeters);
     io.setTurnPosition(state.angle);
   }
@@ -153,5 +169,19 @@ public class Module {
   /** Update turn motor position loop gains. */
   public void setTurnPositionGains(double kp, double ki, double kd) {
     io.setTurnPositionGains(kp, ki, kd);
+  }
+
+  public boolean syncTurnEncoderToAbsolute() {
+    boolean synced = io.syncTurnEncoderToAbsolute();
+    angleSetpoint = getAngle();
+    holdingAngle = false;
+    return synced;
+  }
+
+  public boolean captureTurnZeroOffsetFromAbsolute() {
+    boolean captured = io.captureTurnZeroOffsetFromAbsolute();
+    angleSetpoint = getAngle();
+    holdingAngle = false;
+    return captured;
   }
 }

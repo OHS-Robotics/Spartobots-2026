@@ -1,63 +1,27 @@
 package frc.robot.subsystems.gamepiece.hopper;
 
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.util.Units;
 import frc.robot.subsystems.gamepiece.ControlSensitivity;
+import frc.robot.subsystems.gamepiece.intake.IntakeConstants;
 
 public final class HopperConstants {
   private HopperConstants() {}
 
   public static final String configTableName = "GamePiece/Hopper";
 
-  // Hopper agitator drive (velocity-sensitive)
-  public static final int hopperAgitatorDriveCanId = 38;
-  public static final ControlSensitivity hopperAgitatorSensitivity =
-      ControlSensitivity.VELOCITY_SENSITIVE;
-  public static final int hopperAgitatorCurrentLimitAmps = 80;
-
-  // L1 climber winch (reuses the previous hopper-extension control path).
-  public static final int l1ClimberCanId = 34;
-  public static final int hopperExtensionCanId = l1ClimberCanId;
+  // Hopper extension is mechanically tied to the intake extension on the current robot.
+  public static final int hopperExtensionCanId = IntakeConstants.intakePivotCanId;
   public static final ControlSensitivity hopperExtensionSensitivity =
       ControlSensitivity.POSITION_SENSITIVE;
-  public static final int hopperExtensionCurrentLimitAmps = 80;
+  public static final int hopperExtensionCurrentLimitAmps =
+      IntakeConstants.intakePivotCurrentLimitAmps;
 
   // Two-point extension calibration in motor rotations
-  public static final double defaultHopperExtensionRetractedPositionRotations = 0.0;
-  public static final double defaultHopperExtensionExtendedPositionRotations = 1.0;
+  public static final double defaultHopperExtensionRetractedPositionRotations =
+      IntakeConstants.defaultIntakePivotRetractedPositionRotations;
+  public static final double defaultHopperExtensionExtendedPositionRotations =
+      IntakeConstants.defaultIntakePivotExtendedPositionRotations;
 
-  // Default open-loop speeds
-  public static final double defaultHopperAgitatorSpeed = 0.5;
+  // Default open-loop tuning
   public static final double defaultHopperExtensionSpeedScale = 1.0;
-
-  // Calibration-mode closed-loop defaults
-  public static final double estimatedAgitatorMaxVelocityRotationsPerSec = 12.0;
-  public static final double defaultCalibrationAgitatorVelocitySetpointRotationsPerSec = 0.0;
-  public static final double defaultCalibrationExtensionPositionSetpointRotations =
-      defaultHopperExtensionRetractedPositionRotations;
-  public static final double hopperAgitatorVelocityKp = 0.03;
-  public static final double hopperAgitatorVelocityKi = 0.0;
-  public static final double hopperAgitatorVelocityKd = 0.0;
-  public static final double hopperAgitatorVelocityKv =
-      1.0 / estimatedAgitatorMaxVelocityRotationsPerSec;
-  public static final double hopperExtensionPositionKp = 1.2;
-  public static final double hopperExtensionPositionKi = 0.0;
-  public static final double hopperExtensionPositionKd = 0.0;
-
-  // Default direction/inversion
-  public static final double defaultHopperAgitatorDirection = -1.0;
   public static final boolean defaultHopperExtensionInverted = false;
-
-  // Estimated simulation configuration
-  public static final double simNominalVoltage = 12.0;
-  public static final DCMotor simAgitatorGearbox = DCMotor.getBag(1);
-  public static final double simAgitatorReduction = 4.0;
-  public static final double simAgitatorMoiKgMetersSq = 0.002;
-  public static final double simAgitatorRadiusMeters = Units.inchesToMeters(1.25);
-  public static final DCMotor simExtensionGearbox = DCMotor.getBag(1);
-  public static final double simExtensionReduction = 18.0;
-  public static final double simEstimatedExtensionMassKg = 3.5;
-  public static final double simEstimatedExtensionDrumRadiusMeters = Units.inchesToMeters(0.75);
-  public static final double simExtensionRetractedHeightMeters = 0.0;
-  public static final double simExtensionExtendedHeightMeters = Units.inchesToMeters(8.0);
 }

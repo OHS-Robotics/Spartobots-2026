@@ -1,6 +1,6 @@
-# Spartobots 2026
+# Spartobots 2026 (FRC Team 4687)
 
-Java/WPILib robot code for Spartobots' 2026 robot. The project uses command-based WPILib with AdvantageKit logging, PathPlanner pathfinding, PhotonVision camera integration, and MapleSim-based desktop simulation.
+Java/WPILib robot code for FRC Team 4687 Spartobots' 2026 robot. The project uses command-based WPILib with AdvantageKit logging, PathPlanner pathfinding, PhotonVision camera integration, and MapleSim-based desktop simulation.
 
 ## Highlights
 
@@ -45,3 +45,10 @@ Java/WPILib robot code for Spartobots' 2026 robot. The project uses command-base
 - [NetworkTables Layout](docs/NETWORKTABLES_LAYOUT.md)
 - [Real Robot Tuning and Calibration](docs/REAL_ROBOT_TUNING_AND_OFFSETS.md)
 - [Shooter Calibration Mode](docs/SHOOTER_CALIBRATION_MODE.md)
+
+## License
+
+Project-specific code in this repository is licensed under the BSD 3-Clause
+License as Team 4687 Spartobots code. See `LICENSE` for the repo license and
+`THIRD_PARTY_NOTICES.md`, `AdvantageKit-License.md`, and `WPILib-License.md`
+for retained third-party attribution and license notices.

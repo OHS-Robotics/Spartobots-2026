@@ -15,12 +15,8 @@ import java.util.function.DoubleSupplier;
 
 public class OperatorBindings {
   private static final double manualHoodStepDegrees = 0.35;
-  private static final boolean enableMechanismBringupBindings = false;
+  private static final double controllerActivityDeadband = 0.05;
   private static final double intakePivotManualSpeed = 0.25;
-  private static final double hopperExtensionBringupSpeed = 0.25;
-  private static final int topLeftPaddleButton = 7;
-  private static final int topRightPaddleButton = 8;
-  private static final int bottomLeftPaddleButton = 11;
 
   private final CommandXboxController driverController;
   private final CommandXboxController operatorController;
@@ -60,57 +56,58 @@ public class OperatorBindings {
 
   private void configureDriverBindings() {
     // Match the drivetrain convention used by DriveCommands: +X forward, +Y left.
-    DoubleSupplier driverForwardSupplier = () -> -driverController.getLeftY();
-    DoubleSupplier driverStrafeSupplier = () -> -driverController.getLeftX();
+    DoubleSupplier driverForwardSupplier =
+        selectControllerAxis(driverController::getLeftY, operatorController::getLeftY, true);
+    DoubleSupplier driverStrafeSupplier =
+        selectControllerAxis(driverController::getLeftX, operatorController::getLeftX, true);
+    DoubleSupplier driverTurnSupplier =
+        selectControllerAxis(driverController::getRightX, operatorController::getRightX, true);
 
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
-            drive,
-            driverForwardSupplier,
-            driverStrafeSupplier,
-            () -> -driverController.getRightX(),
-            () -> false));
+            drive, driverForwardSupplier, driverStrafeSupplier, driverTurnSupplier, () -> false));
 
-    driverController
-        .rightStick()
+    eitherController(CommandXboxController::rightStick)
         .whileTrue(
             hubTargetingService.alignToHub(
                 driverForwardSupplier, driverStrafeSupplier, gamePieceCoordinator));
 
-    new Trigger(() -> driverController.getRightTriggerAxis() > 0.02)
+    new Trigger(
+            () ->
+                Math.max(
+                        driverController.getRightTriggerAxis(),
+                        operatorController.getRightTriggerAxis())
+                    > 0.02)
         .whileTrue(
             gamePieceCoordinator.runShooterDemandWhileHeldCommand(
-                driverController::getRightTriggerAxis));
-    new Trigger(() -> driverController.getLeftTriggerAxis() > 0.02)
+                () ->
+                    Math.max(
+                        driverController.getRightTriggerAxis(),
+                        operatorController.getRightTriggerAxis())));
+    new Trigger(
+            () ->
+                Math.max(
+                        driverController.getLeftTriggerAxis(),
+                        operatorController.getLeftTriggerAxis())
+                    > 0.02)
         .whileTrue(
             gamePieceCoordinator.runManualFeedAndIndexersWhileHeldCommand(
-                driverController::getLeftTriggerAxis));
+                () ->
+                    Math.max(
+                        driverController.getLeftTriggerAxis(),
+                        operatorController.getLeftTriggerAxis())));
 
-    driverController.leftBumper().onTrue(Commands.runOnce(autoAssistController::cancel));
-    driverController
-        .rightBumper()
+    eitherController(CommandXboxController::leftBumper)
+        .onTrue(Commands.runOnce(autoAssistController::cancel));
+    eitherController(CommandXboxController::rightBumper)
         .onTrue(
             autoAssistController.scheduleAction(
                 "AutoAssist/DriveUnderTrench",
                 () -> {
                   return fieldTargetingService.autoDriveUnderTrenchCommand(0.0);
                 }));
-    driverController.leftStick().whileTrue(Commands.run(drive::stopWithX, drive));
-
-    if (!enableMechanismBringupBindings) {
-      new Trigger(() -> driverController.getHID().getRawButton(topLeftPaddleButton))
-          .onTrue(
-              autoAssistController.scheduleAction(
-                  "AutoAssist/ParkAtLadderL1", fieldTargetingService::parkAtLadderL1Command));
-      new Trigger(() -> driverController.getHID().getRawButton(topRightPaddleButton))
-          .onTrue(
-              autoAssistController.scheduleAction(
-                  "AutoAssist/DriveToOutpost", fieldTargetingService::driveToOutpostCommand));
-      new Trigger(() -> driverController.getHID().getRawButton(bottomLeftPaddleButton))
-          .onTrue(
-              autoAssistController.scheduleAction(
-                  "AutoAssist/AlignToDepot", fieldTargetingService::alignToDepotCommand));
-    }
+    eitherController(CommandXboxController::leftStick)
+        .whileTrue(Commands.run(drive::stopWithX, drive));
 
     if (Constants.currentMode == Constants.Mode.SIM) {
       // Reserved for simulation-only bindings.
@@ -118,39 +115,38 @@ public class OperatorBindings {
   }
 
   private void configureOperatorBindings() {
-    // Consolidated single-controller layout: operator actions live on the driver controller.
-    driverController.y().whileTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(true));
-    driverController.x().whileTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(false));
-    driverController.a().whileTrue(gamePieceCoordinator.basicReverseWhileHeldCommand());
-    driverController.b().onTrue(Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow));
+    eitherController(CommandXboxController::a)
+        .toggleOnTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(false));
+    eitherController(CommandXboxController::b)
+        .whileTrue(gamePieceCoordinator.basicReverseWhileHeldCommand());
 
-    driverController
-        .povUp()
+    eitherController(CommandXboxController::povUp)
         .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(manualHoodStepDegrees)));
-    driverController
-        .povDown()
+    eitherController(CommandXboxController::povDown)
         .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(-manualHoodStepDegrees)));
 
-    driverController
-        .povLeft()
+    eitherController(CommandXboxController::povLeft)
         .whileTrue(intake.manualIntakePivotWhileHeldCommand(-intakePivotManualSpeed));
-    driverController
-        .povRight()
+    eitherController(CommandXboxController::povRight)
         .whileTrue(intake.manualIntakePivotWhileHeldCommand(intakePivotManualSpeed));
+  }
 
-    if (enableMechanismBringupBindings) {
-      driverController
-          .back()
-          .whileTrue(
-              gamePieceCoordinator.runHopperExtensionWhileHeldCommand(
-                  -hopperExtensionBringupSpeed));
-      driverController
-          .start()
-          .whileTrue(
-              gamePieceCoordinator.runHopperExtensionWhileHeldCommand(hopperExtensionBringupSpeed));
-    } else {
-      driverController.back().onTrue(Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow));
-      driverController.start().onTrue(intake.calibrateIntakePivotToHardStopsCommand());
-    }
+  private DoubleSupplier selectControllerAxis(
+      DoubleSupplier driverAxis, DoubleSupplier operatorAxis, boolean invertOutput) {
+    return () -> {
+      double driverValue = driverAxis.getAsDouble();
+      double operatorValue = operatorAxis.getAsDouble();
+      double selectedValue =
+          Math.abs(driverValue) >= Math.abs(operatorValue) ? driverValue : operatorValue;
+      if (Math.abs(selectedValue) < controllerActivityDeadband) {
+        return 0.0;
+      }
+      return invertOutput ? -selectedValue : selectedValue;
+    };
+  }
+
+  private Trigger eitherController(
+      java.util.function.Function<CommandXboxController, Trigger> triggerFactory) {
+    return triggerFactory.apply(driverController).or(triggerFactory.apply(operatorController));
   }
 }

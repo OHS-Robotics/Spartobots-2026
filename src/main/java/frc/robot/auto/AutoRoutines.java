@@ -7,7 +7,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.drive.Drive;
-import frc.robot.subsystems.gamepiece.hopper.Hopper;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.intake.Intake;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
@@ -47,7 +46,6 @@ public class AutoRoutines {
 
   private final Drive drive;
   private final Shooter shooter;
-  private final Hopper hopper;
   private final Indexers indexers;
   private final Intake intake;
   private final GamePieceCoordinator gamePieceCoordinator;
@@ -64,7 +62,6 @@ public class AutoRoutines {
   public AutoRoutines(
       Drive drive,
       Shooter shooter,
-      Hopper hopper,
       Indexers indexers,
       Intake intake,
       GamePieceCoordinator gamePieceCoordinator,
@@ -72,7 +69,6 @@ public class AutoRoutines {
       FieldTargetingService fieldTargetingService) {
     this.drive = drive;
     this.shooter = shooter;
-    this.hopper = hopper;
     this.indexers = indexers;
     this.intake = intake;
     this.gamePieceCoordinator = gamePieceCoordinator;
@@ -143,18 +139,14 @@ public class AutoRoutines {
   public void registerNamedCommands() {
     NamedCommands.registerCommand(
         "collectStart",
-        Commands.runOnce(
-            () -> gamePieceCoordinator.applyBasicCollect(true), intake, hopper, indexers));
+        Commands.runOnce(() -> gamePieceCoordinator.applyBasicCollect(true), intake, indexers));
     NamedCommands.registerCommand(
-        "collectStop",
-        Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow, intake, hopper, indexers));
+        "collectStop", Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow, intake, indexers));
     NamedCommands.registerCommand(
         "feedStart",
-        Commands.runOnce(
-            () -> gamePieceCoordinator.applyBasicFeed(true), intake, hopper, indexers));
+        Commands.runOnce(() -> gamePieceCoordinator.applyBasicFeed(true), intake, indexers));
     NamedCommands.registerCommand(
-        "feedStop",
-        Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow, intake, hopper, indexers));
+        "feedStop", Commands.runOnce(gamePieceCoordinator::stopGamePieceFlow, intake, indexers));
     NamedCommands.registerCommand(
         "shooterOn",
         Commands.runOnce(() -> shooter.setShotControlEnabled(true))
@@ -272,7 +264,7 @@ public class AutoRoutines {
                         recordCompetitionAutoShotState("IDLE");
                       });
             },
-            Set.of(drive, shooter, intake, hopper, indexers))
+            Set.of(drive, shooter, intake, indexers))
         .withName(competitionAutoName);
   }
 
@@ -375,7 +367,6 @@ public class AutoRoutines {
                     },
                     shooter,
                     intake,
-                    hopper,
                     indexers))
             .finallyDo(
                 () -> {
@@ -393,7 +384,6 @@ public class AutoRoutines {
             },
             shooter,
             intake,
-            hopper,
             indexers);
 
     Command skipFeed =
@@ -405,7 +395,6 @@ public class AutoRoutines {
             },
             shooter,
             intake,
-            hopper,
             indexers);
 
     return Commands.sequence(

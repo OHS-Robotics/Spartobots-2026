@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot;
 
@@ -34,9 +32,7 @@ import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.gamepiece.hopper.Hopper;
-import frc.robot.subsystems.gamepiece.hopper.HopperIO;
-import frc.robot.subsystems.gamepiece.hopper.HopperIOSim;
-import frc.robot.subsystems.gamepiece.hopper.HopperIOSparkMax;
+import frc.robot.subsystems.gamepiece.hopper.HopperIOLinkedIntakeExtension;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.indexers.IndexersIO;
 import frc.robot.subsystems.gamepiece.indexers.IndexersIOSim;
@@ -51,6 +47,7 @@ import frc.robot.subsystems.gamepiece.shooter.ShooterIOSim;
 import frc.robot.subsystems.gamepiece.shooter.ShooterIOSparkMax;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
+import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
@@ -70,6 +67,9 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   private static final int driverControllerPort = 0;
   private static final int operatorControllerPort = 1;
+  // Temporary bringup switches to keep missing hardware from flooding the CAN bus.
+  private static final boolean enableRealGamePieceHardware = true;
+  private static final boolean enableRealVisionHardware = false;
   private static final int visionPoseSyncMinTagCount = 2;
   private static final double visionPoseSyncMaxAgeSeconds = 0.25;
   private static final double visionPoseSyncMaxAverageTagDistanceMeters = 4.5;
@@ -118,9 +118,11 @@ public class RobotContainer {
 
     switch (Constants.currentMode) {
       case REAL:
-        intakeLocal = new Intake(new IntakeIOSparkMax());
-        hopperLocal = new Hopper(new HopperIOSparkMax());
-        indexersLocal = new Indexers(new IndexersIOSparkMax());
+        intakeLocal =
+            enableRealGamePieceHardware ? new Intake(new IntakeIOSparkMax()) : new Intake();
+        hopperLocal = new Hopper(new HopperIOLinkedIntakeExtension(intakeLocal));
+        indexersLocal =
+            enableRealGamePieceHardware ? new Indexers(new IndexersIOSparkMax()) : new Indexers();
         driveLocal =
             new Drive(
                 new GyroIONavX(),
@@ -128,19 +130,24 @@ public class RobotContainer {
                 new ModuleIOSpark(1),
                 new ModuleIOSpark(2),
                 new ModuleIOSpark(3));
-        shooterLocal = new Shooter(new ShooterIOSparkMax());
+        shooterLocal =
+            enableRealGamePieceHardware ? new Shooter(new ShooterIOSparkMax()) : new Shooter();
         visionLocal =
             new Vision(
                 driveLocal::addVisionMeasurement,
                 driveLocal::getPose,
-                new VisionIOPhotonVision(
-                    VisionConstants.camera0Name,
-                    VisionConstants.robotToCamera0,
-                    VisionConstants.camera0Pipeline),
-                new VisionIOPhotonVision(
-                    VisionConstants.camera1Name,
-                    VisionConstants.robotToCamera1,
-                    VisionConstants.camera1Pipeline));
+                enableRealVisionHardware
+                    ? new VisionIOPhotonVision(
+                        VisionConstants.camera0Name,
+                        VisionConstants.robotToCamera0,
+                        VisionConstants.camera0Pipeline)
+                    : new VisionIO() {},
+                enableRealVisionHardware
+                    ? new VisionIOPhotonVision(
+                        VisionConstants.camera1Name,
+                        VisionConstants.robotToCamera1,
+                        VisionConstants.camera1Pipeline)
+                    : new VisionIO() {});
         break;
 
       case SIM:
@@ -150,7 +157,7 @@ public class RobotContainer {
                 DriveConstants.getMapleSimConfig(), Constants.simulationStartPose);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulationLocal);
         intakeLocal = new Intake(new IntakeIOSim());
-        hopperLocal = new Hopper(new HopperIOSim());
+        hopperLocal = new Hopper(new HopperIOLinkedIntakeExtension(intakeLocal));
         indexersLocal = new Indexers(new IndexersIOSim());
         driveLocal =
             new Drive(
@@ -181,7 +188,7 @@ public class RobotContainer {
 
       default:
         intakeLocal = new Intake(new IntakeIO() {});
-        hopperLocal = new Hopper(new HopperIO() {});
+        hopperLocal = new Hopper(new HopperIOLinkedIntakeExtension(intakeLocal));
         indexersLocal = new Indexers(new IndexersIO() {});
         driveLocal =
             new Drive(
@@ -221,7 +228,6 @@ public class RobotContainer {
         new AutoRoutines(
             drive,
             shooter,
-            hopper,
             indexers,
             intake,
             gamePieceCoordinator,
@@ -342,7 +348,6 @@ public class RobotContainer {
   private void disableMechanismCalibrationModes() {
     shooter.setCalibrationModeEnabled(false);
     intake.setCalibrationModeEnabled(false);
-    hopper.setCalibrationModeEnabled(false);
     indexers.setCalibrationModeEnabled(false);
   }
 
@@ -382,14 +387,6 @@ public class RobotContainer {
         "Calibration/GamePiece/Intake/DisableClosedLoopMode",
         intake.disableCalibrationModeCommand());
     operatorDashboard.registerAction(
-        "Hopper/Calibration/EnableMode",
-        "Calibration/GamePiece/Hopper/EnableClosedLoopMode",
-        hopper.enableCalibrationModeCommand());
-    operatorDashboard.registerAction(
-        "Hopper/Calibration/DisableMode",
-        "Calibration/GamePiece/Hopper/DisableClosedLoopMode",
-        hopper.disableCalibrationModeCommand());
-    operatorDashboard.registerAction(
         "Indexers/Calibration/EnableMode",
         "Calibration/GamePiece/Indexers/EnableClosedLoopMode",
         indexers.enableCalibrationModeCommand());
@@ -401,6 +398,14 @@ public class RobotContainer {
         "Drive/WheelRadiusCharacterization",
         "Tuning/Drive/WheelRadiusCharacterization",
         DriveCommands.wheelRadiusCharacterization(drive));
+    operatorDashboard.registerAction(
+        "Drive/SyncTurnEncodersToAbsolute",
+        "Calibration/Drive/SyncTurnEncodersToAbsolute",
+        drive.syncTurnEncodersToAbsoluteCommand());
+    operatorDashboard.registerAction(
+        "Drive/CaptureTurnZeroOffsetsFromCurrentPosition",
+        "Calibration/Drive/CaptureTurnZeroOffsetsFromCurrentPosition",
+        drive.captureTurnZeroOffsetsFromCurrentPositionCommand());
     operatorDashboard.registerAction(
         "Drive/SimpleFFCharacterization",
         "Tuning/Drive/SimpleFFCharacterization",
@@ -461,8 +466,7 @@ public class RobotContainer {
   private Command buildCollectAlongPathCommand(String pathName) {
     return Commands.deadline(
             drive.followNamedPath(pathName),
-            Commands.run(
-                () -> gamePieceCoordinator.applyBasicCollect(true), intake, hopper, indexers))
+            Commands.run(() -> gamePieceCoordinator.applyBasicCollect(true), intake, indexers))
         .finallyDo(gamePieceCoordinator::stopGamePieceFlow);
   }
 }

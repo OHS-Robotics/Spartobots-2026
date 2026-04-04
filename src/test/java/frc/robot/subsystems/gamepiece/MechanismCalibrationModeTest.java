@@ -3,9 +3,6 @@ package frc.robot.subsystems.gamepiece;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import frc.robot.subsystems.gamepiece.hopper.Hopper;
-import frc.robot.subsystems.gamepiece.hopper.HopperConstants;
-import frc.robot.subsystems.gamepiece.hopper.HopperIO;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.indexers.IndexersConstants;
 import frc.robot.subsystems.gamepiece.indexers.IndexersIO;
@@ -32,24 +29,6 @@ class MechanismCalibrationModeTest {
     assertTrue(intake.isCalibrationModeEnabled());
     assertEquals(18.0, io.driveVelocitySetpointRotationsPerSec, 1e-9);
     assertEquals(0.75, io.pivotPositionSetpointRotations, 1e-9);
-  }
-
-  @Test
-  void hopperCalibrationModeUsesNetworkTableClosedLoopSetpoints() {
-    FakeHopperIO io = new FakeHopperIO();
-    Hopper hopper = new Hopper(io);
-    var calibrationTable =
-        NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(HopperConstants.configTableName))
-            .getSubTable("Calibration");
-
-    calibrationTable.getEntry("Agitator/VelocitySetpointRotationsPerSec").setDouble(7.5);
-    calibrationTable.getEntry("Extension/PositionSetpointRotations").setDouble(0.85);
-    calibrationTable.getEntry("Enabled").setBoolean(true);
-    hopper.periodic();
-
-    assertTrue(hopper.isCalibrationModeEnabled());
-    assertEquals(7.5, io.agitatorVelocitySetpointRotationsPerSec, 1e-9);
-    assertEquals(0.85, io.extensionPositionSetpointRotations, 1e-9);
   }
 
   @Test
@@ -90,29 +69,6 @@ class MechanismCalibrationModeTest {
     @Override
     public void setPivotPositionSetpointRotations(double positionRotations) {
       pivotPositionSetpointRotations = positionRotations;
-    }
-  }
-
-  private static class FakeHopperIO implements HopperIO {
-    double agitatorVelocitySetpointRotationsPerSec = 0.0;
-    double extensionPositionSetpointRotations =
-        HopperConstants.defaultHopperExtensionRetractedPositionRotations;
-
-    @Override
-    public void updateInputs(HopperIOInputs inputs) {
-      inputs.agitatorConnected = true;
-      inputs.extensionConnected = true;
-      inputs.extensionPositionRotations = extensionPositionSetpointRotations;
-    }
-
-    @Override
-    public void setAgitatorVelocitySetpointRotationsPerSec(double velocityRotationsPerSec) {
-      agitatorVelocitySetpointRotationsPerSec = velocityRotationsPerSec;
-    }
-
-    @Override
-    public void setExtensionPositionSetpointRotations(double positionRotations) {
-      extensionPositionSetpointRotations = positionRotations;
     }
   }
 

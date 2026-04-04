@@ -9,28 +9,31 @@ public final class IntakeConstants {
 
   public static final String configTableName = "GamePiece/Intake";
 
-  // Intake drive roller (velocity-sensitive)
+  // Intake drive rollers (velocity-sensitive). The bottom motor mirrors the top motor.
   public static final int intakeDriveCanId = 30;
+  public static final int intakeFollowerCanId = 31;
   public static final ControlSensitivity intakeDriveSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
   public static final int intakeDriveCurrentLimitAmps = 80;
 
-  // Intake pivot arm (position-sensitive)
-  public static final int intakePivotCanId = 40;
+  // Intake extension/pivot arm (position-sensitive)
+  public static final int intakePivotCanId = 51;
   public static final ControlSensitivity intakePivotSensitivity =
       ControlSensitivity.POSITION_SENSITIVE;
   public static final int intakePivotCurrentLimitAmps = 80;
 
-  // Two-point pivot calibration in motor rotations
-  // Intake extension pivots about a shaft, so both hard-stop rotations must be measured directly.
-  public static final double defaultIntakePivotRetractedPositionRotations = 0.0;
+  // Two-point pivot calibration in motor rotations.
+  // Each successful calibration run zeros the relative encoder at the retracted hard stop.
+  public static final double intakePivotRetractedHardStopReferenceRotations = 0.0;
+  public static final double defaultIntakePivotRetractedPositionRotations =
+      intakePivotRetractedHardStopReferenceRotations;
   public static final double defaultIntakePivotExtendedPositionRotations = 1.0;
-  public static final double intakePivotCalibrationOutputTowardRetractedHardStop = -0.20;
-  public static final double intakePivotCalibrationOutputTowardExtendedHardStop = 0.20;
+  public static final double intakePivotCalibrationOutputTowardRetractedHardStop = -0.10;
+  public static final double intakePivotCalibrationOutputTowardExtendedHardStop = 0.10;
   public static final double intakePivotCalibrationMinCurrentAmps = 8.0;
   public static final double intakePivotCalibrationMaxVelocityRpm = 8.0;
   public static final double intakePivotCalibrationStallConfirmSeconds = 0.20;
-  public static final double intakePivotCalibrationTimeoutSeconds = 3.5;
+  public static final double intakePivotCalibrationTimeoutSeconds = 5.0;
   public static final double intakePivotCalibrationMinTravelRotations = 0.20;
 
   // Default open-loop speeds

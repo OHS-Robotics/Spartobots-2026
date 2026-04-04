@@ -13,19 +13,24 @@ public final class ShooterConstants {
 
   public static final double gravityMetersPerSecSquared = 9.80665;
 
-  // Shooter wheel motors (velocity-sensitive), one motor per side.
-  public static final int pair1CanId = 31;
-  public static final int pair2CanId = 33;
+  // Single wide drum shooter with one leader and three followers on the same shaft.
+  public static final int shooterLeaderCanId = 40;
+  public static final int shooterFollowerOneCanId = 41;
+  public static final int shooterFollowerTwoCanId = 42;
+  public static final int shooterFollowerThreeCanId = 43;
   public static final ControlSensitivity shooterWheelSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
 
   // Shooter hood adjuster (position-sensitive)
-  public static final int hoodCanId = 35;
+  public static final int hoodCanId = 50;
   public static final ControlSensitivity hoodSensitivity = ControlSensitivity.POSITION_SENSITIVE;
 
-  // Motor direction: each side spins opposite to the other side.
-  public static final boolean pair1Inverted = false;
-  public static final boolean pair2Inverted = true;
+  // Hardware inversion for the single drum shaft.
+  // For normal forward shooter motion, CAN IDs 40 and 42 are inverted while 41 and 43 are not.
+  public static final boolean shooterMotor40Inverted = true;
+  public static final boolean shooterMotor41Inverted = false;
+  public static final boolean shooterMotor42Inverted = true;
+  public static final boolean shooterMotor43Inverted = false;
   public static final boolean hoodInverted = false;
 
   // Electrical limits
@@ -33,19 +38,19 @@ public final class ShooterConstants {
   public static final int hoodMotorCurrentLimitAmps = 40;
 
   // Closed-loop gains
-  public static final double shooterVelocityKp = 0.00024;
+  public static final double shooterVelocityKp = 0.00012;
   public static final double shooterVelocityKi = 0.0;
   public static final double shooterVelocityKd = 0.0;
   public static final double shooterVelocityKv =
       1.0 / Units.rotationsPerMinuteToRadiansPerSecond(5676.0);
-  public static final double hoodPositionKp = 1.2;
+  public static final double hoodPositionKp = 0.6;
   public static final double hoodPositionKi = 0.0;
-  public static final double hoodPositionKd = 0.6;
+  public static final double hoodPositionKd = 0.3;
 
   // Runtime shooter wheel tuning
   public static final double defaultWheelSpeedScale = 1.0;
-  public static final double defaultPair1Direction = -1.0;
-  public static final double defaultPair2Direction = -1.0;
+  public static final double defaultPair1Direction = 1.0;
+  public static final double defaultPair2Direction = 1.0;
   public static final double wheelCommandRampUpRadPerSecSquared = 100000.0;
   public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
   public static final double simWheelCommandRampDownRadPerSecSquared = 100000.0;
@@ -97,24 +102,25 @@ public final class ShooterConstants {
   public static final Rotation2d maxLaunchAngle = maxHoodAngleFromFloor;
   public static final double launchAngleSearchStepDegrees = 0.5;
 
-  // Hood hard-stop calibration (83 deg hard stop exists, 45 deg side does not)
-  public static final double hoodMaxHardStopPositionRotations = 3.8461538462;
-  // Positive motor output should drive toward the 83 deg hard stop.
-  public static final double hoodHomingOutputTowardMaxHardStop = 0.18;
-  // 83 deg -> 45 deg measured travel: ~16 motor rotations CCW.
-  // Sign encodes encoder direction from max angle toward min angle.
-  public static final double hoodMotorRotationsFromMaxToMinAngle = -16.0;
+  // Hood hard-stop calibration.
+  // Each successful homing cycle zeros the relative encoder at the retracted hard stop.
+  public static final double hoodRetractedHardStopReferenceRotations = 0.0;
+  // Keep this slow, but still high enough to trip the hood stall-current threshold at the hard
+  // stop.
+  public static final double hoodHomingOutputTowardRetractedHardStop = -0.12;
+  public static final double hoodHomingOutputTowardExtendedHardStop = 0.12;
   public static final double hoodHomingMinCurrentAmps = 18.0;
   public static final double hoodHomingMaxVelocityRotationsPerSec = 0.08;
+  public static final double hoodHomingRelaxBeforeCalibrationSeconds = 1.0;
   public static final double hoodHomingStallConfirmSeconds = 0.20;
-  public static final double hoodHomingTimeoutSeconds = 3.0;
+  public static final double hoodHomingTimeoutSeconds = 4.5;
+  public static final double hoodHomingMinTravelRotations = 4.0;
 
-  // Hood two-point calibration in motor rotations
-  // minHoodAngleFromFloor <-> retracted, maxHoodAngleFromFloor <-> extended
-  public static final double defaultHoodExtendedPositionRotations =
-      hoodMaxHardStopPositionRotations;
+  // Hood two-point calibration in motor rotations.
+  // Update the extended value after the first real two-hard-stop homing run.
   public static final double defaultHoodRetractedPositionRotations =
-      defaultHoodExtendedPositionRotations + hoodMotorRotationsFromMaxToMinAngle;
+      hoodRetractedHardStopReferenceRotations;
+  public static final double defaultHoodExtendedPositionRotations = 16.0;
 
   // Measured/estimated launch capability of the mechanism
   public static final double minLaunchSpeedMetersPerSec =

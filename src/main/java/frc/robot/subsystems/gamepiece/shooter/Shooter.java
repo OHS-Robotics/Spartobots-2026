@@ -19,6 +19,12 @@ import org.littletonrobotics.junction.Logger;
 public class Shooter extends SubsystemBase {
   private static final double loopPeriodSeconds = 0.02;
 
+  private enum HoodHomingPhase {
+    RELAX_BEFORE_CALIBRATION,
+    SEEK_RETRACTED_HARD_STOP,
+    SEEK_EXTENDED_HARD_STOP
+  }
+
   private static record WheelSpeedSetpoints(double pair1RadPerSec, double pair2RadPerSec) {}
 
   private static record MotionCompensatedHubShotSolution(
@@ -75,8 +81,12 @@ public class Shooter extends SubsystemBase {
   private boolean hoodHomingActive = false;
   private boolean hoodHomed = false;
   private boolean hoodHomingSucceeded = false;
+  private HoodHomingPhase hoodHomingPhase = HoodHomingPhase.SEEK_RETRACTED_HARD_STOP;
   private double hoodHomingElapsedSeconds = 0.0;
+  private double hoodHomingPhaseElapsedSeconds = 0.0;
   private double hoodHomingStallSeconds = 0.0;
+  private double hoodHomingRetractedHardStopRotations = 0.0;
+  private double hoodHomingExtendedHardStopRotations = 0.0;
   private double hubMotionCompVelocityScale = ShooterConstants.hubMotionCompensationVelocityScale;
   private double hubMotionCompLeadSeconds = ShooterConstants.hubMotionCompensationLeadSeconds;
   private double hubShotPredictionLaunchLeadSeconds =
@@ -295,6 +305,7 @@ public class Shooter extends SubsystemBase {
     calibrationPair1WheelSetpointRadPerSec = defaultCalibrationWheelSetpoints.pair1RadPerSec();
     calibrationPair2WheelSetpointRadPerSec = defaultCalibrationWheelSetpoints.pair2RadPerSec();
     configureNetworkTableDefaults();
+    resetPidTuningEntriesToDefaults();
     loadNetworkTableConfig();
   }
 
@@ -324,6 +335,9 @@ public class Shooter extends SubsystemBase {
     io.setWheelVelocitySetpoints(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     if (hoodHomingActive) {
       updateHoodHoming();
+    } else if (!hoodHomed && Constants.currentMode == Constants.Mode.REAL) {
+      // On real hardware, hold the current measured position until homing establishes a reference.
+      io.setHoodPositionSetpointRotations(inputs.hoodPositionRotations);
     } else {
       io.setHoodPositionSetpointRotations(hoodSetpointMotorRotations);
     }
@@ -618,6 +632,16 @@ public class Shooter extends SubsystemBase {
     calibrationAirtimeEntry.setDefaultDouble(calibrationMeasuredAirtimeSeconds);
     calibrationVideoLaunchAngleEntry.setDefaultDouble(calibrationVideoLaunchAngleDegrees);
     calibrationNotesEntry.setDefaultString(calibrationNotes);
+  }
+
+  private void resetPidTuningEntriesToDefaults() {
+    wheelVelocityKpEntry.setDouble(ShooterConstants.shooterVelocityKp);
+    wheelVelocityKiEntry.setDouble(ShooterConstants.shooterVelocityKi);
+    wheelVelocityKdEntry.setDouble(ShooterConstants.shooterVelocityKd);
+    wheelVelocityKvEntry.setDouble(ShooterConstants.shooterVelocityKv);
+    hoodPositionKpEntry.setDouble(ShooterConstants.hoodPositionKp);
+    hoodPositionKiEntry.setDouble(ShooterConstants.hoodPositionKi);
+    hoodPositionKdEntry.setDouble(ShooterConstants.hoodPositionKd);
   }
 
   private void loadNetworkTableConfig() {
@@ -985,20 +1009,41 @@ public class Shooter extends SubsystemBase {
     hoodHomingActive = true;
     hoodHomed = false;
     hoodHomingSucceeded = false;
+    hoodHomingPhase = HoodHomingPhase.RELAX_BEFORE_CALIBRATION;
     hoodHomingElapsedSeconds = 0.0;
+    hoodHomingPhaseElapsedSeconds = 0.0;
     hoodHomingStallSeconds = 0.0;
+    hoodHomingRetractedHardStopRotations = inputs.hoodPositionRotations;
+    hoodHomingExtendedHardStopRotations = inputs.hoodPositionRotations;
   }
 
   private void cancelHoodHoming() {
     hoodHomingActive = false;
     hoodHomingElapsedSeconds = 0.0;
+    hoodHomingPhaseElapsedSeconds = 0.0;
     hoodHomingStallSeconds = 0.0;
     io.setHoodOpenLoopOutput(0.0);
   }
 
   private void updateHoodHoming() {
     hoodHomingElapsedSeconds += loopPeriodSeconds;
-    io.setHoodOpenLoopOutput(ShooterConstants.hoodHomingOutputTowardMaxHardStop);
+    hoodHomingPhaseElapsedSeconds += loopPeriodSeconds;
+    if (hoodHomingPhase == HoodHomingPhase.RELAX_BEFORE_CALIBRATION) {
+      io.setHoodOpenLoopOutput(0.0);
+      if (hoodHomingPhaseElapsedSeconds
+          >= ShooterConstants.hoodHomingRelaxBeforeCalibrationSeconds) {
+        hoodHomingPhase = HoodHomingPhase.SEEK_RETRACTED_HARD_STOP;
+        hoodHomingPhaseElapsedSeconds = 0.0;
+        hoodHomingStallSeconds = 0.0;
+      }
+      return;
+    }
+
+    if (hoodHomingPhase == HoodHomingPhase.SEEK_RETRACTED_HARD_STOP) {
+      io.setHoodOpenLoopOutput(ShooterConstants.hoodHomingOutputTowardRetractedHardStop);
+    } else {
+      io.setHoodOpenLoopOutput(ShooterConstants.hoodHomingOutputTowardExtendedHardStop);
+    }
 
     boolean velocityNearZero =
         Math.abs(inputs.hoodVelocityRotationsPerSec)
@@ -1012,11 +1057,25 @@ public class Shooter extends SubsystemBase {
     }
 
     if (hoodHomingStallSeconds >= ShooterConstants.hoodHomingStallConfirmSeconds) {
-      finishHoodHoming(true);
+      if (hoodHomingPhase == HoodHomingPhase.SEEK_RETRACTED_HARD_STOP) {
+        io.setHoodEncoderPositionRotations(
+            ShooterConstants.hoodRetractedHardStopReferenceRotations);
+        hoodHomingRetractedHardStopRotations =
+            ShooterConstants.hoodRetractedHardStopReferenceRotations;
+        hoodHomingPhase = HoodHomingPhase.SEEK_EXTENDED_HARD_STOP;
+        hoodHomingPhaseElapsedSeconds = 0.0;
+        hoodHomingStallSeconds = 0.0;
+        return;
+      }
+
+      hoodHomingExtendedHardStopRotations = inputs.hoodPositionRotations;
+      double measuredTravelRotations =
+          Math.abs(hoodHomingExtendedHardStopRotations - hoodHomingRetractedHardStopRotations);
+      finishHoodHoming(measuredTravelRotations >= ShooterConstants.hoodHomingMinTravelRotations);
       return;
     }
 
-    if (hoodHomingElapsedSeconds >= ShooterConstants.hoodHomingTimeoutSeconds) {
+    if (hoodHomingPhaseElapsedSeconds >= ShooterConstants.hoodHomingTimeoutSeconds) {
       finishHoodHoming(false);
     }
   }
@@ -1030,16 +1089,16 @@ public class Shooter extends SubsystemBase {
     }
 
     hoodHomed = true;
-    io.setHoodEncoderPositionRotations(ShooterConstants.hoodMaxHardStopPositionRotations);
-    setHoodCalibrationFromMaxHardStop(ShooterConstants.hoodMaxHardStopPositionRotations);
+    setHoodCalibrationFromHardStops(
+        hoodHomingRetractedHardStopRotations, hoodHomingExtendedHardStopRotations);
     hoodSetpointMotorRotations = hoodExtendedPositionRotations;
     manualHoodOverrideEnabled = false;
   }
 
-  private void setHoodCalibrationFromMaxHardStop(double maxHardStopPositionRotations) {
-    hoodExtendedPositionRotations = maxHardStopPositionRotations;
-    hoodRetractedPositionRotations =
-        hoodExtendedPositionRotations + ShooterConstants.hoodMotorRotationsFromMaxToMinAngle;
+  private void setHoodCalibrationFromHardStops(
+      double retractedHardStopPositionRotations, double extendedHardStopPositionRotations) {
+    hoodRetractedPositionRotations = retractedHardStopPositionRotations;
+    hoodExtendedPositionRotations = extendedHardStopPositionRotations;
     hoodExtendedPositionEntry.setDouble(hoodExtendedPositionRotations);
     hoodRetractedPositionEntry.setDouble(hoodRetractedPositionRotations);
   }
@@ -1690,7 +1749,9 @@ public class Shooter extends SubsystemBase {
     hoodHomingActive = false;
     hoodHomed = false;
     hoodHomingSucceeded = false;
+    hoodHomingPhase = HoodHomingPhase.RELAX_BEFORE_CALIBRATION;
     hoodHomingElapsedSeconds = 0.0;
+    hoodHomingPhaseElapsedSeconds = 0.0;
     hoodHomingStallSeconds = 0.0;
     io.resetSimulationState();
   }
@@ -1855,13 +1916,32 @@ public class Shooter extends SubsystemBase {
         NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/ElapsedSeconds"),
         hoodHomingElapsedSeconds);
     Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/PhaseElapsedSeconds"),
+        hoodHomingPhaseElapsedSeconds);
+    Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/StallSeconds"), hoodHomingStallSeconds);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/Phase"),
+        switch (hoodHomingPhase) {
+          case RELAX_BEFORE_CALIBRATION -> "RELAX_BEFORE_CALIBRATION";
+          case SEEK_RETRACTED_HARD_STOP -> "SEEK_RETRACTED_HARD_STOP";
+          case SEEK_EXTENDED_HARD_STOP -> "SEEK_EXTENDED_HARD_STOP";
+        });
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/MeasuredCurrentAmps"),
         inputs.hoodCurrentAmps);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/MeasuredVelocityRotationsPerSec"),
         inputs.hoodVelocityRotationsPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/MeasuredRetractedHardStopRotations"),
+        hoodHomingRetractedHardStopRotations);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/MeasuredExtendedHardStopRotations"),
+        hoodHomingExtendedHardStopRotations);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/MeasuredTravelRotations"),
+        Math.abs(hoodHomingExtendedHardStopRotations - hoodHomingRetractedHardStopRotations));
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/HoodSetpointDegrees"),
         motorRotationsToHoodAngle(hoodSetpointMotorRotations).getDegrees());

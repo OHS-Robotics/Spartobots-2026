@@ -121,6 +121,14 @@ public class IntakeIOSim implements IntakeIO {
   }
 
   @Override
+  public void setPivotEncoderPositionRotations(double positionRotations) {
+    pivotClosedLoopEnabled = false;
+    pivotPositionSetpointRotations = positionRotations;
+    pivotAppliedOutput = 0.0;
+    pivotSim.setState(pivotRotationsToAngle(positionRotations), 0.0);
+  }
+
+  @Override
   public void setDriveVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {
     driveController.setPID(kp, ki, kd);
     driveVelocityKv = kv;
@@ -152,5 +160,11 @@ public class IntakeIOSim implements IntakeIO {
     return IntakeConstants.defaultIntakePivotRetractedPositionRotations
         + ((pivotAngleRadians - IntakeConstants.simPivotRetractedAngleRadians)
             * pivotRotationsPerRadian);
+  }
+
+  private static double pivotRotationsToAngle(double pivotPositionRotations) {
+    return IntakeConstants.simPivotRetractedAngleRadians
+        + ((pivotPositionRotations - IntakeConstants.defaultIntakePivotRetractedPositionRotations)
+            / pivotRotationsPerRadian);
   }
 }

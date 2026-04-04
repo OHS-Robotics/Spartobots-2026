@@ -9,13 +9,13 @@ public final class IndexersConstants {
 
   public static final String configTableName = "GamePiece/Indexers";
 
-  // Upper/top indexer (velocity-sensitive)
-  public static final int topIndexerCanId = 36;
+  // Shared indexer motor that mechanically drives both top and bottom indexer shafts.
+  public static final int topIndexerCanId = 60;
   public static final ControlSensitivity topIndexerSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
 
-  // Lower/bottom indexer (velocity-sensitive)
-  public static final int bottomIndexerCanId = 37;
+  // Belt / agitator conveyor motor.
+  public static final int bottomIndexerCanId = 61;
   public static final ControlSensitivity bottomIndexerSensitivity =
       ControlSensitivity.VELOCITY_SENSITIVE;
 
@@ -23,7 +23,7 @@ public final class IndexersConstants {
   public static final double defaultTopIndexerSpeed = 0.55;
   public static final double defaultBottomIndexerSpeed = 0.55;
   public static final double defaultTopIndexerSpeedScale = 1.0;
-  public static final double defaultBottomIndexerSpeedScale = 1.25;
+  public static final double defaultBottomIndexerSpeedScale = 1.0;
 
   // Calibration-mode closed-loop defaults
   public static final double estimatedIndexerMaxVelocityRotationsPerSec = 12.0;
@@ -36,7 +36,7 @@ public final class IndexersConstants {
 
   // Default direction/inversion
   public static final double defaultTopIndexerDirection = 1.0;
-  public static final double defaultBottomIndexerDirection = -1.0;
+  public static final double defaultBottomIndexerDirection = 1.0;
   public static final int indexerMotorCurrentLimitAmps = 90;
 
   // Estimated simulation configuration

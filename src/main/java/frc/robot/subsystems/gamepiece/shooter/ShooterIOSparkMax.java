@@ -10,33 +10,35 @@ import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkFlexConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer;
 import java.util.function.DoubleSupplier;
 
 public class ShooterIOSparkMax implements ShooterIO {
-  private final SparkBase pair1Leader =
-      new SparkMax(ShooterConstants.pair1CanId, MotorType.kBrushless);
-  private final SparkBase pair2Leader =
-      new SparkMax(ShooterConstants.pair2CanId, MotorType.kBrushless);
-  private final SparkBase hoodMotor =
-      new SparkMax(ShooterConstants.hoodCanId, MotorType.kBrushless);
+  private final SparkFlex drumMotor40 =
+      new SparkFlex(ShooterConstants.shooterLeaderCanId, MotorType.kBrushless);
+  private final SparkFlex drumMotor41 =
+      new SparkFlex(ShooterConstants.shooterFollowerOneCanId, MotorType.kBrushless);
+  private final SparkMax drumMotor42 =
+      new SparkMax(ShooterConstants.shooterFollowerTwoCanId, MotorType.kBrushless);
+  private final SparkMax drumMotor43 =
+      new SparkMax(ShooterConstants.shooterFollowerThreeCanId, MotorType.kBrushless);
+  private final SparkMax hoodMotor = new SparkMax(ShooterConstants.hoodCanId, MotorType.kBrushless);
 
-  private final RelativeEncoder pair1LeaderEncoder = pair1Leader.getEncoder();
-  private final RelativeEncoder pair2LeaderEncoder = pair2Leader.getEncoder();
+  private final RelativeEncoder drumMotor40Encoder = drumMotor40.getEncoder();
   private final RelativeEncoder hoodEncoder = hoodMotor.getEncoder();
 
-  private final SparkClosedLoopController pair1Controller = pair1Leader.getClosedLoopController();
-  private final SparkClosedLoopController pair2Controller = pair2Leader.getClosedLoopController();
+  private final SparkClosedLoopController drumMotor40Controller =
+      drumMotor40.getClosedLoopController();
   private final SparkClosedLoopController hoodController = hoodMotor.getClosedLoopController();
 
-  private final Debouncer pair1ConnectedDebounce =
-      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
-  private final Debouncer pair2ConnectedDebounce =
+  private final Debouncer drumConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
   private final Debouncer hoodConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
@@ -51,26 +53,26 @@ public class ShooterIOSparkMax implements ShooterIO {
   public ShooterIOSparkMax() {
     final double shooterVelocityConversionFactorRadPerSec = (2.0 * Math.PI) / 60.0;
 
-    var pair1LeaderConfig = new SparkMaxConfig();
-    pair1LeaderConfig
-        .inverted(ShooterConstants.pair1Inverted)
+    var drumMotor40Config = new SparkFlexConfig();
+    drumMotor40Config
+        .inverted(ShooterConstants.shooterMotor40Inverted)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(ShooterConstants.shooterMotorCurrentLimitAmps)
         .voltageCompensation(12.0);
-    pair1LeaderConfig
+    drumMotor40Config
         .encoder
         .velocityConversionFactor(shooterVelocityConversionFactorRadPerSec)
         .uvwMeasurementPeriod(10)
         .uvwAverageDepth(2);
-    pair1LeaderConfig
+    drumMotor40Config
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(
             ShooterConstants.shooterVelocityKp,
             ShooterConstants.shooterVelocityKi,
             ShooterConstants.shooterVelocityKd);
-    pair1LeaderConfig.closedLoop.feedForward.kV(ShooterConstants.shooterVelocityKv);
-    pair1LeaderConfig
+    drumMotor40Config.closedLoop.feedForward.kV(ShooterConstants.shooterVelocityKv);
+    drumMotor40Config
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
@@ -78,32 +80,32 @@ public class ShooterIOSparkMax implements ShooterIO {
         .busVoltagePeriodMs(20)
         .outputCurrentPeriodMs(20);
 
-    var pair2LeaderConfig = new SparkMaxConfig();
-    pair2LeaderConfig
-        .inverted(ShooterConstants.pair2Inverted)
+    var drumMotor41Config = new SparkFlexConfig();
+    drumMotor41Config
+        .follow(
+            drumMotor40,
+            ShooterConstants.shooterMotor41Inverted != ShooterConstants.shooterMotor40Inverted)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(ShooterConstants.shooterMotorCurrentLimitAmps)
         .voltageCompensation(12.0);
-    pair2LeaderConfig
-        .encoder
-        .velocityConversionFactor(shooterVelocityConversionFactorRadPerSec)
-        .uvwMeasurementPeriod(10)
-        .uvwAverageDepth(2);
-    pair2LeaderConfig
-        .closedLoop
-        .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(
-            ShooterConstants.shooterVelocityKp,
-            ShooterConstants.shooterVelocityKi,
-            ShooterConstants.shooterVelocityKd);
-    pair2LeaderConfig.closedLoop.feedForward.kV(ShooterConstants.shooterVelocityKv);
-    pair2LeaderConfig
-        .signals
-        .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+
+    var drumMotor42Config = new SparkMaxConfig();
+    drumMotor42Config
+        .follow(
+            drumMotor40,
+            ShooterConstants.shooterMotor42Inverted != ShooterConstants.shooterMotor40Inverted)
+        .idleMode(IdleMode.kCoast)
+        .smartCurrentLimit(ShooterConstants.shooterMotorCurrentLimitAmps)
+        .voltageCompensation(12.0);
+
+    var drumMotor43Config = new SparkMaxConfig();
+    drumMotor43Config
+        .follow(
+            drumMotor40,
+            ShooterConstants.shooterMotor43Inverted != ShooterConstants.shooterMotor40Inverted)
+        .idleMode(IdleMode.kCoast)
+        .smartCurrentLimit(ShooterConstants.shooterMotorCurrentLimitAmps)
+        .voltageCompensation(12.0);
 
     var hoodConfig = new SparkMaxConfig();
     hoodConfig
@@ -130,17 +132,29 @@ public class ShooterIOSparkMax implements ShooterIO {
         .outputCurrentPeriodMs(20);
 
     tryUntilOk(
-        pair1Leader,
+        drumMotor40,
         5,
         () ->
-            pair1Leader.configure(
-                pair1LeaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+            drumMotor40.configure(
+                drumMotor40Config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
     tryUntilOk(
-        pair2Leader,
+        drumMotor41,
         5,
         () ->
-            pair2Leader.configure(
-                pair2LeaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+            drumMotor41.configure(
+                drumMotor41Config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+    tryUntilOk(
+        drumMotor42,
+        5,
+        () ->
+            drumMotor42.configure(
+                drumMotor42Config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+    tryUntilOk(
+        drumMotor43,
+        5,
+        () ->
+            drumMotor43.configure(
+                drumMotor43Config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
     tryUntilOk(
         hoodMotor,
         5,
@@ -153,27 +167,35 @@ public class ShooterIOSparkMax implements ShooterIO {
   public void updateInputs(ShooterIOInputs inputs) {
     sparkStickyFault = false;
     ifOk(
-        pair1Leader,
-        pair1LeaderEncoder::getVelocity,
-        (value) -> inputs.pair1LeaderVelocityRadPerSec = value);
+        drumMotor40,
+        drumMotor40Encoder::getVelocity,
+        (value) -> {
+          inputs.pair1LeaderVelocityRadPerSec = value;
+          inputs.pair2LeaderVelocityRadPerSec = value;
+        });
     ifOk(
-        pair1Leader,
-        new DoubleSupplier[] {pair1Leader::getAppliedOutput, pair1Leader::getBusVoltage},
-        (values) -> inputs.pair1AppliedVolts = values[0] * values[1]);
-    ifOk(pair1Leader, pair1Leader::getOutputCurrent, (value) -> inputs.pair1CurrentAmps = value);
-    inputs.pair1Connected = pair1ConnectedDebounce.calculate(!sparkStickyFault);
-
-    sparkStickyFault = false;
+        drumMotor40,
+        new DoubleSupplier[] {drumMotor40::getAppliedOutput, drumMotor40::getBusVoltage},
+        (values) -> {
+          inputs.pair1AppliedVolts = values[0] * values[1];
+          inputs.pair2AppliedVolts = values[0] * values[1];
+        });
     ifOk(
-        pair2Leader,
-        pair2LeaderEncoder::getVelocity,
-        (value) -> inputs.pair2LeaderVelocityRadPerSec = value);
-    ifOk(
-        pair2Leader,
-        new DoubleSupplier[] {pair2Leader::getAppliedOutput, pair2Leader::getBusVoltage},
-        (values) -> inputs.pair2AppliedVolts = values[0] * values[1]);
-    ifOk(pair2Leader, pair2Leader::getOutputCurrent, (value) -> inputs.pair2CurrentAmps = value);
-    inputs.pair2Connected = pair2ConnectedDebounce.calculate(!sparkStickyFault);
+        drumMotor40,
+        drumMotor40::getOutputCurrent,
+        (value) -> {
+          inputs.pair1CurrentAmps = value;
+          inputs.pair2CurrentAmps = value;
+        });
+    boolean drumConnected =
+        drumConnectedDebounce.calculate(
+            !sparkStickyFault
+                && isMotorResponsive(drumMotor40)
+                && isMotorResponsive(drumMotor41)
+                && isMotorResponsive(drumMotor42)
+                && isMotorResponsive(drumMotor43));
+    inputs.pair1Connected = drumConnected;
+    inputs.pair2Connected = drumConnected;
 
     sparkStickyFault = false;
     ifOk(hoodMotor, hoodEncoder::getPosition, (value) -> inputs.hoodPositionRotations = value);
@@ -191,8 +213,8 @@ public class ShooterIOSparkMax implements ShooterIO {
 
   @Override
   public void setWheelVelocitySetpoints(double pair1RadPerSec, double pair2RadPerSec) {
-    pair1Controller.setSetpoint(pair1RadPerSec, ControlType.kVelocity, ClosedLoopSlot.kSlot0);
-    pair2Controller.setSetpoint(pair2RadPerSec, ControlType.kVelocity, ClosedLoopSlot.kSlot0);
+    double sharedSetpoint = resolveSharedWheelSetpoint(pair1RadPerSec, pair2RadPerSec);
+    drumMotor40Controller.setSetpoint(sharedSetpoint, ControlType.kVelocity, ClosedLoopSlot.kSlot0);
   }
 
   @Override
@@ -224,21 +246,15 @@ public class ShooterIOSparkMax implements ShooterIO {
     wheelVelocityKd = kd;
     wheelVelocityKv = kv;
 
-    var wheelConfig = new SparkMaxConfig();
+    var wheelConfig = new SparkFlexConfig();
     wheelConfig.closedLoop.pid(kp, ki, kd);
     wheelConfig.closedLoop.feedForward.kV(kv);
 
     tryUntilOk(
-        pair1Leader,
+        drumMotor40,
         5,
         () ->
-            pair1Leader.configure(
-                wheelConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
-    tryUntilOk(
-        pair2Leader,
-        5,
-        () ->
-            pair2Leader.configure(
+            drumMotor40.configure(
                 wheelConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
   }
 
@@ -268,10 +284,25 @@ public class ShooterIOSparkMax implements ShooterIO {
     return Math.abs(oldValue - newValue) > 1e-9;
   }
 
+  private static double resolveSharedWheelSetpoint(double pair1RadPerSec, double pair2RadPerSec) {
+    if (Math.abs(pair1RadPerSec) <= 1e-9) {
+      return pair2RadPerSec;
+    }
+    if (Math.abs(pair2RadPerSec) <= 1e-9) {
+      return pair1RadPerSec;
+    }
+    return 0.5 * (pair1RadPerSec + pair2RadPerSec);
+  }
+
   @Override
   public void stop() {
-    pair1Leader.setVoltage(0.0);
-    pair2Leader.setVoltage(0.0);
+    drumMotor40.setVoltage(0.0);
     hoodMotor.setVoltage(0.0);
+  }
+
+  private static boolean isMotorResponsive(SparkBase motor) {
+    sparkStickyFault = false;
+    ifOk(motor, motor::getAppliedOutput, value -> {});
+    return !sparkStickyFault;
   }
 }
