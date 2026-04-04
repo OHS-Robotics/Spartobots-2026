@@ -142,7 +142,7 @@ public class DriveConstants {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
-  public static final double pathfindingSpeedFactor = 0.25;
+  public static final double pathfindingSpeedFactor = 0.35;
   public static final PathConstraints pathConstraints =
       new PathConstraints(
           maxSpeedMetersPerSec * pathfindingSpeedFactor,

@@ -70,13 +70,13 @@ public class Drive extends SubsystemBase {
   private static final double defaultPathTranslationKi = 0.0;
   private static final double defaultPathTranslationKd = 0.0;
 
-  /*private static final double defaultPathRotationKp = 5.5;
-  private static final double defaultPathRotationKi = 0.0;
-  private static final double defaultPathRotationKd = 0.2;*/
-
   private static final double defaultPathRotationKp = 4.0;
   private static final double defaultPathRotationKi = 0.0;
   private static final double defaultPathRotationKd = 0.0;
+
+  /*private static final double defaultPathRotationKp = 4.0;
+  private static final double defaultPathRotationKi = 0.0;
+  private static final double defaultPathRotationKd = 0.0;*/
 
   private static final double minAimVectorMagnitudeMeters = 0.10;
 
@@ -358,6 +358,9 @@ public class Drive extends SubsystemBase {
   /** Stops the drive. */
   public void stop() {
     runVelocity(new ChassisSpeeds());
+    for (var module : modules) {
+      module.stop();
+    }
   }
 
   /**

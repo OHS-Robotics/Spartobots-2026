@@ -15,9 +15,9 @@ import edu.wpi.first.math.MathUtil;
 
 public class HopperIOSparkMax implements HopperIO {
   private final SparkMax hopperAgitator =
-      new SparkMax(HopperConstants.hopperAgitatorDriveCanId, MotorType.kBrushed);
+      new SparkMax(HopperConstants.hopperAgitatorDriveCanId, MotorType.kBrushless);
   private final SparkMax hopperExtension =
-      new SparkMax(HopperConstants.hopperExtensionCanId, MotorType.kBrushed);
+      new SparkMax(HopperConstants.hopperExtensionCanId, MotorType.kBrushless);
   private final RelativeEncoder hopperExtensionEncoder = hopperExtension.getEncoder();
   private final SparkClosedLoopController hopperExtensionController =
       hopperExtension.getClosedLoopController();

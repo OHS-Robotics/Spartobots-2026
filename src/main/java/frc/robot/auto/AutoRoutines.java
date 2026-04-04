@@ -3,7 +3,6 @@ package frc.robot.auto;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -86,16 +85,49 @@ public class AutoRoutines {
   private Command buildTestAutoRoutine() {
     return Commands.defer(
         () -> {
-          Translation2d newPose =
-              new Translation2d(drive.getPose().getX() - 2, drive.getPose().getY());
+          Pose2d newPose =
+              new Pose2d(drive.getPose().getX() - 1.5, drive.getPose().getY(), drive.getRotation());
 
           // return drive.followNamedPath("Test");
           // return drive.pathfindToTranslation(newPose);
 
           return Commands.sequence(
-              drive.pathfindToTranslation(newPose),
-              drive.autoDriveUnderTrenchCommand(0.5),
-              buildCompetitionMiddleLoadCommand());
+              drive.autoDriveUnderTrenchCommand(0.0),
+              drive.autoDriveUnderTrenchCommand(0.0),
+              // drive.pathfindToTranslation(newPose.getTranslation()),
+              drive
+                  .pathfindToTranslationAndAlignToHub(
+                      newPose.getTranslation(), hubTargetingService::updateAndGetAirtimeSeconds)
+                  .withTimeout(competitionAutoDriveToShotTimeoutSeconds),
+              Commands.waitSeconds(2.0),
+              Commands.runOnce(
+                  () -> {
+                    shooter.setShotControlEnabled(true);
+                    // shooter.updateHubShotSolution(drive.getPose(), Constants.blueHub);
+                    drive.stop();
+                  }),
+              Commands.waitSeconds(4.0),
+              Commands.deadline(
+                  Commands.waitSeconds(6.0),
+                  Commands.run(
+                      () -> {
+                        drive
+                            .pathfindToTranslationAndAlignToHub(
+                                newPose.getTranslation(),
+                                hubTargetingService::updateAndGetAirtimeSeconds)
+                            .withTimeout(competitionAutoDriveToShotTimeoutSeconds);
+                        // gamePieceCoordinator.applyBasicFeed(true);
+                        hopper.setTargetAgitatorSpeed(0.85);
+                        hopper.updateAgitator();
+                        indexers.setTargetIndexerSpeed(0.80);
+                        indexers.updateIndexers();
+                      })),
+              // Commands.waitSeconds(2.0),
+              Commands.runOnce(
+                  () -> {
+                    gamePieceCoordinator.stopGamePieceFlow();
+                    shooter.setShotControlEnabled(false);
+                  }));
         },
         Set.of(drive, shooter, intake, hopper, indexers));
   }
