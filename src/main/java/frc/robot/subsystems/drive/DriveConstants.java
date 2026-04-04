@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.drive;
 
@@ -50,22 +48,26 @@ public class DriveConstants {
   // NavX yaw sign to match WPILib's CCW-positive convention.
   public static final boolean navxYawInverted = false;
 
+  // Use the CANcoder to establish steering zero, then run on the steering motor's relative
+  // encoder during normal operation. This avoids hunting if the CANcoder momentarily drops out.
+  public static final boolean zeroRelativeTurnEncoderFromAbsolute = true;
+
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.910);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(2.332);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.543 - .24);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(1.227);
+  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.259 - 0.919);
+  public static final Rotation2d frontRightZeroRotation = new Rotation2d(0.3146 + 2.310);
+  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.311 + 2.295);
+  public static final Rotation2d backRightZeroRotation = new Rotation2d(-2.879 + 1.228 - 0.026);
 
   // Device CAN IDs
-  public static final int frontLeftDriveCanId = 8;
-  public static final int backLeftDriveCanId = 10;
-  public static final int frontRightDriveCanId = 6;
-  public static final int backRightDriveCanId = 12;
+  public static final int frontLeftDriveCanId = 13;
+  public static final int backLeftDriveCanId = 17;
+  public static final int frontRightDriveCanId = 11;
+  public static final int backRightDriveCanId = 15;
 
-  public static final int frontLeftTurnCanId = 7;
-  public static final int backLeftTurnCanId = 9;
-  public static final int frontRightTurnCanId = 5;
-  public static final int backRightTurnCanId = 11;
+  public static final int frontLeftTurnCanId = 12;
+  public static final int backLeftTurnCanId = 16;
+  public static final int frontRightTurnCanId = 10;
+  public static final int backRightTurnCanId = 14;
 
   public static final int frontLeftCANcoderId = 21;
   public static final int frontRightCANcoderId = 22;
@@ -90,9 +92,10 @@ public class DriveConstants {
   // Wheel Rad/Sec
 
   // Drive PID configuration
-  public static final double driveKp = 0.00115;
+  // Conservative real-robot baseline to avoid velocity-loop kick while modules are still aligning.
+  public static final double driveKp = 0.0009;
   public static final double driveKi = 0.0;
-  public static final double driveKd = 0.004;
+  public static final double driveKd = 0.0;
   public static final double driveKs = 0.0;
   // Approximate volts per wheel rad/s for a NEO on MK4 L2 gearing.
   // Replace with measured characterization data when available.
@@ -116,9 +119,11 @@ public class DriveConstants {
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 3.4;
+  // Softer real-robot steering baseline to reduce startup chatter and overshoot.
+  public static final double turnKp = 2.4;
   public static final double turnKi = 0.0;
-  public static final double turnKd = 0.2;
+  public static final double turnKd = 0.08;
+  public static final double turnMaxOutputVolts = 8.0;
   public static final double turnMaxIntegralOutputVolts = 2.0;
   public static final double turnSetpointResetThresholdRadians = Units.degreesToRadians(90.0);
   public static final double turnSimP = 8.0;

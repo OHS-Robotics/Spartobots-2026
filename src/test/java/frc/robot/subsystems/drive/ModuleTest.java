@@ -56,7 +56,7 @@ class ModuleTest {
   }
 
   @Test
-  void steeringLagKeepsRequestedDriveDirectionAndSpeed() {
+  void steeringLagOptimizesDirectionAndReducesDriveSpeedUntilAligned() {
     TestModuleIO io = new TestModuleIO();
     Module module = new Module(io, 0);
 
@@ -70,10 +70,15 @@ class ModuleTest {
     SwerveModuleState nextState = new SwerveModuleState(2.0, Rotation2d.fromDegrees(10.0));
     module.runSetpoint(nextState);
 
-    assertEquals(2.0 / DriveConstants.wheelRadiusMeters, io.lastDriveVelocityRadPerSec, 1e-9);
-    assertEquals(Rotation2d.fromDegrees(10.0).getRadians(), io.lastTurnSetpoint.getRadians(), 1e-9);
-    assertEquals(2.0, nextState.speedMetersPerSecond, 1e-9);
-    assertEquals(Rotation2d.fromDegrees(10.0).getRadians(), nextState.angle.getRadians(), 1e-9);
+    double expectedSpeedMetersPerSecond = -2.0 * Math.cos(Math.toRadians(30.0));
+    assertEquals(
+        expectedSpeedMetersPerSecond / DriveConstants.wheelRadiusMeters,
+        io.lastDriveVelocityRadPerSec,
+        1e-9);
+    assertEquals(
+        Rotation2d.fromDegrees(-170.0).getRadians(), io.lastTurnSetpoint.getRadians(), 1e-9);
+    assertEquals(expectedSpeedMetersPerSecond, nextState.speedMetersPerSecond, 1e-9);
+    assertEquals(Rotation2d.fromDegrees(-170.0).getRadians(), nextState.angle.getRadians(), 1e-9);
   }
 
   private static class TestModuleIO implements ModuleIO {

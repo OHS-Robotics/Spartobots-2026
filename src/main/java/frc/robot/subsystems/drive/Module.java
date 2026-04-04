@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.drive;
 
@@ -65,8 +63,16 @@ public class Module {
   }
 
   void runSetpoint(SwerveModuleState state, boolean preserveAngleAtLowSpeed) {
+    if (!inputs.driveConnected || !inputs.turnConnected) {
+      stop();
+      return;
+    }
+
+    Rotation2d currentAngle = getAngle();
+    state.optimize(currentAngle);
+
     if (angleSetpoint == null) {
-      angleSetpoint = getAngle();
+      angleSetpoint = currentAngle;
     }
 
     if (preserveAngleAtLowSpeed
@@ -82,6 +88,7 @@ public class Module {
       angleSetpoint = state.angle;
     }
 
+    state.cosineScale(currentAngle);
     io.setDriveVelocity(state.speedMetersPerSecond / wheelRadiusMeters);
     io.setTurnPosition(state.angle);
   }
@@ -153,5 +160,26 @@ public class Module {
   /** Update turn motor position loop gains. */
   public void setTurnPositionGains(double kp, double ki, double kd) {
     io.setTurnPositionGains(kp, ki, kd);
+  }
+
+  public boolean syncTurnEncoderToAbsolute() {
+    boolean synced = io.syncTurnEncoderToAbsolute();
+    angleSetpoint = getAngle();
+    holdingAngle = false;
+    return synced;
+  }
+
+  public boolean captureTurnZeroOffsetFromAbsolute() {
+    boolean captured = io.captureTurnZeroOffsetFromAbsolute();
+    angleSetpoint = getAngle();
+    holdingAngle = false;
+    return captured;
+  }
+
+  public boolean resetTurnZeroOffsetToDefault() {
+    boolean reset = io.resetTurnZeroOffsetToDefault();
+    angleSetpoint = getAngle();
+    holdingAngle = false;
+    return reset;
   }
 }

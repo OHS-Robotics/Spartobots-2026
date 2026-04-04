@@ -15,14 +15,14 @@ import org.littletonrobotics.junction.Logger;
 public class GamePieceCoordinator {
   private static final double SHOOTER_TRIGGER_DEADBAND = 0.02;
   private static final double MANUAL_FEED_TRIGGER_DEADBAND = 0.02;
-  private static final double TOP_INDEXER_MANUAL_FEED_SPEED = 0.45;
-  private static final double BOTTOM_INDEXER_BREAKAWAY_SPEED = 1.0;
-  private static final double BOTTOM_INDEXER_HOLD_SPEED = 0.9;
-  private static final double BOTTOM_INDEXER_BREAKAWAY_SECONDS = 0.40;
+  private static final double BELT_MANUAL_FEED_SPEED = 1.0;
+  private static final double SHARED_INDEXER_BREAKAWAY_SPEED = 1.0;
+  private static final double SHARED_INDEXER_HOLD_SPEED = 0.9;
+  private static final double SHARED_INDEXER_BREAKAWAY_SECONDS = 0.40;
   private static final double BASIC_COLLECT_INTAKE_SPEED = 0.65;
-  private static final double BASIC_COLLECT_AGITATOR_SPEED = 0.55;
+  private static final double BASIC_COLLECT_BELT_SPEED = 0.55;
   private static final double BASIC_COLLECT_INDEXER_SPEED = 0.55;
-  private static final double BASIC_FEED_AGITATOR_SPEED = 0.75;
+  private static final double BASIC_FEED_BELT_SPEED = 0.75;
   private static final double BASIC_FEED_INDEXER_SPEED = 0.75;
   private static final double BASIC_REVERSE_SPEED = -0.45;
   private static final String logRoot = NetworkTablesUtil.logPath("Operator/GamePieceControl");
@@ -34,7 +34,7 @@ public class GamePieceCoordinator {
 
   private boolean shooterDemandFromAlign = false;
   private double shooterDemandFromTriggerThrottle = 0.0;
-  private double bottomIndexerBreakawayUntilTimestampSeconds = 0.0;
+  private double sharedIndexerBreakawayUntilTimestampSeconds = 0.0;
 
   public GamePieceCoordinator(Intake intake, Hopper hopper, Indexers indexers, Shooter shooter) {
     this.intake = intake;
@@ -56,12 +56,11 @@ public class GamePieceCoordinator {
 
   public Command basicCollectWhileHeldCommand(boolean runIndexers) {
     return Commands.startEnd(
-        () -> applyBasicCollect(runIndexers), this::stopGamePieceFlow, intake, hopper, indexers);
+        () -> applyBasicCollect(runIndexers), this::stopGamePieceFlow, intake, indexers);
   }
 
   public Command basicReverseWhileHeldCommand() {
-    return Commands.startEnd(
-        this::applyBasicReverse, this::stopGamePieceFlow, intake, hopper, indexers);
+    return Commands.startEnd(this::applyBasicReverse, this::stopGamePieceFlow, intake, indexers);
   }
 
   public Command runManualFeedAndIndexersWhileHeldCommand(DoubleSupplier throttleSupplier) {
@@ -69,24 +68,27 @@ public class GamePieceCoordinator {
             () -> applyManualFeed(throttleSupplier.getAsDouble()),
             () -> {
               intake.stopIntake();
-              hopper.stopAgitator();
+              indexers.stopIndexers();
             },
             intake,
-            hopper)
-        .alongWith(runIndexersWhileHeldCommand(throttleSupplier));
+            indexers)
+        .beforeStarting(
+            () ->
+                sharedIndexerBreakawayUntilTimestampSeconds =
+                    Timer.getFPGATimestamp() + SHARED_INDEXER_BREAKAWAY_SECONDS);
   }
 
   public void applyBasicCollect(boolean runIndexers) {
     intake.setTargetIntakeSpeed(BASIC_COLLECT_INTAKE_SPEED);
-    hopper.setTargetAgitatorSpeed(BASIC_COLLECT_AGITATOR_SPEED);
     intake.updateIntake();
-    hopper.updateAgitator();
+    indexers.setTargetBottomIndexerSpeed(BASIC_COLLECT_BELT_SPEED);
     if (runIndexers) {
-      indexers.setTargetIndexerSpeed(BASIC_COLLECT_INDEXER_SPEED);
+      indexers.setTargetTopIndexerSpeed(BASIC_COLLECT_INDEXER_SPEED);
       indexers.updateIndexers();
       recordMode("COLLECT");
     } else {
-      indexers.stopIndexers();
+      indexers.setTargetTopIndexerSpeed(0.0);
+      indexers.updateIndexers();
       recordMode("COLLECT_NO_INDEXER");
     }
   }
@@ -100,37 +102,32 @@ public class GamePieceCoordinator {
               shooter.isReadyToFire(),
               true /* Sensorless path: assume staged piece is present when feed is requested. */);
       if (feedAllowed) {
-        hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
-        hopper.updateAgitator();
-        indexers.setTargetIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
+        indexers.setTargetTopIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
+        indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
         indexers.updateIndexers();
         recordMode("FEED");
       } else {
-        hopper.stopAgitator();
         indexers.stopIndexers();
         recordMode("FEED_INTERLOCKED");
       }
     } else {
-      hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED);
-      hopper.updateAgitator();
-      indexers.stopIndexers();
+      indexers.setTargetTopIndexerSpeed(0.0);
+      indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
+      indexers.updateIndexers();
       recordMode("MANUAL_FEED");
     }
   }
 
   public void applyBasicReverse() {
     intake.setTargetIntakeSpeed(BASIC_REVERSE_SPEED);
-    hopper.setTargetAgitatorSpeed(BASIC_REVERSE_SPEED);
     indexers.setTargetIndexerSpeed(BASIC_REVERSE_SPEED);
     intake.updateIntake();
-    hopper.updateAgitator();
     indexers.updateIndexers();
     recordMode("REVERSE");
   }
 
   public void stopGamePieceFlow() {
     intake.stopIntake();
-    hopper.stopAgitator();
     indexers.stopIndexers();
     recordMode("IDLE");
   }
@@ -154,51 +151,27 @@ public class GamePieceCoordinator {
     return BASIC_FEED_INDEXER_SPEED;
   }
 
-  private Command runIndexersWhileHeldCommand(DoubleSupplier throttleSupplier) {
-    return Commands.runEnd(
-            () -> {
-              boolean allowIndexer =
-                  ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
-                      true, shooterDemandFromAlign, shooter.isHubShotSolutionFeasible());
-              if (!allowIndexer) {
-                indexers.stopIndexers();
-                recordMode("MANUAL_FEED_INTERLOCKED");
-                return;
-              }
-
-              boolean inBottomBreakaway =
-                  Timer.getFPGATimestamp() < bottomIndexerBreakawayUntilTimestampSeconds;
-              double throttleScale = getManualFeedThrottleScale(throttleSupplier.getAsDouble());
-              double bottomOutput =
-                  (inBottomBreakaway ? BOTTOM_INDEXER_BREAKAWAY_SPEED : BOTTOM_INDEXER_HOLD_SPEED)
-                      * throttleScale;
-              double topOutput =
-                  (inBottomBreakaway ? 0.0 : TOP_INDEXER_MANUAL_FEED_SPEED) * throttleScale;
-              recordMode("MANUAL_FEED");
-              indexers.setManualOutputs(topOutput, bottomOutput);
-            },
-            indexers::stopIndexers,
-            indexers)
-        .beforeStarting(
-            () ->
-                bottomIndexerBreakawayUntilTimestampSeconds =
-                    Timer.getFPGATimestamp() + BOTTOM_INDEXER_BREAKAWAY_SECONDS);
-  }
-
   private void applyManualFeed(double throttle) {
     intake.stopIntake();
     boolean allowFeedPath =
         ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
             true, shooterDemandFromAlign, shooter.isHubShotSolutionFeasible());
     if (!allowFeedPath) {
-      hopper.stopAgitator();
+      indexers.stopIndexers();
+      recordMode("MANUAL_FEED_INTERLOCKED");
       Logger.recordOutput(logRoot + "/State/ManualFeedThrottleScale", 0.0);
       return;
     }
 
+    boolean inSharedIndexerBreakaway =
+        Timer.getFPGATimestamp() < sharedIndexerBreakawayUntilTimestampSeconds;
     double throttleScale = getManualFeedThrottleScale(throttle);
-    hopper.setTargetAgitatorSpeed(BASIC_FEED_AGITATOR_SPEED * throttleScale);
-    hopper.updateAgitator();
+    double sharedIndexerOutput =
+        -(inSharedIndexerBreakaway ? SHARED_INDEXER_BREAKAWAY_SPEED : SHARED_INDEXER_HOLD_SPEED)
+            * throttleScale;
+    double beltOutput = BELT_MANUAL_FEED_SPEED * throttleScale;
+    indexers.setManualOutputs(sharedIndexerOutput, beltOutput);
+    recordMode("MANUAL_FEED");
     Logger.recordOutput(logRoot + "/State/ManualFeedThrottleScale", throttleScale);
   }
 

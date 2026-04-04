@@ -16,14 +16,7 @@ public class ShooterIOSim implements ShooterIO {
               - ShooterConstants.defaultHoodRetractedPositionRotations)
           / (ShooterConstants.simHoodMaxAngleRadians - ShooterConstants.simHoodMinAngleRadians);
 
-  private final FlywheelSim pair1Sim =
-      new FlywheelSim(
-          LinearSystemId.createFlywheelSystem(
-              ShooterConstants.simWheelGearbox,
-              ShooterConstants.simWheelMoiKgMetersSq,
-              ShooterConstants.simWheelReduction),
-          ShooterConstants.simWheelGearbox);
-  private final FlywheelSim pair2Sim =
+  private final FlywheelSim drumSim =
       new FlywheelSim(
           LinearSystemId.createFlywheelSystem(
               ShooterConstants.simWheelGearbox,
@@ -41,34 +34,26 @@ public class ShooterIOSim implements ShooterIO {
           true,
           ShooterConstants.simHoodStartingAngleRadians);
 
-  private final PIDController pair1Controller = new PIDController(0.0, 0.0, 0.0);
-  private final PIDController pair2Controller = new PIDController(0.0, 0.0, 0.0);
+  private final PIDController wheelController = new PIDController(0.0, 0.0, 0.0);
   private final PIDController hoodController = new PIDController(0.0, 0.0, 0.0);
 
-  private double pair1VelocitySetpointRadPerSec = 0.0;
-  private double pair2VelocitySetpointRadPerSec = 0.0;
+  private double sharedVelocitySetpointRadPerSec = 0.0;
   private double hoodPositionSetpointRotations =
       ShooterConstants.defaultHoodRetractedPositionRotations;
   private boolean hoodOpenLoopControlEnabled = false;
   private double hoodOpenLoopOutput = 0.0;
-  private double pair1AppliedVolts = 0.0;
-  private double pair2AppliedVolts = 0.0;
+  private double wheelAppliedVolts = 0.0;
   private double hoodAppliedVolts = 0.0;
   private double wheelVelocityKv = ShooterConstants.shooterVelocityKv;
 
   @Override
   public void updateInputs(ShooterIOInputs inputs) {
-    double pair1DutyCycleOutput =
-        pair1Controller.calculate(
-                pair1Sim.getAngularVelocityRadPerSec(), pair1VelocitySetpointRadPerSec)
-            + (wheelVelocityKv * pair1VelocitySetpointRadPerSec);
-    double pair2DutyCycleOutput =
-        pair2Controller.calculate(
-                pair2Sim.getAngularVelocityRadPerSec(), pair2VelocitySetpointRadPerSec)
-            + (wheelVelocityKv * pair2VelocitySetpointRadPerSec);
+    double wheelDutyCycleOutput =
+        wheelController.calculate(
+                drumSim.getAngularVelocityRadPerSec(), sharedVelocitySetpointRadPerSec)
+            + (wheelVelocityKv * sharedVelocitySetpointRadPerSec);
 
-    pair1AppliedVolts = clampVoltage(pair1DutyCycleOutput * simClosedLoopDutyToVoltsScale);
-    pair2AppliedVolts = clampVoltage(pair2DutyCycleOutput * simClosedLoopDutyToVoltsScale);
+    wheelAppliedVolts = clampVoltage(wheelDutyCycleOutput * simClosedLoopDutyToVoltsScale);
     hoodAppliedVolts =
         hoodOpenLoopControlEnabled
             ? clampVoltage(hoodOpenLoopOutput * simClosedLoopDutyToVoltsScale)
@@ -76,25 +61,23 @@ public class ShooterIOSim implements ShooterIO {
                 hoodController.calculate(
                     hoodSim.getAngleRads(), hoodRotationsToAngle(hoodPositionSetpointRotations)));
 
-    pair1Sim.setInputVoltage(pair1AppliedVolts);
-    pair2Sim.setInputVoltage(pair2AppliedVolts);
+    drumSim.setInputVoltage(wheelAppliedVolts);
     hoodSim.setInputVoltage(hoodAppliedVolts);
 
-    pair1Sim.update(loopPeriodSeconds);
-    pair2Sim.update(loopPeriodSeconds);
+    drumSim.update(loopPeriodSeconds);
     hoodSim.update(loopPeriodSeconds);
 
     inputs.pair1Connected = true;
     inputs.pair2Connected = true;
     inputs.hoodConnected = true;
 
-    inputs.pair1LeaderVelocityRadPerSec = pair1Sim.getAngularVelocityRadPerSec();
-    inputs.pair2LeaderVelocityRadPerSec = pair2Sim.getAngularVelocityRadPerSec();
+    inputs.pair1LeaderVelocityRadPerSec = drumSim.getAngularVelocityRadPerSec();
+    inputs.pair2LeaderVelocityRadPerSec = drumSim.getAngularVelocityRadPerSec();
 
-    inputs.pair1AppliedVolts = pair1AppliedVolts;
-    inputs.pair2AppliedVolts = pair2AppliedVolts;
-    inputs.pair1CurrentAmps = Math.abs(pair1Sim.getCurrentDrawAmps());
-    inputs.pair2CurrentAmps = Math.abs(pair2Sim.getCurrentDrawAmps());
+    inputs.pair1AppliedVolts = wheelAppliedVolts;
+    inputs.pair2AppliedVolts = wheelAppliedVolts;
+    inputs.pair1CurrentAmps = Math.abs(drumSim.getCurrentDrawAmps());
+    inputs.pair2CurrentAmps = Math.abs(drumSim.getCurrentDrawAmps());
 
     inputs.hoodPositionRotations = angleToHoodRotations(hoodSim.getAngleRads());
     inputs.hoodVelocityRotationsPerSec = hoodSim.getVelocityRadPerSec() * hoodRotationsPerRadian;
@@ -104,8 +87,7 @@ public class ShooterIOSim implements ShooterIO {
 
   @Override
   public void setWheelVelocitySetpoints(double pair1RadPerSec, double pair2RadPerSec) {
-    pair1VelocitySetpointRadPerSec = pair1RadPerSec;
-    pair2VelocitySetpointRadPerSec = pair2RadPerSec;
+    sharedVelocitySetpointRadPerSec = resolveSharedWheelSetpoint(pair1RadPerSec, pair2RadPerSec);
   }
 
   @Override
@@ -131,8 +113,7 @@ public class ShooterIOSim implements ShooterIO {
 
   @Override
   public void setWheelVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {
-    pair1Controller.setPID(kp, ki, kd);
-    pair2Controller.setPID(kp, ki, kd);
+    wheelController.setPID(kp, ki, kd);
     wheelVelocityKv = Math.abs(kv) > 1e-6 ? kv : simFallbackWheelVelocityKv;
   }
 
@@ -143,10 +124,8 @@ public class ShooterIOSim implements ShooterIO {
 
   @Override
   public void stop() {
-    pair1VelocitySetpointRadPerSec = 0.0;
-    pair2VelocitySetpointRadPerSec = 0.0;
-    pair1AppliedVolts = 0.0;
-    pair2AppliedVolts = 0.0;
+    sharedVelocitySetpointRadPerSec = 0.0;
+    wheelAppliedVolts = 0.0;
     hoodOpenLoopControlEnabled = false;
     hoodOpenLoopOutput = 0.0;
     hoodAppliedVolts = 0.0;
@@ -155,9 +134,18 @@ public class ShooterIOSim implements ShooterIO {
   @Override
   public void resetSimulationState() {
     stop();
-    pair1Sim.setState(VecBuilder.fill(0.0));
-    pair2Sim.setState(VecBuilder.fill(0.0));
+    drumSim.setState(VecBuilder.fill(0.0));
     hoodSim.setState(hoodRotationsToAngle(hoodPositionSetpointRotations), 0.0);
+  }
+
+  private static double resolveSharedWheelSetpoint(double pair1RadPerSec, double pair2RadPerSec) {
+    if (Math.abs(pair1RadPerSec) <= 1e-9) {
+      return pair2RadPerSec;
+    }
+    if (Math.abs(pair2RadPerSec) <= 1e-9) {
+      return pair1RadPerSec;
+    }
+    return 0.5 * (pair1RadPerSec + pair2RadPerSec);
   }
 
   private static double clampVoltage(double volts) {

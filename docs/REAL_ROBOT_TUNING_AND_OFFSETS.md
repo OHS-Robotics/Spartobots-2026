@@ -64,13 +64,12 @@ Procedure:
 
 1. Disable the robot.
 2. Physically align all wheels straight forward.
-3. Read the module turn positions in logs.
-4. Update:
-   - `frontLeftZeroRotation`
-   - `frontRightZeroRotation`
-   - `backLeftZeroRotation`
-   - `backRightZeroRotation`
-5. Redeploy and verify each module reports near `0 rad` when physically straight.
+3. Redeploy. The values in `DriveConstants.java` are applied on boot and should immediately affect
+   the reported module angles.
+4. If you want to temporarily capture from the robot's current physical alignment instead, run
+   `Drive/CaptureTurnZeroOffsetsFromCurrentPosition` while the wheels are straight, then copy the
+   resulting values back into `DriveConstants.java`.
+5. Verify each module reports near `0 rad` when physically straight.
 
 ### 4.2 Intake Pivot Calibration
 
@@ -88,8 +87,10 @@ Procedure:
 
 1. Enable the robot.
 2. Run `Intake/CalibratePivotToHardStops` from SmartDashboard or press Start.
-3. If calibration fails, use POV left/right to confirm direction and clear any obstruction, then rerun.
-4. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
+3. A successful run zeros the intake pivot encoder at the retracted hard stop, then sweeps to the extended hard stop and rewrites both tuning keys above.
+4. If calibration fails, use POV left/right to confirm direction and clear any obstruction. If it is driving the wrong way, update the homing output signs in `src/main/java/frc/robot/subsystems/gamepiece/intake/IntakeConstants.java`, redeploy, and rerun.
+5. Copy the resulting retracted and extended tuning values into `src/main/java/frc/robot/subsystems/gamepiece/intake/IntakeConstants.java` so the measured range is saved in the repo. The retracted value should normally remain `0.0`, because that is the hard-stop reference the routine writes each boot.
+6. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
 
 ### 4.3 Hopper/L1 Climber Extension Calibration
 
@@ -125,10 +126,14 @@ Telemetry keys:
 
 Procedure:
 
-1. Run `Shooter/HomeHoodToHardStop` from SmartDashboard.
-2. Confirm the hood-homing status outputs report a successful homing cycle.
-3. Use POV up/down to verify the commanded range is monotonic and stays inside the physical hood limits.
-4. Only adjust the hood calibration entries if the encoder reference or mechanical range has changed.
+1. Enable the robot.
+2. Run `Shooter/HomeHoodToHardStop` from SmartDashboard.
+3. The hood now relaxes in place for about `1 s` before the homing sweep starts, so startup transients can settle.
+4. A successful run zeros the hood encoder at the retracted hard stop, then sweeps to the extended hard stop and rewrites both tuning keys above.
+5. Confirm the hood-homing status outputs report a successful homing cycle.
+6. If the hood moves the wrong way during the first sweep, disable the robot and update the homing output signs in `src/main/java/frc/robot/subsystems/gamepiece/shooter/ShooterConstants.java`, then redeploy and rerun.
+7. Copy the resulting retracted and extended tuning values into `src/main/java/frc/robot/subsystems/gamepiece/shooter/ShooterConstants.java` so the measured range is saved in the repo. The retracted value should normally remain `0.0`, because that is the hard-stop reference the routine writes each boot.
+8. Use POV up/down to verify the commanded range is monotonic and stays inside the physical hood limits.
 
 ## 5. Open-Loop Mechanism Bring-Up
 

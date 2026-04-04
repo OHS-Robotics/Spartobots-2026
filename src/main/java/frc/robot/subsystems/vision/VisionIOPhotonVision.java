@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.vision;
 
@@ -22,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
+import org.photonvision.targeting.PhotonPipelineResult;
 
 /** IO implementation for real PhotonVision hardware. */
 public class VisionIOPhotonVision implements VisionIO {
@@ -45,13 +44,24 @@ public class VisionIOPhotonVision implements VisionIO {
 
   @Override
   public void updateInputs(VisionIOInputs inputs) {
-    inputs.connected = camera.isConnected();
-
-    // Read new camera observations
-    var unreadResults = camera.getAllUnreadResults();
-    inputs.processedResultCount = unreadResults.size();
+    inputs.connected = false;
+    inputs.processedResultCount = 0;
     inputs.detectedTargetCount = 0;
     inputs.latestResultTimestampSeconds = Double.NaN;
+    inputs.latestTargetObservation = new TargetObservation(Rotation2d.kZero, Rotation2d.kZero);
+    inputs.poseObservations = new PoseObservation[0];
+    inputs.tagIds = new int[0];
+
+    final List<PhotonPipelineResult> unreadResults;
+    try {
+      inputs.connected = camera.isConnected();
+      unreadResults = camera.getAllUnreadResults();
+    } catch (RuntimeException exception) {
+      return;
+    }
+
+    // Read new camera observations
+    inputs.processedResultCount = unreadResults.size();
     Set<Short> tagIds = new HashSet<>();
     List<PoseObservation> poseObservations = new LinkedList<>();
     for (var result : unreadResults) {

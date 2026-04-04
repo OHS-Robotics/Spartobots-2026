@@ -40,7 +40,7 @@ Notes:
 
 ## Workflow
 
-1. Run `Shooter/HomeHoodToHardStop` so the hood starts from a known reference.
+1. Run `Shooter/HomeHoodToHardStop` so the hood re-zeros at the retracted hard stop and captures the full measured travel before you record samples.
 2. Enable calibration mode from SmartDashboard or by setting `Enabled = true`.
 3. Enter fixed hood and wheel setpoints in the calibration table.
 4. Fire using the normal shooter-demand flow.

@@ -11,9 +11,9 @@ import edu.wpi.first.math.MathUtil;
 
 public class IndexersIOSparkMax implements IndexersIO {
   private final SparkMax topIndexer =
-      new SparkMax(IndexersConstants.topIndexerCanId, MotorType.kBrushed);
+      new SparkMax(IndexersConstants.topIndexerCanId, MotorType.kBrushless);
   private final SparkMax bottomIndexer =
-      new SparkMax(IndexersConstants.bottomIndexerCanId, MotorType.kBrushed);
+      new SparkMax(IndexersConstants.bottomIndexerCanId, MotorType.kBrushless);
   private double topPositionRotations = 0.0;
   private double bottomPositionRotations = 0.0;
 

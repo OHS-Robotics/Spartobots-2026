@@ -27,6 +27,8 @@ public interface IntakeIO {
 
   public default void setPivotPositionSetpointRotations(double positionRotations) {}
 
+  public default void setPivotEncoderPositionRotations(double positionRotations) {}
+
   public default void setDriveVelocityClosedLoopGains(double kp, double ki, double kd, double kv) {}
 
   public default void setPivotPositionClosedLoopGains(double kp, double ki, double kd) {}

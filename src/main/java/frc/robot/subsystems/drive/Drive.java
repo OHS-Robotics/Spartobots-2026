@@ -1,9 +1,7 @@
 // Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
+// Copyright (c) 2026 Team 4687 Spartobots
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the LICENSE file
-// at the root directory of this project.
+// SPDX-License-Identifier: BSD-3-Clause
 
 package frc.robot.subsystems.drive;
 
@@ -862,5 +860,54 @@ public class Drive extends SubsystemBase {
 
   public void ZeroGyro() {
     gyroIO.zeroYaw();
+  }
+
+  public Command syncTurnEncodersToAbsoluteCommand() {
+    return Commands.runOnce(
+            () -> {
+              boolean allSynced = true;
+              for (var module : modules) {
+                allSynced &= module.syncTurnEncoderToAbsolute();
+              }
+              if (!allSynced) {
+                DriverStation.reportWarning(
+                    "Drive turn encoder sync did not complete for every module.", false);
+              }
+            },
+            this)
+        .ignoringDisable(true);
+  }
+
+  public Command captureTurnZeroOffsetsFromCurrentPositionCommand() {
+    return Commands.runOnce(
+            () -> {
+              boolean allCaptured = true;
+              for (var module : modules) {
+                allCaptured &= module.captureTurnZeroOffsetFromAbsolute();
+              }
+              if (!allCaptured) {
+                DriverStation.reportWarning(
+                    "Drive turn zero capture did not complete for every module.", false);
+              }
+            },
+            this)
+        .ignoringDisable(true);
+  }
+
+  public Command resetTurnZeroOffsetsToDefaultsCommand() {
+    return Commands.runOnce(
+            () -> {
+              boolean allReset = true;
+              for (var module : modules) {
+                allReset &= module.resetTurnZeroOffsetToDefault();
+              }
+              if (!allReset) {
+                DriverStation.reportWarning(
+                    "Drive turn zero reset to code defaults did not complete for every module.",
+                    false);
+              }
+            },
+            this)
+        .ignoringDisable(true);
   }
 }

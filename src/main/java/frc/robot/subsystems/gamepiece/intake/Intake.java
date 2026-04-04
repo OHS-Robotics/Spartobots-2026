@@ -479,8 +479,8 @@ public class Intake extends SubsystemBase {
   private double clampToPivotCalibrationRange(double positionRotations) {
     return MathUtil.clamp(
         positionRotations,
-        intakePivotRetractedPositionRotations,
-        intakePivotExtendedPositionRotations);
+        Math.min(intakePivotRetractedPositionRotations, intakePivotExtendedPositionRotations),
+        Math.max(intakePivotRetractedPositionRotations, intakePivotExtendedPositionRotations));
   }
 
   private void startIntakePivotCalibration() {
@@ -526,8 +526,10 @@ public class Intake extends SubsystemBase {
     if (intakePivotCalibrationStallSeconds
         >= IntakeConstants.intakePivotCalibrationStallConfirmSeconds) {
       if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP) {
+        io.setPivotEncoderPositionRotations(
+            IntakeConstants.intakePivotRetractedHardStopReferenceRotations);
         intakePivotCalibrationRetractedHardStopRotations =
-            getIntakePivotMeasuredPositionRotations();
+            IntakeConstants.intakePivotRetractedHardStopReferenceRotations;
         intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_EXTENDED_HARD_STOP;
         intakePivotCalibrationPhaseElapsedSeconds = 0.0;
         intakePivotCalibrationStallSeconds = 0.0;
