@@ -15,7 +15,7 @@
 - `superstructure/gamepiece`
   Collect/feed/reverse orchestration plus shooter-feed interlocks.
 - `targeting`
-  Hub-shot solution updates and field-relative assist targets such as ladder, depot, and outpost.
+  Hub-shot solution updates and field-relative assist targets such as depot and outpost.
 - `operator`
   Controller bindings, auto-assist scheduling, dashboard action tracking, and driver feedback.
 - `sim`
@@ -27,20 +27,21 @@
 
 The dashboard chooser currently exposes:
 
-- `Competition: Outpost -> Shoot -> Ladder`
+- `Competition: Outpost -> Shoot -> Reload -> Shoot`
 - `Do Nothing`
+- `Test`
 
 The competition routine is generated in code rather than loaded from a committed PathPlanner `.auto` file. It:
 
 1. resets the pose near the alliance outpost start,
 2. pathfinds to the opening shot while spinning up the shooter,
 3. feeds only when the robot is both ready and inside the shot window,
-4. aligns to the ladder at the end.
+4. drives under the trench, loads from the middle, and attempts a second shot.
 
 Current pathing posture:
 
 - Most auto-assist movement relies on runtime `pathfindToPose(...)` calls rather than authored PathPlanner path files.
-- `src/main/deploy/pathplanner` currently contains field settings and the navigation grid, but no committed path or auto folder contents.
+- `src/main/deploy/pathplanner` currently contains field settings, the navigation grid, and committed path files, but no committed auto folder contents.
 - Dynamic obstacle support exists in the local AD* wrapper, but the robot code does not currently feed live obstacle updates into pathfinding.
 
 PathPlanner named commands are still registered for future authored paths:

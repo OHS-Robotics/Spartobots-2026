@@ -32,7 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 class AutoRoutinesTest {
-  private static final String competitionAutoName = "Competition: Outpost -> Shoot -> Ladder";
+  private static final String competitionAutoName =
+      "Competition: Outpost -> Shoot -> Reload -> Shoot";
   private static final String doNothingAutoName = "Do Nothing";
   private static final String testAutoName = "Test";
   private static final Pattern namedCommandPattern =

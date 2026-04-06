@@ -344,12 +344,6 @@ public class RobotContainer {
   }
 
   private void registerDashboardActions() {
-    operatorDashboard.registerTrackedAction(
-        "AutoAssist/ParkAtLadderL1",
-        autoAssistController
-            .scheduleAction(
-                "AutoAssist/ParkAtLadderL1", fieldTargetingService::parkAtLadderL1Command)
-            .ignoringDisable(true));
     operatorDashboard.registerAction(
         "Shooter/HomeHoodToHardStop",
         "Calibration/Shooter/HomeHoodToHardStop",

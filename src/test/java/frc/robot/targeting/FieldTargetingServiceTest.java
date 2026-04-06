@@ -54,19 +54,6 @@ class FieldTargetingServiceTest {
             .getRotation()
             .getDegrees(),
         1e-9);
-
-    assertEquals(
-        0.0,
-        FieldTargetingService.selectLadderAlignPose(Optional.of(Alliance.Blue))
-            .getRotation()
-            .getDegrees(),
-        1e-9);
-    assertEquals(
-        180.0,
-        FieldTargetingService.selectLadderAlignPose(Optional.of(Alliance.Red))
-            .getRotation()
-            .getDegrees(),
-        1e-9);
   }
 
   @Test

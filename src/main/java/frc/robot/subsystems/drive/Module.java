@@ -7,6 +7,7 @@ package frc.robot.subsystems.drive;
 
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -77,11 +78,26 @@ public class Module {
       state.angle = angleSetpoint;
     } else {
       holdingAngle = false;
+      optimizeStateForCurrentCommand(state);
       angleSetpoint = state.angle;
     }
 
     io.setDriveVelocity(state.speedMetersPerSecond / wheelRadiusMeters);
     io.setTurnPosition(state.angle);
+  }
+
+  private void optimizeStateForCurrentCommand(SwerveModuleState state) {
+    if (Math.abs(state.speedMetersPerSecond) <= 1e-9) {
+      return;
+    }
+
+    double angleErrorRad =
+        MathUtil.angleModulus(state.angle.getRadians() - angleSetpoint.getRadians());
+    if (Math.abs(angleErrorRad) > Math.PI / 2.0) {
+      state.speedMetersPerSecond *= -1.0;
+      state.angle =
+          Rotation2d.fromRadians(MathUtil.angleModulus(state.angle.getRadians() + Math.PI));
+    }
   }
 
   /** Runs the module with the specified output while controlling to zero degrees. */

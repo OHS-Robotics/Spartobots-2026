@@ -76,6 +76,32 @@ class ModuleTest {
     assertEquals(Rotation2d.fromDegrees(10.0).getRadians(), nextState.angle.getRadians(), 1e-9);
   }
 
+  @Test
+  void alternatingForwardBackwardMotionReversesWheelInsteadOfTurningModuleAround() {
+    TestModuleIO io = new TestModuleIO();
+    Module module = new Module(io, 0);
+
+    io.turnPosition = Rotation2d.kZero;
+    module.periodic();
+
+    SwerveModuleState forwardState = new SwerveModuleState(2.0, Rotation2d.kZero);
+    module.runSetpoint(forwardState);
+    assertEquals(2.0 / DriveConstants.wheelRadiusMeters, io.lastDriveVelocityRadPerSec, 1e-9);
+    assertEquals(0.0, io.lastTurnSetpoint.getRadians(), 1e-9);
+
+    SwerveModuleState backwardState = new SwerveModuleState(2.0, Rotation2d.fromDegrees(180.0));
+    module.runSetpoint(backwardState);
+    assertEquals(-2.0 / DriveConstants.wheelRadiusMeters, io.lastDriveVelocityRadPerSec, 1e-9);
+    assertEquals(0.0, io.lastTurnSetpoint.getRadians(), 1e-9);
+    assertEquals(-2.0, backwardState.speedMetersPerSecond, 1e-9);
+    assertEquals(0.0, backwardState.angle.getRadians(), 1e-9);
+
+    SwerveModuleState forwardAgainState = new SwerveModuleState(2.0, Rotation2d.kZero);
+    module.runSetpoint(forwardAgainState);
+    assertEquals(2.0 / DriveConstants.wheelRadiusMeters, io.lastDriveVelocityRadPerSec, 1e-9);
+    assertEquals(0.0, io.lastTurnSetpoint.getRadians(), 1e-9);
+  }
+
   private static class TestModuleIO implements ModuleIO {
     private Rotation2d turnPosition = Rotation2d.kZero;
     private Rotation2d lastTurnSetpoint = Rotation2d.kZero;

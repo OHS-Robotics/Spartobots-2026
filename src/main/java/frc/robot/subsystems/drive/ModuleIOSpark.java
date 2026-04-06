@@ -14,8 +14,6 @@ import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.revrobotics.PersistMode;
-import com.revrobotics.REVLibError;
-import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
@@ -33,8 +31,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotController;
 import java.util.Queue;
 import java.util.function.DoubleSupplier;
 
@@ -43,23 +39,18 @@ import java.util.function.DoubleSupplier;
  * encoder.
  */
 public class ModuleIOSpark implements ModuleIO {
-  private static final double turnEncoderReseedPeriodSec = 1.0;
   private final Rotation2d zeroRotation;
 
   // Hardware objects
   private final SparkFlex driveSpark;
   private final SparkFlex turnSpark;
   private final CANcoder turnCanCoder;
-  private final RelativeEncoder driveEncoder;
-  private final RelativeEncoder turnEncoder;
+  private final com.revrobotics.RelativeEncoder driveEncoder;
 
   // Closed loop controllers
   private final SparkClosedLoopController driveController;
   private final PIDController turnController = new PIDController(turnKp, turnKi, turnKd);
   private boolean turnClosedLoop = false;
-  private boolean turnEncoderSeeded = false;
-  private boolean lastEnabledState = DriverStation.isEnabled();
-  private double lastTurnEncoderSeedAttemptTimestampSec = Double.NEGATIVE_INFINITY;
   private double lastTurnPositionRad = 0.0;
   private double lastTurnSetpointRad = Double.NaN;
   private double turnAppliedVolts = 0.0;
@@ -123,7 +114,6 @@ public class ModuleIOSpark implements ModuleIO {
               default -> 0;
             });
     driveEncoder = driveSpark.getEncoder();
-    turnEncoder = turnSpark.getEncoder();
     driveController = driveSpark.getClosedLoopController();
     turnCanCoder.getConfigurator().apply(new CANcoderConfiguration());
     turnAbsolutePosition = turnCanCoder.getAbsolutePosition();
@@ -195,23 +185,19 @@ public class ModuleIOSpark implements ModuleIO {
         () ->
             turnSpark.configure(
                 turnConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
-    tryUntilOk(turnSpark, 5, () -> turnEncoder.setPosition(0.0));
-    turnEncoderSeeded = seedTurnRelativeEncoderFromAbsolute();
-    lastTurnEncoderSeedAttemptTimestampSec = RobotController.getFPGATime() / 1e6;
 
     // Create odometry queues
     timestampQueue = SparkOdometryThread.getInstance().makeTimestampQueue();
     drivePositionQueue =
         SparkOdometryThread.getInstance().registerSignal(driveSpark, driveEncoder::getPosition);
+    var turnAbsolutePositionClone = turnAbsolutePosition.clone();
     turnPositionQueue =
-        SparkOdometryThread.getInstance().registerSignal(turnSpark, turnEncoder::getPosition);
+        SparkOdometryThread.getInstance()
+            .registerSignal(() -> turnAbsolutePositionClone.refresh().getValueAsDouble());
   }
 
   @Override
   public void updateInputs(ModuleIOInputs inputs) {
-    double timestampSec = RobotController.getFPGATime() / 1e6;
-    boolean enabled = DriverStation.isEnabled();
-
     // Update drive inputs
     sparkStickyFault = false;
     ifOk(driveSpark, driveEncoder::getPosition, (value) -> inputs.drivePositionRad = value);
@@ -225,34 +211,24 @@ public class ModuleIOSpark implements ModuleIO {
 
     // Update turn inputs
     sparkStickyFault = false;
-    boolean shouldReseedTurnEncoder =
-        !turnEncoderSeeded
-            || enabled != lastEnabledState
-            || timestampSec - lastTurnEncoderSeedAttemptTimestampSec >= turnEncoderReseedPeriodSec;
-    if (shouldReseedTurnEncoder) {
-      turnEncoderSeeded = seedTurnRelativeEncoderFromAbsolute();
-      lastTurnEncoderSeedAttemptTimestampSec = timestampSec;
+    boolean cancoderOk =
+        BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity).equals(StatusCode.OK);
+    if (cancoderOk) {
+      double positionRad = convertAbsolutePositionRotationsToModuleRadians(turnAbsolutePosition);
+      lastTurnPositionRad = positionRad;
+      inputs.turnPosition = new Rotation2d(positionRad);
+      double velocityRadPerSec = Units.rotationsToRadians(turnVelocity.getValueAsDouble());
+      if (turnEncoderInverted) {
+        velocityRadPerSec = -velocityRadPerSec;
+      }
+      inputs.turnVelocityRadPerSec = velocityRadPerSec;
     }
-    lastEnabledState = enabled;
-    ifOk(
-        turnSpark,
-        turnEncoder::getPosition,
-        (value) -> {
-          double positionRad = turnEncoderInverted ? -value : value;
-          positionRad = MathUtil.angleModulus(positionRad);
-          lastTurnPositionRad = positionRad;
-          inputs.turnPosition = new Rotation2d(positionRad);
-        });
-    ifOk(
-        turnSpark,
-        turnEncoder::getVelocity,
-        (value) -> inputs.turnVelocityRadPerSec = turnEncoderInverted ? -value : value);
     ifOk(
         turnSpark,
         new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
         (values) -> inputs.turnAppliedVolts = values[0] * values[1]);
     ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
-    inputs.turnConnected = turnConnectedDebounce.calculate(turnEncoderSeeded && !sparkStickyFault);
+    inputs.turnConnected = turnConnectedDebounce.calculate(cancoderOk && !sparkStickyFault);
 
     // Update odometry inputs
     inputs.odometryTimestamps =
@@ -262,11 +238,8 @@ public class ModuleIOSpark implements ModuleIO {
     inputs.odometryTurnPositions =
         turnPositionQueue.stream()
             .map(
-                (Double value) -> {
-                  double positionRad = turnEncoderInverted ? -value : value;
-                  positionRad = MathUtil.angleModulus(positionRad);
-                  return new Rotation2d(positionRad);
-                })
+                (Double value) ->
+                    new Rotation2d(convertAbsolutePositionRotationsToModuleRadians(value)))
             .toArray(Rotation2d[]::new);
     timestampQueue.clear();
     drivePositionQueue.clear();
@@ -362,28 +335,17 @@ public class ModuleIOSpark implements ModuleIO {
     return Math.abs(oldValue - newValue) > 1e-9;
   }
 
-  private boolean seedTurnRelativeEncoderFromAbsolute() {
-    boolean cancoderOk =
-        BaseStatusSignal.refreshAll(turnAbsolutePosition, turnVelocity).equals(StatusCode.OK);
-    if (!cancoderOk) {
-      return false;
-    }
-
-    double positionRad = Units.rotationsToRadians(turnAbsolutePosition.getValueAsDouble());
+  private double convertAbsolutePositionRotationsToModuleRadians(double absolutePositionRotations) {
+    double absoluteModulePositionRad = Units.rotationsToRadians(absolutePositionRotations);
     if (turnEncoderInverted) {
-      positionRad = -positionRad;
+      absoluteModulePositionRad = -absoluteModulePositionRad;
     }
-    positionRad = MathUtil.angleModulus(positionRad - zeroRotation.getRadians());
+    return MathUtil.angleModulus(absoluteModulePositionRad - zeroRotation.getRadians());
+  }
 
-    double relativePositionRad = turnEncoderInverted ? -positionRad : positionRad;
-    tryUntilOk(turnSpark, 5, () -> turnEncoder.setPosition(relativePositionRad));
-    boolean seeded = turnSpark.getLastError() == REVLibError.kOk;
-    if (seeded) {
-      lastTurnPositionRad = positionRad;
-      turnController.reset();
-      turnClosedLoop = false;
-      lastTurnSetpointRad = Double.NaN;
-    }
-    return seeded;
+  private double convertAbsolutePositionRotationsToModuleRadians(
+      StatusSignal<Angle> absolutePositionSignal) {
+    return convertAbsolutePositionRotationsToModuleRadians(
+        absolutePositionSignal.getValueAsDouble());
   }
 }

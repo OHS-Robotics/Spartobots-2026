@@ -25,10 +25,6 @@ public class FieldTargetingService {
   private static final Pose2d redOutpostEndingShotPose =
       new Pose2d(
           Constants.fieldLength - 2.85, Constants.fieldWidth - 6.3, Rotation2d.fromDegrees(130));
-  private static final Pose2d blueLadderAlignPose =
-      new Pose2d(1.25, Constants.fieldWidth - 0.75, Rotation2d.kZero);
-  private static final Pose2d redLadderAlignPose =
-      new Pose2d(Constants.fieldLength - 1.25, 0.75, Rotation2d.fromDegrees(180.0));
   private static final Pose2d blueDepotAlignPose =
       new Pose2d(Constants.blueLine - 0.6, Constants.midLineY, Rotation2d.kZero);
   private static final Pose2d redDepotAlignPose =
@@ -58,14 +54,6 @@ public class FieldTargetingService {
     return drive.alignToOutpost(xSupplier, ySupplier);
   }
 
-  public Command alignToLadderCommand() {
-    return drive.alignToPose(getAlliancePose(blueLadderAlignPose, redLadderAlignPose));
-  }
-
-  public Command parkAtLadderL1Command() {
-    return alignToLadderCommand();
-  }
-
   public Command alignToDepotCommand() {
     return drive.alignToPose(selectDepotAlignPose(DriverStation.getAlliance()));
   }
@@ -88,10 +76,6 @@ public class FieldTargetingService {
 
   public Command driveToOpeningShotCommand() {
     return drive.pathfindToTranslation(getOpeningShotPose().getTranslation());
-  }
-
-  static Pose2d selectLadderAlignPose(Optional<Alliance> alliance) {
-    return getAlliancePose(alliance, blueLadderAlignPose, redLadderAlignPose);
   }
 
   static Pose2d selectDepotAlignPose(Optional<Alliance> alliance) {

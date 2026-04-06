@@ -225,7 +225,7 @@ Before signing off:
 
 1. Run collect, reverse, manual feed, and shooter spin-up in teleop.
 2. Validate hub auto-align from multiple field positions.
-3. Verify ladder, depot, trench, and outpost auto-assist actions.
+3. Verify depot, trench, and outpost auto-assist actions.
 4. Run the competition autonomous on both alliances if field space is available.
 5. Disable and re-enable repeatedly to confirm no subsystem boots into a bad state.
 

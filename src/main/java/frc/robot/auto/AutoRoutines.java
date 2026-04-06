@@ -26,9 +26,9 @@ public class AutoRoutines {
   private static final double competitionAutoDriveToShotTimeoutSeconds = 4.0;
   private static final double competitionAutoShotSpinUpTimeoutSeconds = 2.5;
   private static final double competitionAutoFeedSeconds = 0.75;
-  private static final double competitionAutoLadderAlignTimeoutSeconds = 4.0;
   private static final double competitionAutoShotPositionToleranceMeters = 0.35;
-  private static final String competitionAutoName = "Competition: Outpost -> Shoot -> Ladder";
+  private static final String competitionAutoName =
+      "Competition: Outpost -> Shoot -> Reload -> Shoot";
   private static final String doNothingAutoName = "Do Nothing";
   private static final String testAutoName = "Test";
   private static final String autoShotStateLogKey = "Auto/Competition/ShotState";
@@ -232,10 +232,6 @@ public class AutoRoutines {
                           drive),
                       Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_AND_SHOOT")),
                       buildCompetitionDriveAndShootCommand(openingShotPose),
-                      // Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_TO_LADDER")),
-                      // fieldTargetingService
-                      // .alignToLadderCommand()
-                      // .withTimeout(competitionAutoLadderAlignTimeoutSeconds),
                       Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_UNDER_TRENCH")),
                       drive.autoDriveUnderTrenchCommand(2.0),
                       Commands.runOnce(() -> recordCompetitionAutoShotState("MIDDLE_LOAD")),
