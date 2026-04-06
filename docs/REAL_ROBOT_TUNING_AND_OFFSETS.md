@@ -27,18 +27,12 @@ Default tuning uses a single controller on USB 0. The most relevant bring-up con
 - Right stick press: hub auto-align plus shooter demand
 - Right trigger: shooter demand
 - Left trigger: manual feed plus indexers
-- `Y`: collect with indexers
-- `X`: collect without indexers
-- `A`: reverse intake/hopper/indexers
-- `B`: stop game-piece flow
+- `A`: toggle collect without indexers
+- `B`: reverse intake/indexers
 - POV up/down: hood setpoint jog
 - POV left/right: intake pivot jog
-- Back: stop game-piece flow
-- Start: intake pivot hard-stop calibration
 
-See [Driver Controls](DRIVER_CONTROLS.md) for the full map, including paddle shortcuts and dashboard actions.
-
-If you need direct hopper/L1 climber extension jog, temporarily set `enableMechanismBringupBindings = true` in `src/main/java/frc/robot/operator/OperatorBindings.java`, redeploy, and use Back/Start for retract/extend jog. That mode disables the paddle shortcuts on purpose.
+See [Driver Controls](DRIVER_CONTROLS.md) for the full map and dashboard actions.
 
 ## 3. Safety and Electrical Gate
 
@@ -48,7 +42,7 @@ Pass this gate before mechanism tuning:
 2. No persistent gyro disconnect alert.
 3. No persistent vision camera disconnect alerts.
 4. All expected CAN devices stay present through repeated enable/disable cycles.
-5. Shooter hood, intake pivot, and hopper/L1 climber all move freely without binding.
+5. Shooter hood and intake pivot both move freely without binding.
 
 ## 4. Calibration First
 
@@ -87,32 +81,13 @@ Telemetry keys:
 Procedure:
 
 1. Enable the robot.
-2. Run `Intake/CalibratePivotToHardStops` from SmartDashboard or press Start.
-3. A successful run zeros the intake pivot encoder at the retracted hard stop, then sweeps to the extended hard stop and rewrites both tuning keys above.
+2. Run `Intake/CalibratePivotToHardStops` from SmartDashboard.
+3. A successful run sweeps to the extended hard stop first, then returns to the retracted hard stop to zero the encoder there and rewrite both tuning keys above.
 4. If calibration fails, use POV left/right to confirm direction and clear any obstruction. If it is driving the wrong way, update the homing output signs in `src/main/java/frc/robot/subsystems/gamepiece/intake/IntakeConstants.java`, redeploy, and rerun.
 5. Copy the resulting retracted and extended tuning values into `src/main/java/frc/robot/subsystems/gamepiece/intake/IntakeConstants.java` so the measured range is saved in the repo. The retracted value should normally remain `0.0`, because that is the hard-stop reference the routine writes each boot.
 6. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
 
-### 4.3 Hopper/L1 Climber Extension Calibration
-
-Tuning keys:
-
-- `/Spartobots2026/GamePiece/Hopper/Tuning/Common/Extension/Calibration/RetractedPositionRotations`
-- `/Spartobots2026/GamePiece/Hopper/Tuning/Common/Extension/Calibration/ExtendedPositionRotations`
-
-Telemetry keys:
-
-- `/Spartobots2026/GamePiece/Hopper/Telemetry/Extension/EncoderPositionRotations`
-- `/Spartobots2026/GamePiece/Hopper/Telemetry/Extension/EncoderPositionNormalized`
-
-Procedure:
-
-1. If needed, temporarily enable mechanism bring-up bindings.
-2. Jog the extension to the retracted hard stop and record the encoder value into the retracted key.
-3. Jog the extension to the extended hard stop and record the encoder value into the extended key.
-4. Confirm normalized telemetry is near `0.0` at retract and `1.0` at extend.
-
-### 4.4 Shooter Hood Homing and Range Validation
+### 4.3 Shooter Hood Homing and Range Validation
 
 Tuning keys:
 
@@ -146,13 +121,6 @@ Verify sign, scale, and direction under these common-tuning paths:
 - `/Spartobots2026/GamePiece/Intake/Tuning/Common/Drive/Direction`
 - `/Spartobots2026/GamePiece/Intake/Tuning/Common/Pivot/SpeedScale`
 - `/Spartobots2026/GamePiece/Intake/Tuning/Common/Pivot/Inverted`
-
-### Hopper / L1 Climber
-
-- `/Spartobots2026/GamePiece/Hopper/Tuning/Common/Agitator/Speed`
-- `/Spartobots2026/GamePiece/Hopper/Tuning/Common/Agitator/Direction`
-- `/Spartobots2026/GamePiece/Hopper/Tuning/Common/Extension/SpeedScale`
-- `/Spartobots2026/GamePiece/Hopper/Tuning/Common/Extension/Inverted`
 
 ### Indexers
 
@@ -263,6 +231,5 @@ Before signing off:
 
 ## 10. Closeout
 
-1. If you enabled mechanism bring-up bindings, turn them back off and redeploy.
-2. Capture final tuned values in code or your persistence workflow. NetworkTables edits are not versioned automatically by this repo.
-3. Run `./gradlew test build` one more time before the robot leaves the shop.
+1. Capture final tuned values in code or your persistence workflow. NetworkTables edits are not versioned automatically by this repo.
+2. Run `./gradlew test build` one more time before the robot leaves the shop.

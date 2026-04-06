@@ -28,8 +28,8 @@ public final class IntakeConstants {
   public static final double defaultIntakePivotRetractedPositionRotations =
       intakePivotRetractedHardStopReferenceRotations;
   public static final double defaultIntakePivotExtendedPositionRotations = 1.0;
-  public static final double intakePivotCalibrationOutputTowardRetractedHardStop = -0.10;
-  public static final double intakePivotCalibrationOutputTowardExtendedHardStop = 0.10;
+  public static final double intakePivotCalibrationOutputTowardRetractedHardStop = -0.40;
+  public static final double intakePivotCalibrationOutputTowardExtendedHardStop = 0.40;
   public static final double intakePivotCalibrationMinCurrentAmps = 8.0;
   public static final double intakePivotCalibrationMaxVelocityRpm = 8.0;
   public static final double intakePivotCalibrationStallConfirmSeconds = 0.20;
@@ -37,8 +37,11 @@ public final class IntakeConstants {
   public static final double intakePivotCalibrationMinTravelRotations = 0.20;
 
   // Default open-loop speeds
-  public static final double defaultIntakeSpeed = 0.5;
+  public static final double defaultIntakeSpeed = 0.25;
   public static final double defaultIntakePivotSpeedScale = 1.0;
+  public static final double intakePivotSweepTraversalSecondsAtFullTrigger = 0.75;
+  public static final double intakePivotSweepHardStopInsetNormalized = 0.05;
+  public static final double intakePivotIntakingPositionInsetNormalized = 0.08;
 
   // Calibration-mode closed-loop defaults
   public static final double defaultCalibrationDriveVelocitySetpointRotationsPerSec = 0.0;
@@ -48,9 +51,9 @@ public final class IntakeConstants {
   public static final double intakeDriveVelocityKi = 0.0;
   public static final double intakeDriveVelocityKd = 0.0;
   public static final double intakeDriveVelocityKv = 1.0 / 32.0;
-  public static final double intakePivotPositionKp = 1.5;
+  public static final double intakePivotPositionKp = 0.7;
   public static final double intakePivotPositionKi = 0.0;
-  public static final double intakePivotPositionKd = 0.0;
+  public static final double intakePivotPositionKd = 0.02;
 
   // Default direction/inversion
   public static final double defaultIntakeDriveDirection = -1.0;

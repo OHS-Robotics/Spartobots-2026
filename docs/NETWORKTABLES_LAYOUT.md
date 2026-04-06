@@ -24,8 +24,6 @@ Not every domain uses every section. AdvantageKit `Logger.recordOutput(...)` val
   Mode-specific auto-align PID and motion-limit tuning.
 - `GamePiece/Intake`
   Intake tuning and telemetry.
-- `GamePiece/Hopper`
-  Hopper agitator and L1 climber/extension tuning and telemetry.
 - `GamePiece/Indexers`
   Top and bottom indexer tuning and telemetry.
 - `GamePiece/Shooter`
@@ -100,7 +98,6 @@ Not every domain uses every section. AdvantageKit `Logger.recordOutput(...)` val
 ## Subsystem Naming
 
 - Intake: `/Spartobots2026/GamePiece/Intake/...`
-- Hopper/L1 climber: `/Spartobots2026/GamePiece/Hopper/...`
 - Indexers: `/Spartobots2026/GamePiece/Indexers/...`
 - Shooter: `/Spartobots2026/GamePiece/Shooter/...`
 

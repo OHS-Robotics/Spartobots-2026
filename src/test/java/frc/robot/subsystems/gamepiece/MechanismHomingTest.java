@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 class MechanismHomingTest {
   @Test
-  void intakeCalibrationZerosRetractedStopThenMeasuresExtendedStop() {
+  void intakeCalibrationMeasuresExtendedStopThenZerosRetractedStop() {
     FakeIntakeHomingIO io = new FakeIntakeHomingIO();
     Intake intake = new Intake(io);
 
@@ -84,6 +84,38 @@ class MechanismHomingTest {
         io.extendedHardStopAfterReferenceRotations, shooter.getHoodSetpointMotorRotations(), 1e-9);
   }
 
+  @Test
+  void intakeManualPivotJogRespectsCalibratedHardStops() {
+    FakeIntakeHomingIO io = new FakeIntakeHomingIO();
+    Intake intake = new Intake(io);
+    var tuningTable =
+        NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(IntakeConstants.configTableName));
+    tuningTable
+        .getEntry("Pivot/SpeedScale")
+        .setDouble(IntakeConstants.defaultIntakePivotSpeedScale);
+    tuningTable.getEntry("Pivot/Inverted").setBoolean(IntakeConstants.defaultIntakePivotInverted);
+    tuningTable.getSubTable("Calibration").getEntry("Enabled").setBoolean(false);
+
+    runCommandUntilFinished(
+        intake.calibrateIntakePivotToHardStopsCommand(), intake::periodic, io::advanceCalibration);
+
+    io.pivotPositionRotations = intake.getIntakePivotRetractedPositionRotations();
+    intake.periodic();
+    intake.setIntakePivotSpeed(-0.25);
+    assertEquals(0.0, io.pivotAppliedOutput, 1e-9);
+
+    intake.setIntakePivotSpeed(0.25);
+    assertEquals(0.25, io.pivotAppliedOutput, 1e-9);
+
+    io.pivotPositionRotations = intake.getIntakePivotExtendedPositionRotations();
+    intake.periodic();
+    intake.setIntakePivotSpeed(0.25);
+    assertEquals(0.0, io.pivotAppliedOutput, 1e-9);
+
+    intake.setIntakePivotSpeed(-0.25);
+    assertEquals(-0.25, io.pivotAppliedOutput, 1e-9);
+  }
+
   private static void runCommandUntilFinished(
       Command command, Runnable periodic, Runnable advanceSimulation) {
     CommandScheduler scheduler = CommandScheduler.getInstance();
@@ -116,6 +148,10 @@ class MechanismHomingTest {
     double pivotCurrentAmps = 0.0;
     double lastEncoderPositionSetRotations = Double.NaN;
     final double retractedHardStopBeforeReferenceRotations = -0.42;
+    final double extendedHardStopBeforeReferenceRotations =
+        retractedHardStopBeforeReferenceRotations
+            + IntakeConstants.intakePivotRetractedHardStopReferenceRotations
+            + 2.63;
     final double extendedHardStopAfterReferenceRotations = 2.63;
     private boolean retractedReferenceEstablished = false;
 
@@ -144,20 +180,20 @@ class MechanismHomingTest {
     }
 
     void advanceCalibration() {
+      if (pivotAppliedOutput > 1e-6) {
+        double target =
+            retractedReferenceEstablished
+                ? extendedHardStopAfterReferenceRotations
+                : extendedHardStopBeforeReferenceRotations;
+        advancePivotToward(target);
+        return;
+      }
+
       if (pivotAppliedOutput < -1e-6) {
         double target =
             retractedReferenceEstablished
                 ? IntakeConstants.intakePivotRetractedHardStopReferenceRotations
                 : retractedHardStopBeforeReferenceRotations;
-        advancePivotToward(target);
-        return;
-      }
-
-      if (pivotAppliedOutput > 1e-6) {
-        double target =
-            retractedReferenceEstablished
-                ? extendedHardStopAfterReferenceRotations
-                : pivotPositionRotations + moveStepRotations;
         advancePivotToward(target);
         return;
       }

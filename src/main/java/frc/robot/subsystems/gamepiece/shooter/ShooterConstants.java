@@ -39,8 +39,8 @@ public final class ShooterConstants {
 
   // Closed-loop gains
   public static final double shooterVelocityKp = 0.00012;
-  public static final double shooterVelocityKi = 0.0;
-  public static final double shooterVelocityKd = 0.0;
+  public static final double shooterVelocityKi = 0.000005;
+  public static final double shooterVelocityKd = 0.001;
   public static final double shooterVelocityKv =
       1.0 / Units.rotationsPerMinuteToRadiansPerSecond(5676.0);
   public static final double hoodPositionKp = 0.6;
@@ -63,13 +63,12 @@ public final class ShooterConstants {
   public static final double fuelBallRadiusMeters =
       Units.inchesToMeters(fuelBallDiameterInches / 2.0);
 
-  // Ball runs between moving shooter wheels and a stationary hood panel.
-  // Ideal no-slip rolling gives ball center speed = 0.5 * wheel surface speed.
+  // Ball runs between the moving shooter drum and a stationary hood panel.
+  // Ideal no-slip rolling gives ball center speed = 0.5 * drum surface speed.
   public static final double ballCenterSpeedFromWheelSurfaceRatio = 0.5;
   public static final double launchSlipFactor = 0.93;
   public static final double launchSpeedFromWheelSurfaceSpeedScale =
       launchSlipFactor * ballCenterSpeedFromWheelSurfaceRatio;
-  public static final double targetBallSpinRatio = 0.10;
 
   // Shooter kinematic limits
   public static final double neoFreeSpeedRadPerSec =

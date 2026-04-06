@@ -1,6 +1,8 @@
 package frc.robot.targeting;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -65,5 +67,27 @@ class FieldTargetingServiceTest {
             .getRotation()
             .getDegrees(),
         1e-9);
+  }
+
+  @Test
+  void detectsWhenRobotIsNearTrench() {
+    assertTrue(
+        FieldTargetingService.isNearTrench(
+            new Pose2d(
+                Constants.blueTrenchBottomInner.getX(),
+                Constants.blueTrenchBottomInner.getY() + 0.2,
+                Rotation2d.kZero)));
+    assertTrue(
+        FieldTargetingService.isNearTrench(
+            new Pose2d(
+                Constants.redTrenchTopOuter.getX() - 0.2,
+                Constants.redTrenchTopOuter.getY(),
+                Rotation2d.kZero)));
+    assertFalse(
+        FieldTargetingService.isNearTrench(
+            new Pose2d(Constants.fieldLength / 2.0, Constants.fieldWidth / 2.0, Rotation2d.kZero)));
+    assertFalse(
+        FieldTargetingService.isNearTrench(
+            FieldTargetingService.selectOpeningShotPose(Optional.of(Alliance.Blue))));
   }
 }

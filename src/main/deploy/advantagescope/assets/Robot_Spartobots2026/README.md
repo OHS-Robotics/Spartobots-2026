@@ -7,13 +7,12 @@ This asset is configured for component poses published at:
 Component index order (must match `components` in `config.json`):
 
 1. Intake pivot
-2. Hopper extension
-3. Shooter hood
+2. Shooter hood
 
 Expected model files in this folder:
 
 - `model.glb` (full robot body)
-- `model_0.glb` ... `model_2.glb` (component meshes in index order)
+- `model_0.glb` ... `model_1.glb` (component meshes in index order)
 
 If a component appears offset or rotated in AdvantageScope, tune:
 

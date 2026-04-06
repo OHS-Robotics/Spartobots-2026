@@ -20,7 +20,6 @@ import frc.robot.game.GameStateSubsystem;
 import frc.robot.operator.OperatorFeedbackController;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
-import frc.robot.subsystems.gamepiece.hopper.Hopper;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.intake.Intake;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
@@ -56,7 +55,6 @@ public class FieldSimulationManager {
   private final Drive drive;
   private final Shooter shooter;
   private final Intake intake;
-  private final Hopper hopper;
   private final Indexers indexers;
   private final GameStateSubsystem gameState;
   private final GamePieceCoordinator gamePieceCoordinator;
@@ -75,7 +73,6 @@ public class FieldSimulationManager {
       Drive drive,
       Shooter shooter,
       Intake intake,
-      Hopper hopper,
       Indexers indexers,
       GameStateSubsystem gameState,
       GamePieceCoordinator gamePieceCoordinator,
@@ -84,7 +81,6 @@ public class FieldSimulationManager {
     this.drive = drive;
     this.shooter = shooter;
     this.intake = intake;
-    this.hopper = hopper;
     this.indexers = indexers;
     this.gameState = gameState;
     this.gamePieceCoordinator = gamePieceCoordinator;
@@ -100,7 +96,6 @@ public class FieldSimulationManager {
     SimulatedArena arena = SimulatedArena.getInstance();
     shooter.resetSimulationState();
     intake.resetSimulationState();
-    hopper.resetSimulationState();
     indexers.resetSimulationState();
     drive.setPose(simStartPose);
     arena.resetFieldForAuto();

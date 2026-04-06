@@ -12,7 +12,6 @@ import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import frc.robot.Constants;
-import frc.robot.subsystems.drive.DriveConstants;
 
 public class VisionConstants {
   public static record CameraVisualizationConfig(
@@ -39,19 +38,22 @@ public class VisionConstants {
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
+  private static final double cameraForwardMeters = 40.3 / 1000.0;
+  private static final double cameraSideOffsetMeters = 322.627 / 1000.0;
+  private static final double cameraHeightMeters = 159.395 / 1000.0;
+  // In WPILib's NWU frame, a camera tilted upward uses a negative pitch rotation.
+  private static final double cameraPitchDegrees = -22.5;
+
   public static Transform3d robotToCamera0 =
       new Transform3d(
-          new Translation3d(
-              -DriveConstants.trackWidth / 2.0,
-              DriveConstants.wheelBase / 2.0,
-              Units.inchesToMeters(4.0)),
-          new Rotation3d(0.0, Units.degreesToRadians(-40), Units.degreesToRadians(135)));
+          new Translation3d(cameraForwardMeters, -cameraSideOffsetMeters, cameraHeightMeters),
+          new Rotation3d(
+              0.0, Units.degreesToRadians(cameraPitchDegrees), Units.degreesToRadians(-90.0)));
   public static Transform3d robotToCamera1 =
       new Transform3d(
-          -DriveConstants.trackWidth / 2.0,
-          -DriveConstants.wheelBase / 2.0,
-          Units.inchesToMeters(4.0),
-          new Rotation3d(0.0, Units.degreesToRadians(-40), Units.degreesToRadians(-135)));
+          new Translation3d(cameraForwardMeters, cameraSideOffsetMeters, cameraHeightMeters),
+          new Rotation3d(
+              0.0, Units.degreesToRadians(cameraPitchDegrees), Units.degreesToRadians(90.0)));
 
   public static int camera0Pipeline = 0;
   public static int camera1Pipeline = 1;

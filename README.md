@@ -5,7 +5,7 @@ Java/WPILib robot code for FRC Team 4687 Spartobots' 2026 robot. The project use
 ## Highlights
 
 - Swerve drive with pose estimation, programmatic autonomous, and field-relative auto-assist targets.
-- Game-piece stack made of intake, hopper/L1 climber, indexers, and a hooded shooter with homing and calibration tooling.
+- Game-piece stack made of intake, indexers, and a hooded shooter with homing and calibration tooling.
 - Shared NetworkTables and AdvantageKit logging rooted at `Spartobots2026` for tuning, telemetry, simulation, and operator dashboards.
 
 ## Quick Start

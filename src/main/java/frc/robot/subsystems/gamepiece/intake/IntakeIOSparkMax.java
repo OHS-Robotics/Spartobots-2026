@@ -55,7 +55,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     intakeFollowerConfig.voltageCompensation(12.0);
 
     SparkMaxConfig intakePivotConfig = new SparkMaxConfig();
-    intakePivotConfig.idleMode(IdleMode.kCoast);
+    intakePivotConfig.idleMode(IdleMode.kBrake);
     intakePivotConfig.smartCurrentLimit(IntakeConstants.intakePivotCurrentLimitAmps);
     intakePivotConfig.voltageCompensation(12.0);
     intakePivotConfig.closedLoop.pid(

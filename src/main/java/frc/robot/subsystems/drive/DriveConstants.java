@@ -48,15 +48,15 @@ public class DriveConstants {
   // NavX yaw sign to match WPILib's CCW-positive convention.
   public static final boolean navxYawInverted = false;
 
-  // Use the CANcoder to establish steering zero and keep the steering motor's relative encoder
-  // aligned. The relative encoder remains the primary sensor for the fast turn control loop.
-  public static final boolean zeroRelativeTurnEncoderFromAbsolute = true;
-
   // Zeroed rotation values for each module, see setup instructions
-  public static final Rotation2d frontLeftZeroRotation = new Rotation2d(-0.259 - 0.919);
-  public static final Rotation2d frontRightZeroRotation = new Rotation2d(0.3146 + 2.310);
-  public static final Rotation2d backLeftZeroRotation = new Rotation2d(2.311 + 2.295);
-  public static final Rotation2d backRightZeroRotation = new Rotation2d(-2.879 + 1.228 - 0.026);
+  public static final Rotation2d frontLeftZeroRotation =
+      new Rotation2d(-0.259 - 0.919 - 2.345 + 0.571);
+  public static final Rotation2d frontRightZeroRotation =
+      new Rotation2d(0.3146 + 2.310 - 1.941 - 0.558);
+  public static final Rotation2d backLeftZeroRotation =
+      new Rotation2d(2.311 + 2.295 + 2.239 + 0.934);
+  public static final Rotation2d backRightZeroRotation =
+      new Rotation2d(-2.879 + 1.228 + 0.026 - 2.105 - 3.050);
 
   // Device CAN IDs
   public static final int frontLeftDriveCanId = 13;
@@ -70,8 +70,8 @@ public class DriveConstants {
   public static final int backRightTurnCanId = 14;
 
   public static final int frontLeftCANcoderId = 21;
-  public static final int frontRightCANcoderId = 22;
-  public static final int backLeftCANcoderId = 20;
+  public static final int frontRightCANcoderId = 20;
+  public static final int backLeftCANcoderId = 22;
   public static final int backRightCANcoderId = 23;
 
   // Drive motor configuration
@@ -118,12 +118,9 @@ public class DriveConstants {
       (2 * Math.PI) / 60.0 / turnMotorReduction; // Rotor RPM -> Wheel Rad/Sec
 
   // Turn PID configuration
-  public static final double turnKp = 2.2;
+  public static final double turnKp = 3.4;
   public static final double turnKi = 0.0;
-  public static final double turnKd = 0.06;
-  public static final double turnPositionToleranceRadians = Units.degreesToRadians(0.75);
-  public static final double turnAbsoluteMismatchAlertThresholdRadians =
-      Units.degreesToRadians(8.0);
+  public static final double turnKd = 0.2;
   public static final double turnMaxIntegralOutputVolts = 2.0;
   public static final double turnSetpointResetThresholdRadians = Units.degreesToRadians(90.0);
   public static final double turnSimP = 8.0;

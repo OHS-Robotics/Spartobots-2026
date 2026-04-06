@@ -190,6 +190,20 @@ class ShooterTest {
   }
 
   @Test
+  void hubShotSolutionUsesSharedWheelSetpointForSingleDrumShooter() {
+    Shooter shooter = new Shooter(new FakeShooterIO());
+    shooter.setCalibrationModeEnabled(false);
+
+    Shooter.HubShotSolution solution =
+        shooter.updateHubShotSolution(
+            new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    assertTrue(solution.feasible());
+    assertEquals(
+        shooter.getPair1WheelSetpointRadPerSec(), shooter.getPair2WheelSetpointRadPerSec(), 1e-9);
+  }
+
+  @Test
   void calibrationModeOwnsShooterSetpoints() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);
@@ -203,11 +217,32 @@ class ShooterTest {
     shooter.periodic();
 
     assertEquals(calibrationHoodSetpointRotations, shooter.getHoodSetpointMotorRotations(), 1e-9);
-    assertEquals(120.0, shooter.getPair1WheelSetpointRadPerSec(), 1e-9);
-    assertEquals(140.0, shooter.getPair2WheelSetpointRadPerSec(), 1e-9);
-    assertEquals(-120.0, io.pair1SetpointRadPerSec, 1e-9);
-    assertEquals(-140.0, io.pair2SetpointRadPerSec, 1e-9);
+    assertEquals(130.0, shooter.getPair1WheelSetpointRadPerSec(), 1e-9);
+    assertEquals(130.0, shooter.getPair2WheelSetpointRadPerSec(), 1e-9);
+    assertEquals(130.0 * ShooterConstants.defaultPair1Direction, io.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(130.0 * ShooterConstants.defaultPair2Direction, io.pair2SetpointRadPerSec, 1e-9);
     assertTrue(shooter.isCalibrationModeEnabled());
+  }
+
+  @Test
+  void trenchSafetyOverrideRetractsHoodWithoutDiscardingCommandedSetpoint() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+
+    shooter.adjustHoodSetpointRotations(1.0);
+    double commandedHoodSetpointRotations = shooter.getHoodSetpointMotorRotations();
+
+    shooter.setTrenchSafetyRetractOverrideEnabled(true);
+    shooter.periodic();
+
+    assertEquals(commandedHoodSetpointRotations, shooter.getHoodSetpointMotorRotations(), 1e-9);
+    assertEquals(
+        ShooterConstants.defaultHoodRetractedPositionRotations, io.hoodSetpointRotations, 1e-9);
+
+    shooter.setTrenchSafetyRetractOverrideEnabled(false);
+    shooter.periodic();
+
+    assertEquals(commandedHoodSetpointRotations, io.hoodSetpointRotations, 1e-9);
   }
 
   @Test

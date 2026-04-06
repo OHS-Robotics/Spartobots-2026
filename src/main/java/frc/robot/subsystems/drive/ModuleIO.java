@@ -18,16 +18,10 @@ public interface ModuleIO {
     public double driveCurrentAmps = 0.0;
 
     public boolean turnConnected = false;
-    public boolean turnAbsoluteConnected = false;
-    public boolean turnRelativeEncoderSeeded = false;
     public Rotation2d turnPosition = Rotation2d.kZero;
-    public Rotation2d turnAbsolutePosition = Rotation2d.kZero;
-    public Rotation2d turnRelativePosition = Rotation2d.kZero;
-    public double turnRelativeToAbsoluteErrorRad = 0.0;
     public double turnVelocityRadPerSec = 0.0;
     public double turnAppliedVolts = 0.0;
     public double turnCurrentAmps = 0.0;
-    public double turnZeroOffsetRad = 0.0;
 
     public double[] odometryTimestamps = new double[] {};
     public double[] odometryDrivePositionsRad = new double[] {};
@@ -52,15 +46,6 @@ public interface ModuleIO {
   /** Clear any stored state in the turn position controller. */
   public default void resetTurnPositionController() {}
 
-  /** Seeds the steering motor's relative encoder from the absolute encoder when available. */
-  public default boolean syncTurnEncoderToAbsolute() {
-    return false;
-  }
-
-  /** Captures the current absolute encoder angle as the steering zero offset. */
-  public default boolean captureTurnZeroOffsetFromAbsolute() {
-    return false;
-  }
   /** Update drive motor velocity loop gains. */
   public default void setDriveVelocityGains(double kp, double ki, double kd) {}
 

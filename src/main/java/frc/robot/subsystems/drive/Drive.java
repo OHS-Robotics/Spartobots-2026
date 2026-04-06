@@ -864,36 +864,4 @@ public class Drive extends SubsystemBase {
   public void zeroGyro() {
     gyroIO.zeroYaw();
   }
-
-  public Command syncTurnEncodersToAbsoluteCommand() {
-    return Commands.runOnce(
-            () -> {
-              boolean allSynced = true;
-              for (var module : modules) {
-                allSynced &= module.syncTurnEncoderToAbsolute();
-              }
-              if (!allSynced) {
-                DriverStation.reportWarning(
-                    "Drive turn encoder sync did not complete for every module.", false);
-              }
-            },
-            this)
-        .ignoringDisable(true);
-  }
-
-  public Command captureTurnZeroOffsetsFromCurrentPositionCommand() {
-    return Commands.runOnce(
-            () -> {
-              boolean allCaptured = true;
-              for (var module : modules) {
-                allCaptured &= module.captureTurnZeroOffsetFromAbsolute();
-              }
-              if (!allCaptured) {
-                DriverStation.reportWarning(
-                    "Drive turn zero capture did not complete for every module.", false);
-              }
-            },
-            this)
-        .ignoringDisable(true);
-  }
 }

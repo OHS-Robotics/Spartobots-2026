@@ -49,8 +49,7 @@
 - Place `model.glb` in `src/main/deploy/advantagescope/assets/Robot_Spartobots2026/`.
 - Export articulated meshes to:
   - `model_0.glb` for the intake pivot
-  - `model_1.glb` for the hopper extension
-  - `model_2.glb` for the shooter hood
+  - `model_1.glb` for the shooter hood
 - The repo publishes the matching component poses under
   `/Spartobots2026/Simulation/RobotModel/Components`.
 

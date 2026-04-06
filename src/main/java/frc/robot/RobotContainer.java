@@ -31,8 +31,6 @@ import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
-import frc.robot.subsystems.gamepiece.hopper.Hopper;
-import frc.robot.subsystems.gamepiece.hopper.HopperIOLinkedIntakeExtension;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.indexers.IndexersIO;
 import frc.robot.subsystems.gamepiece.indexers.IndexersIOSim;
@@ -82,7 +80,6 @@ public class RobotContainer {
   private final Drive drive;
   private final Shooter shooter;
   private final Intake intake;
-  private final Hopper hopper;
   private final Indexers indexers;
   private final GameStateSubsystem gameState;
 
@@ -111,7 +108,6 @@ public class RobotContainer {
     Drive driveLocal;
     Shooter shooterLocal;
     Intake intakeLocal;
-    Hopper hopperLocal;
     Indexers indexersLocal;
     Vision visionLocal;
     SwerveDriveSimulation driveSimulationLocal = null;
@@ -120,7 +116,6 @@ public class RobotContainer {
       case REAL:
         intakeLocal =
             enableRealGamePieceHardware ? new Intake(new IntakeIOSparkMax()) : new Intake();
-        hopperLocal = new Hopper(new HopperIOLinkedIntakeExtension(intakeLocal));
         indexersLocal =
             enableRealGamePieceHardware ? new Indexers(new IndexersIOSparkMax()) : new Indexers();
         driveLocal =
@@ -157,7 +152,6 @@ public class RobotContainer {
                 DriveConstants.getMapleSimConfig(), Constants.simulationStartPose);
         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulationLocal);
         intakeLocal = new Intake(new IntakeIOSim());
-        hopperLocal = new Hopper(new HopperIOLinkedIntakeExtension(intakeLocal));
         indexersLocal = new Indexers(new IndexersIOSim());
         driveLocal =
             new Drive(
@@ -188,7 +182,6 @@ public class RobotContainer {
 
       default:
         intakeLocal = new Intake(new IntakeIO() {});
-        hopperLocal = new Hopper(new HopperIOLinkedIntakeExtension(intakeLocal));
         indexersLocal = new Indexers(new IndexersIO() {});
         driveLocal =
             new Drive(
@@ -216,12 +209,11 @@ public class RobotContainer {
     drive = driveLocal;
     shooter = shooterLocal;
     intake = intakeLocal;
-    hopper = hopperLocal;
     indexers = indexersLocal;
     gameState = new GameStateSubsystem();
     vision = visionLocal;
 
-    gamePieceCoordinator = new GamePieceCoordinator(intake, hopper, indexers, shooter);
+    gamePieceCoordinator = new GamePieceCoordinator(intake, indexers, shooter);
     hubTargetingService = new HubTargetingService(drive, shooter);
     fieldTargetingService = new FieldTargetingService(drive);
     autoRoutines =
@@ -252,13 +244,12 @@ public class RobotContainer {
             autoAssistController)
         .configure();
 
-    robotVisualizationPublisher = new RobotVisualizationPublisher(intake, hopper, shooter);
+    robotVisualizationPublisher = new RobotVisualizationPublisher(intake, shooter);
     fieldSimulationManager =
         new FieldSimulationManager(
             drive,
             shooter,
             intake,
-            hopper,
             indexers,
             gameState,
             gamePieceCoordinator,
@@ -278,6 +269,7 @@ public class RobotContainer {
 
   public void periodic() {
     syncDrivePoseToVisionIfNeeded();
+    shooter.setTrenchSafetyRetractOverrideEnabled(fieldTargetingService.isRobotNearTrench());
     hubTargetingService.update();
     robotVisualizationPublisher.publish();
     operatorFeedbackController.periodic();
@@ -398,14 +390,6 @@ public class RobotContainer {
         "Drive/WheelRadiusCharacterization",
         "Tuning/Drive/WheelRadiusCharacterization",
         DriveCommands.wheelRadiusCharacterization(drive));
-    operatorDashboard.registerAction(
-        "Drive/SyncTurnEncodersToAbsolute",
-        "Calibration/Drive/SyncTurnEncodersToAbsolute",
-        drive.syncTurnEncodersToAbsoluteCommand());
-    operatorDashboard.registerAction(
-        "Drive/CaptureTurnZeroOffsetsFromCurrentPosition",
-        "Calibration/Drive/CaptureTurnZeroOffsetsFromCurrentPosition",
-        drive.captureTurnZeroOffsetsFromCurrentPositionCommand());
     operatorDashboard.registerAction(
         "Drive/SimpleFFCharacterization",
         "Tuning/Drive/SimpleFFCharacterization",

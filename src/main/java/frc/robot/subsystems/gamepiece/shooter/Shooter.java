@@ -56,6 +56,7 @@ public class Shooter extends SubsystemBase {
   private final ShooterIOInputsAutoLogged inputs = new ShooterIOInputsAutoLogged();
 
   private boolean shotControlEnabled = false;
+  private boolean trenchSafetyRetractOverrideEnabled = false;
   private boolean manualHoodOverrideEnabled = false;
   private double launchHeightMeters = ShooterConstants.defaultLaunchHeightMeters;
   private double pair1WheelSetpointRadPerSec = 0.0;
@@ -339,7 +340,7 @@ public class Shooter extends SubsystemBase {
       // On real hardware, hold the current measured position until homing establishes a reference.
       io.setHoodPositionSetpointRotations(inputs.hoodPositionRotations);
     } else {
-      io.setHoodPositionSetpointRotations(hoodSetpointMotorRotations);
+      io.setHoodPositionSetpointRotations(getAppliedHoodSetpointMotorRotations());
     }
     publishHoodEncoderToNetworkTables();
     publishWheelTelemetryToNetworkTables(
@@ -424,6 +425,14 @@ public class Shooter extends SubsystemBase {
     return manualHoodOverrideEnabled;
   }
 
+  public boolean isTrenchSafetyRetractOverrideEnabled() {
+    return trenchSafetyRetractOverrideEnabled;
+  }
+
+  public void setTrenchSafetyRetractOverrideEnabled(boolean enabled) {
+    trenchSafetyRetractOverrideEnabled = enabled;
+  }
+
   public void setManualHoodOverrideEnabled(boolean enabled) {
     manualHoodOverrideEnabled = calibrationModeEnabled ? false : enabled;
   }
@@ -484,8 +493,10 @@ public class Shooter extends SubsystemBase {
   }
 
   public void setCalibrationWheelSetpointsRadPerSec(double pair1RadPerSec, double pair2RadPerSec) {
-    calibrationPair1WheelSetpointRadPerSec = clampCalibrationWheelSpeedRadPerSec(pair1RadPerSec);
-    calibrationPair2WheelSetpointRadPerSec = clampCalibrationWheelSpeedRadPerSec(pair2RadPerSec);
+    WheelSpeedSetpoints normalizedCalibrationWheelSetpoints =
+        sharedCalibrationWheelSetpoints(pair1RadPerSec, pair2RadPerSec);
+    calibrationPair1WheelSetpointRadPerSec = normalizedCalibrationWheelSetpoints.pair1RadPerSec();
+    calibrationPair2WheelSetpointRadPerSec = normalizedCalibrationWheelSetpoints.pair2RadPerSec();
     calibrationPair1WheelSetpointEntry.setDouble(calibrationPair1WheelSetpointRadPerSec);
     calibrationPair2WheelSetpointEntry.setDouble(calibrationPair2WheelSetpointRadPerSec);
     if (calibrationModeEnabled) {
@@ -698,6 +709,11 @@ public class Shooter extends SubsystemBase {
                 calibrationPair2WheelSetpointEntry.getDouble(
                     calibrationPair2WheelSetpointRadPerSec),
                 calibrationPair2WheelSetpointRadPerSec));
+    WheelSpeedSetpoints normalizedCalibrationWheelSetpoints =
+        sharedCalibrationWheelSetpoints(
+            calibrationPair1WheelSetpointRadPerSec, calibrationPair2WheelSetpointRadPerSec);
+    calibrationPair1WheelSetpointRadPerSec = normalizedCalibrationWheelSetpoints.pair1RadPerSec();
+    calibrationPair2WheelSetpointRadPerSec = normalizedCalibrationWheelSetpoints.pair2RadPerSec();
     calibrationMeasuredDistanceMeters =
         Math.max(
             0.0,
@@ -751,13 +767,14 @@ public class Shooter extends SubsystemBase {
   }
 
   private void publishHoodEncoderToNetworkTables() {
-    Rotation2d setpointAngle = motorRotationsToHoodAngle(hoodSetpointMotorRotations);
+    double appliedHoodSetpointRotations = getAppliedHoodSetpointMotorRotations();
+    Rotation2d setpointAngle = motorRotationsToHoodAngle(appliedHoodSetpointRotations);
     Rotation2d measuredAngle = motorRotationsToHoodAngle(inputs.hoodPositionRotations);
     hoodEncoderPositionEntry.setDouble(inputs.hoodPositionRotations);
     hoodEncoderVelocityEntry.setDouble(inputs.hoodVelocityRotationsPerSec);
     hoodEncoderNormalizedPositionEntry.setDouble(
         getHoodNormalizedPosition(inputs.hoodPositionRotations));
-    hoodSetpointEntry.setDouble(hoodSetpointMotorRotations);
+    hoodSetpointEntry.setDouble(appliedHoodSetpointRotations);
     hoodSetpointAngleEntry.setDouble(setpointAngle.getDegrees());
     hoodMeasuredAngleEntry.setDouble(measuredAngle.getDegrees());
     hoodSetpointErrorEntry.setDouble(setpointAngle.minus(measuredAngle).getDegrees());
@@ -775,7 +792,8 @@ public class Shooter extends SubsystemBase {
 
   private void publishHoodShotOverlayToNetworkTables(
       double pair1VelocityCommandRadPerSec, double pair2VelocityCommandRadPerSec) {
-    Rotation2d setpointHoodAngle = motorRotationsToHoodAngle(hoodSetpointMotorRotations);
+    Rotation2d setpointHoodAngle =
+        motorRotationsToHoodAngle(getAppliedHoodSetpointMotorRotations());
     Rotation2d measuredHoodAngle = motorRotationsToHoodAngle(inputs.hoodPositionRotations);
 
     double setpointLaunchSpeedMetersPerSec =
@@ -1603,23 +1621,10 @@ public class Shooter extends SubsystemBase {
     double launchSpeedMagnitude = Math.abs(launchSpeedMetersPerSec);
     double baseWheelSurfaceSpeedMetersPerSec =
         launchSpeedToAverageWheelSurfaceSpeedMetersPerSec(launchSpeedMagnitude);
-
-    // Differential wheel speed creates controlled backspin.
-    double ballSpinRadPerSec =
-        (ShooterConstants.targetBallSpinRatio * launchSpeedMagnitude)
-            / ShooterConstants.fuelBallRadiusMeters;
-    double spinSurfaceDeltaMetersPerSec = ballSpinRadPerSec * ShooterConstants.fuelBallRadiusMeters;
-
-    double pair1WheelSpeedRadPerSec =
-        (baseWheelSurfaceSpeedMetersPerSec + spinSurfaceDeltaMetersPerSec)
-            / ShooterConstants.shooterWheelRadiusMeters;
-    double pair2WheelSpeedRadPerSec =
-        (baseWheelSurfaceSpeedMetersPerSec - spinSurfaceDeltaMetersPerSec)
-            / ShooterConstants.shooterWheelRadiusMeters;
-
-    return new WheelSpeedSetpoints(
-        clampWheelSpeedRadPerSec(pair1WheelSpeedRadPerSec),
-        clampWheelSpeedRadPerSec(pair2WheelSpeedRadPerSec));
+    // This mechanism is a single shared drum, so both logical pair setpoints must match.
+    double sharedWheelSpeedRadPerSec =
+        baseWheelSurfaceSpeedMetersPerSec / ShooterConstants.shooterWheelRadiusMeters;
+    return sharedWheelSetpoints(sharedWheelSpeedRadPerSec, sharedWheelSpeedRadPerSec);
   }
 
   private static double clampWheelSpeedRadPerSec(double wheelSpeedRadPerSec) {
@@ -1629,9 +1634,35 @@ public class Shooter extends SubsystemBase {
         ShooterConstants.maxWheelSpeedRadPerSec);
   }
 
+  private static WheelSpeedSetpoints sharedWheelSetpoints(
+      double pair1WheelSpeedRadPerSec, double pair2WheelSpeedRadPerSec) {
+    double sharedWheelSpeedRadPerSec =
+        clampWheelSpeedRadPerSec(
+            resolveSharedWheelSetpoint(pair1WheelSpeedRadPerSec, pair2WheelSpeedRadPerSec));
+    return new WheelSpeedSetpoints(sharedWheelSpeedRadPerSec, sharedWheelSpeedRadPerSec);
+  }
+
   private static double clampCalibrationWheelSpeedRadPerSec(double wheelSpeedRadPerSec) {
     return MathUtil.clamp(
         Math.abs(wheelSpeedRadPerSec), 0.0, ShooterConstants.maxWheelSpeedRadPerSec);
+  }
+
+  private static WheelSpeedSetpoints sharedCalibrationWheelSetpoints(
+      double pair1WheelSpeedRadPerSec, double pair2WheelSpeedRadPerSec) {
+    double sharedWheelSpeedRadPerSec =
+        clampCalibrationWheelSpeedRadPerSec(
+            resolveSharedWheelSetpoint(pair1WheelSpeedRadPerSec, pair2WheelSpeedRadPerSec));
+    return new WheelSpeedSetpoints(sharedWheelSpeedRadPerSec, sharedWheelSpeedRadPerSec);
+  }
+
+  private static double resolveSharedWheelSetpoint(double pair1RadPerSec, double pair2RadPerSec) {
+    if (Math.abs(pair1RadPerSec) <= 1e-9) {
+      return pair2RadPerSec;
+    }
+    if (Math.abs(pair2RadPerSec) <= 1e-9) {
+      return pair1RadPerSec;
+    }
+    return 0.5 * (pair1RadPerSec + pair2RadPerSec);
   }
 
   private static double clampWheelSpeedScale(double speedScale) {
@@ -1834,6 +1865,12 @@ public class Shooter extends SubsystemBase {
         Math.max(hoodRetractedPositionRotations, hoodExtendedPositionRotations));
   }
 
+  private double getAppliedHoodSetpointMotorRotations() {
+    return trenchSafetyRetractOverrideEnabled
+        ? hoodRetractedPositionRotations
+        : hoodSetpointMotorRotations;
+  }
+
   private double getHoodNormalizedPosition(double hoodPositionRotations) {
     return clampUnitInterval(
         inverseInterpolate(
@@ -1874,6 +1911,7 @@ public class Shooter extends SubsystemBase {
 
   private void logControlState(
       double pair1VelocityCommandRadPerSec, double pair2VelocityCommandRadPerSec) {
+    double appliedHoodSetpointRotations = getAppliedHoodSetpointMotorRotations();
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/Enabled"), shotControlEnabled);
     Logger.recordOutput(
@@ -1899,13 +1937,16 @@ public class Shooter extends SubsystemBase {
         pair2VelocityCommandRadPerSec);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/HoodSetpointRotations"),
-        hoodSetpointMotorRotations);
+        appliedHoodSetpointRotations);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/HoodSetpointNormalized"),
-        getHoodNormalizedPosition(hoodSetpointMotorRotations));
+        getHoodNormalizedPosition(appliedHoodSetpointRotations));
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/ManualHoodOverrideEnabled"),
         manualHoodOverrideEnabled);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Control/TrenchSafetyRetractOverrideEnabled"),
+        trenchSafetyRetractOverrideEnabled);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/Active"), hoodHomingActive);
     Logger.recordOutput(NetworkTablesUtil.logPath("GamePiece/Shooter/Homing/Homed"), hoodHomed);
@@ -1944,7 +1985,7 @@ public class Shooter extends SubsystemBase {
         Math.abs(hoodHomingExtendedHardStopRotations - hoodHomingRetractedHardStopRotations));
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/HoodSetpointDegrees"),
-        motorRotationsToHoodAngle(hoodSetpointMotorRotations).getDegrees());
+        motorRotationsToHoodAngle(appliedHoodSetpointRotations).getDegrees());
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Config/HoodRetractedPositionRotations"),
         hoodRetractedPositionRotations);

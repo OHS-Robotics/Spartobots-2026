@@ -11,7 +11,7 @@
 - `subsystems/drive`
   Swerve modules, odometry, characterization, pathfinding, and drive-side hub compensation.
 - `subsystems/gamepiece`
-  Intake, hopper/L1 climber, indexers, shooter, and their real/sim IO layers.
+  Intake, indexers, shooter, and their real/sim IO layers.
 - `superstructure/gamepiece`
   Collect/feed/reverse orchestration plus shooter-feed interlocks.
 - `targeting`

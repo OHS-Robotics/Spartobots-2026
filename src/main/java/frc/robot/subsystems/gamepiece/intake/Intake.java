@@ -12,6 +12,8 @@ import org.littletonrobotics.junction.Logger;
 
 public class Intake extends SubsystemBase {
   private static final double loopPeriodSeconds = 0.02;
+  private static final double intakePivotAtTargetNormalizedTolerance = 0.1;
+  private static final double intakePivotManualLimitToleranceNormalized = 0.01;
 
   private enum IntakePivotCalibrationPhase {
     SEEK_RETRACTED_HARD_STOP,
@@ -23,6 +25,8 @@ public class Intake extends SubsystemBase {
   public boolean intakeRunning = false;
   private double lastAppliedIntakeDriveSpeed = 0.0;
   private double lastAppliedIntakePivotSpeed = 0.0;
+  private boolean intakePivotSweepPhaseInitialized = false;
+  private double intakePivotSweepPhaseRadians = 0.0;
   private double intakePivotRetractedPositionRotations =
       IntakeConstants.defaultIntakePivotRetractedPositionRotations;
   private double intakePivotExtendedPositionRotations =
@@ -187,15 +191,84 @@ public class Intake extends SubsystemBase {
     if (intakePivotCalibrationActive || calibrationModeEnabled) {
       return;
     }
-    lastAppliedIntakePivotSpeed =
+    double appliedSpeed =
         applyScaleAndInversion(speed, intakePivotSpeedScaleEntry, intakePivotInvertedEntry);
+    if (shouldBlockManualPivotMotionAtLimit(appliedSpeed)) {
+      lastAppliedIntakePivotSpeed = 0.0;
+      io.setPivotOutput(0.0);
+      return;
+    }
+    lastAppliedIntakePivotSpeed = appliedSpeed;
     io.setPivotOutput(lastAppliedIntakePivotSpeed);
+  }
+
+  public void moveIntakePivotToRetractedPosition() {
+    setIntakePivotPositionRotations(intakePivotRetractedPositionRotations);
+  }
+
+  public void moveIntakePivotToExtendedPosition() {
+    setIntakePivotPositionRotations(intakePivotExtendedPositionRotations);
+  }
+
+  public void moveIntakePivotToIntakingPosition() {
+    setIntakePivotPositionRotations(getIntakePivotIntakingPositionRotations());
+  }
+
+  public boolean isIntakePivotInIntakingPosition() {
+    return isIntakePivotNearPosition(getIntakePivotIntakingPositionRotations());
+  }
+
+  public void sweepIntakePivotBetweenCalibratedLimits(double speedMagnitude) {
+    if (intakePivotCalibrationActive || calibrationModeEnabled) {
+      return;
+    }
+
+    double appliedSpeedMagnitude = clampSpeed(Math.abs(speedMagnitude));
+    if (appliedSpeedMagnitude <= 1e-6) {
+      stopIntakePivot();
+      return;
+    }
+
+    double sweepRetractedLimitRotations = getIntakePivotSweepRetractedLimitRotations();
+    double sweepExtendedLimitRotations = getIntakePivotSweepExtendedLimitRotations();
+    if (Math.abs(sweepExtendedLimitRotations - sweepRetractedLimitRotations) <= 1e-6) {
+      stopIntakePivot();
+      return;
+    }
+
+    if (!intakePivotSweepPhaseInitialized) {
+      intakePivotSweepPhaseRadians =
+          getInitialIntakePivotSweepPhaseRadians(
+              sweepRetractedLimitRotations, sweepExtendedLimitRotations);
+      intakePivotSweepPhaseInitialized = true;
+    } else {
+      intakePivotSweepPhaseRadians =
+          MathUtil.angleModulus(
+              intakePivotSweepPhaseRadians
+                  + getIntakePivotSweepPhaseStepRadians(appliedSpeedMagnitude));
+    }
+
+    setIntakePivotPositionRotations(
+        getIntakePivotSweepTargetRotations(
+            sweepRetractedLimitRotations,
+            sweepExtendedLimitRotations,
+            intakePivotSweepPhaseRadians));
+  }
+
+  public void setIntakePivotPositionRotations(double positionRotations) {
+    if (intakePivotCalibrationActive || calibrationModeEnabled) {
+      return;
+    }
+    lastAppliedIntakePivotSpeed = 0.0;
+    io.setPivotPositionSetpointRotations(clampToPivotCalibrationRange(positionRotations));
   }
 
   public void stopIntakePivot() {
     if (intakePivotCalibrationActive) {
       return;
     }
+    intakePivotSweepPhaseInitialized = false;
+    intakePivotSweepPhaseRadians = 0.0;
     lastAppliedIntakePivotSpeed = 0.0;
     io.setPivotOutput(0.0);
   }
@@ -452,6 +525,43 @@ public class Intake extends SubsystemBase {
     return intakePivotExtendedPositionRotations;
   }
 
+  public double getIntakePivotIntakingPositionRotations() {
+    return MathUtil.interpolate(
+        intakePivotRetractedPositionRotations,
+        intakePivotExtendedPositionRotations,
+        IntakeConstants.intakePivotIntakingPositionInsetNormalized);
+  }
+
+  private boolean isIntakePivotNearPosition(double targetPositionRotations) {
+    double travelRotations =
+        Math.abs(intakePivotExtendedPositionRotations - intakePivotRetractedPositionRotations);
+    double positionToleranceRotations =
+        Math.max(1e-3, travelRotations * intakePivotAtTargetNormalizedTolerance);
+    return Math.abs(getIntakePivotMeasuredPositionRotations() - targetPositionRotations)
+        <= positionToleranceRotations;
+  }
+
+  private boolean shouldBlockManualPivotMotionAtLimit(double appliedSpeed) {
+    if (Math.abs(appliedSpeed) <= 1e-6) {
+      return false;
+    }
+
+    double minimumAllowedPositionRotations =
+        Math.min(intakePivotRetractedPositionRotations, intakePivotExtendedPositionRotations);
+    double maximumAllowedPositionRotations =
+        Math.max(intakePivotRetractedPositionRotations, intakePivotExtendedPositionRotations);
+    double travelRotations =
+        Math.abs(intakePivotExtendedPositionRotations - intakePivotRetractedPositionRotations);
+    double limitToleranceRotations =
+        Math.max(1e-3, travelRotations * intakePivotManualLimitToleranceNormalized);
+    double measuredPositionRotations = getIntakePivotMeasuredPositionRotations();
+
+    if (appliedSpeed < 0.0) {
+      return measuredPositionRotations <= minimumAllowedPositionRotations + limitToleranceRotations;
+    }
+    return measuredPositionRotations >= maximumAllowedPositionRotations - limitToleranceRotations;
+  }
+
   public void resetSimulationState() {
     io.resetSimulationState();
   }
@@ -483,11 +593,81 @@ public class Intake extends SubsystemBase {
         Math.max(intakePivotRetractedPositionRotations, intakePivotExtendedPositionRotations));
   }
 
+  private double clampToPivotSweepRange(double positionRotations) {
+    return MathUtil.clamp(
+        positionRotations,
+        Math.min(
+            getIntakePivotSweepRetractedLimitRotations(),
+            getIntakePivotSweepExtendedLimitRotations()),
+        Math.max(
+            getIntakePivotSweepRetractedLimitRotations(),
+            getIntakePivotSweepExtendedLimitRotations()));
+  }
+
+  private double getInitialIntakePivotSweepPhaseRadians(
+      double sweepRetractedLimitRotations, double sweepExtendedLimitRotations) {
+    double sweepMidpointRotations =
+        0.5 * (sweepRetractedLimitRotations + sweepExtendedLimitRotations);
+    double sweepHalfTravelRotations =
+        0.5 * (sweepExtendedLimitRotations - sweepRetractedLimitRotations);
+    if (Math.abs(sweepHalfTravelRotations) <= 1e-6) {
+      return 0.0;
+    }
+    double clampedMeasuredPositionRotations =
+        MathUtil.clamp(
+            getIntakePivotMeasuredPositionRotations(),
+            Math.min(sweepRetractedLimitRotations, sweepExtendedLimitRotations),
+            Math.max(sweepRetractedLimitRotations, sweepExtendedLimitRotations));
+    double normalizedSweepPosition =
+        MathUtil.clamp(
+            (clampedMeasuredPositionRotations - sweepMidpointRotations) / sweepHalfTravelRotations,
+            -1.0,
+            1.0);
+    return Math.asin(normalizedSweepPosition);
+  }
+
+  private double getIntakePivotSweepPhaseStepRadians(double speedMagnitude) {
+    return (Math.PI * speedMagnitude * loopPeriodSeconds)
+        / IntakeConstants.intakePivotSweepTraversalSecondsAtFullTrigger;
+  }
+
+  private double getIntakePivotSweepTargetRotations(
+      double sweepRetractedLimitRotations,
+      double sweepExtendedLimitRotations,
+      double sweepPhaseRadians) {
+    double sweepMidpointRotations =
+        0.5 * (sweepRetractedLimitRotations + sweepExtendedLimitRotations);
+    double sweepHalfTravelRotations =
+        0.5 * (sweepExtendedLimitRotations - sweepRetractedLimitRotations);
+    return MathUtil.clamp(
+        sweepMidpointRotations + (sweepHalfTravelRotations * Math.sin(sweepPhaseRadians)),
+        Math.min(sweepRetractedLimitRotations, sweepExtendedLimitRotations),
+        Math.max(sweepRetractedLimitRotations, sweepExtendedLimitRotations));
+  }
+
+  private double getIntakePivotSweepRetractedLimitRotations() {
+    return MathUtil.interpolate(
+        intakePivotRetractedPositionRotations,
+        intakePivotExtendedPositionRotations,
+        getIntakePivotSweepHardStopInsetNormalized());
+  }
+
+  private double getIntakePivotSweepExtendedLimitRotations() {
+    return MathUtil.interpolate(
+        intakePivotRetractedPositionRotations,
+        intakePivotExtendedPositionRotations,
+        1.0 - getIntakePivotSweepHardStopInsetNormalized());
+  }
+
+  private double getIntakePivotSweepHardStopInsetNormalized() {
+    return MathUtil.clamp(IntakeConstants.intakePivotSweepHardStopInsetNormalized, 0.0, 0.5);
+  }
+
   private void startIntakePivotCalibration() {
     intakePivotCalibrationActive = true;
     intakePivotCalibrated = false;
     intakePivotCalibrationSucceeded = false;
-    intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP;
+    intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_EXTENDED_HARD_STOP;
     intakePivotCalibrationElapsedSeconds = 0.0;
     intakePivotCalibrationPhaseElapsedSeconds = 0.0;
     intakePivotCalibrationStallSeconds = 0.0;
@@ -507,10 +687,10 @@ public class Intake extends SubsystemBase {
     intakePivotCalibrationElapsedSeconds += loopPeriodSeconds;
     intakePivotCalibrationPhaseElapsedSeconds += loopPeriodSeconds;
 
-    if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP) {
-      setRawPivotOutput(IntakeConstants.intakePivotCalibrationOutputTowardRetractedHardStop);
-    } else {
+    if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_EXTENDED_HARD_STOP) {
       setRawPivotOutput(IntakeConstants.intakePivotCalibrationOutputTowardExtendedHardStop);
+    } else {
+      setRawPivotOutput(IntakeConstants.intakePivotCalibrationOutputTowardRetractedHardStop);
     }
 
     boolean velocityNearZero =
@@ -525,22 +705,26 @@ public class Intake extends SubsystemBase {
 
     if (intakePivotCalibrationStallSeconds
         >= IntakeConstants.intakePivotCalibrationStallConfirmSeconds) {
-      if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP) {
-        io.setPivotEncoderPositionRotations(
-            IntakeConstants.intakePivotRetractedHardStopReferenceRotations);
-        intakePivotCalibrationRetractedHardStopRotations =
-            IntakeConstants.intakePivotRetractedHardStopReferenceRotations;
-        intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_EXTENDED_HARD_STOP;
+      if (intakePivotCalibrationPhase == IntakePivotCalibrationPhase.SEEK_EXTENDED_HARD_STOP) {
+        intakePivotCalibrationExtendedHardStopRotations = getIntakePivotMeasuredPositionRotations();
+        intakePivotCalibrationPhase = IntakePivotCalibrationPhase.SEEK_RETRACTED_HARD_STOP;
         intakePivotCalibrationPhaseElapsedSeconds = 0.0;
         intakePivotCalibrationStallSeconds = 0.0;
         return;
       }
 
-      intakePivotCalibrationExtendedHardStopRotations = getIntakePivotMeasuredPositionRotations();
+      double rawRetractedHardStopRotations = getIntakePivotMeasuredPositionRotations();
       double measuredTravelRotations =
-          Math.abs(
-              intakePivotCalibrationExtendedHardStopRotations
-                  - intakePivotCalibrationRetractedHardStopRotations);
+          Math.abs(intakePivotCalibrationExtendedHardStopRotations - rawRetractedHardStopRotations);
+      if (measuredTravelRotations >= IntakeConstants.intakePivotCalibrationMinTravelRotations) {
+        io.setPivotEncoderPositionRotations(
+            IntakeConstants.intakePivotRetractedHardStopReferenceRotations);
+        intakePivotCalibrationRetractedHardStopRotations =
+            IntakeConstants.intakePivotRetractedHardStopReferenceRotations;
+        intakePivotCalibrationExtendedHardStopRotations =
+            IntakeConstants.intakePivotRetractedHardStopReferenceRotations
+                + (intakePivotCalibrationExtendedHardStopRotations - rawRetractedHardStopRotations);
+      }
       finishIntakePivotCalibration(
           measuredTravelRotations >= IntakeConstants.intakePivotCalibrationMinTravelRotations);
       return;

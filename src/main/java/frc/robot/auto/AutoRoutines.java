@@ -112,11 +112,7 @@ public class AutoRoutines {
                                 newPose.getTranslation(),
                                 hubTargetingService::updateAndGetAirtimeSeconds)
                             .withTimeout(competitionAutoDriveToShotTimeoutSeconds);
-                        // gamePieceCoordinator.applyBasicFeed(true);
-                        hopper.setTargetAgitatorSpeed(0.85);
-                        hopper.updateAgitator();
-                        indexers.setTargetIndexerSpeed(0.80);
-                        indexers.updateIndexers();
+                        gamePieceCoordinator.applyBasicFeed(true);
                       })),
               // Commands.waitSeconds(2.0),
               Commands.runOnce(
@@ -125,7 +121,7 @@ public class AutoRoutines {
                     shooter.setShotControlEnabled(false);
                   }));
         },
-        Set.of(drive, shooter, intake, hopper, indexers));
+        Set.of(drive, shooter, intake, indexers));
   }
 
   public LoggedDashboardChooser<Command> buildAutoChooser() {
