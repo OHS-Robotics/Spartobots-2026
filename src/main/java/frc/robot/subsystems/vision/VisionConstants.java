@@ -33,8 +33,8 @@ public class VisionConstants {
   public static final AprilTagFieldLayout aprilTagLayout = Constants.FIELD_LAYOUT;
 
   // Camera names, must match names configured on coprocessor
-  public static String camera0Name = "Arducam_Right_Front";
-  public static String camera1Name = "Arducam_Left_Front";
+  public static String camera0Name = "Arducam_Right";
+  public static String camera1Name = "Arducam_Left";
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
@@ -65,15 +65,15 @@ public class VisionConstants {
 
   // Standard deviation baselines, for 1 meter distance and 1 tag
   // (Adjusted automatically based on distance and # of tags)
-  public static double linearStdDevBaseline = 0.02; // Meters
-  public static double angularStdDevBaseline = 0.06; // Radians
+  public static double linearStdDevBaseline = 2.5; // Meters
+  public static double angularStdDevBaseline = 2.5; // Radians
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
   public static double[] cameraStdDevFactors =
       new double[] {
-        1.0, // Camera 0
-        1.0 // Camera 1
+        2.0, // Camera 0
+        2.0 // Camera 1
       };
 
   // Multipliers to apply for MegaTag 2 observations
