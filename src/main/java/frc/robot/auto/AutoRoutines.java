@@ -88,8 +88,8 @@ public class AutoRoutines {
           // return drive.pathfindToTranslation(newPose);
 
           return Commands.sequence(
-              drive.autoDriveUnderTrenchCommand(0.0),
-              drive.autoDriveUnderTrenchCommand(0.0),
+              //drive.autoDriveUnderTrenchCommand(0.0),
+              //drive.autoDriveUnderTrenchCommand(0.0),
               // drive.pathfindToTranslation(newPose.getTranslation()),
               drive
                   .pathfindToTranslationAndAlignToHub(
@@ -103,17 +103,6 @@ public class AutoRoutines {
                     drive.stop();
                   }),
               Commands.waitSeconds(4.0),
-              Commands.deadline(
-                  Commands.waitSeconds(6.0),
-                  Commands.run(
-                      () -> {
-                        drive
-                            .pathfindToTranslationAndAlignToHub(
-                                newPose.getTranslation(),
-                                hubTargetingService::updateAndGetAirtimeSeconds)
-                            .withTimeout(competitionAutoDriveToShotTimeoutSeconds);
-                        gamePieceCoordinator.applyBasicFeed(true);
-                      })),
               // Commands.waitSeconds(2.0),
               Commands.runOnce(
                   () -> {
