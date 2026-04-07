@@ -7,17 +7,15 @@ package frc.robot.subsystems.vision;
 
 import static frc.robot.subsystems.vision.VisionConstants.*;
 
-import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
+import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.targeting.PhotonPipelineResult;
@@ -27,7 +25,7 @@ public class VisionIOPhotonVision implements VisionIO {
   private final PhotonPoseEstimator poseEstimator;
   protected final PhotonCamera camera;
   protected final Transform3d robotToCamera;
-  public Matrix<N3, N1> stdDevs = VecBuilder.fill(4.0, 4.0, 8.0);
+  private final Supplier<Pose2d> robotPoseSupplier;
 
   /**
    * Creates a new VisionIOPhotonVision.
@@ -35,9 +33,14 @@ public class VisionIOPhotonVision implements VisionIO {
    * @param name The configured name of the camera.
    * @param robotToCamera The 3D position of the camera relative to the robot.
    */
-  public VisionIOPhotonVision(String name, Transform3d robotToCamera, int pipelineIndex) {
+  public VisionIOPhotonVision(
+      String name,
+      Transform3d robotToCamera,
+      int pipelineIndex,
+      Supplier<Pose2d> robotPoseSupplier) {
     camera = new PhotonCamera(name);
     this.robotToCamera = robotToCamera;
+    this.robotPoseSupplier = robotPoseSupplier;
     poseEstimator = new PhotonPoseEstimator(aprilTagLayout, robotToCamera);
     camera.setPipelineIndex(pipelineIndex);
   }
@@ -78,14 +81,26 @@ public class VisionIOPhotonVision implements VisionIO {
         inputs.latestTargetObservation = new TargetObservation(Rotation2d.kZero, Rotation2d.kZero);
       }
 
+      if (!result.hasTargets()) {
+        continue;
+      }
+
+      poseEstimator.resetHeadingData(
+          result.getTimestampSeconds(), robotPoseSupplier.get().getRotation());
+
+      EstimatedRobotPose estimatedRobotPose;
+      double ambiguity;
+      int tagCount;
+      double averageTagDistance;
+
       // Add pose observation
       if (result.multitagResult.isPresent()) { // Multitag result
         var multitagResult = result.multitagResult.get();
-
-        // Calculate robot pose
-        Transform3d fieldToCamera = multitagResult.estimatedPose.best;
-        Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
-        Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
+        var estimate = poseEstimator.estimateCoprocMultiTagPose(result);
+        if (estimate.isEmpty()) {
+          continue;
+        }
+        estimatedRobotPose = estimate.get();
 
         // Calculate average tag distance
         double totalTagDistance = 0.0;
@@ -95,44 +110,42 @@ public class VisionIOPhotonVision implements VisionIO {
 
         // Add tag IDs
         tagIds.addAll(multitagResult.fiducialIDsUsed);
-
-        // Add observation
-        poseObservations.add(
-            new PoseObservation(
-                result.getTimestampSeconds(), // Timestamp
-                robotPose, // 3D pose estimate
-                multitagResult.estimatedPose.ambiguity, // Ambiguity
-                multitagResult.fiducialIDsUsed.size(), // Tag count
-                totalTagDistance / result.targets.size(), // Average tag distance
-                PoseObservationType.PHOTONVISION)); // Observation type
+        ambiguity = multitagResult.estimatedPose.ambiguity;
+        tagCount = multitagResult.fiducialIDsUsed.size();
+        averageTagDistance = totalTagDistance / result.targets.size();
 
       } else if (!result.targets.isEmpty()) { // Single tag result
-        var target = result.targets.get(0);
-
-        // Calculate robot pose
-        var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
-        if (tagPose.isPresent()) {
-          Transform3d fieldToTarget =
-              new Transform3d(tagPose.get().getTranslation(), tagPose.get().getRotation());
-          Transform3d cameraToTarget = target.bestCameraToTarget;
-          Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
-          Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
-          Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
-
-          // Add tag ID
-          tagIds.add((short) target.fiducialId);
-
-          // Add observation
-          poseObservations.add(
-              new PoseObservation(
-                  result.getTimestampSeconds(), // Timestamp
-                  robotPose, // 3D pose estimate
-                  target.poseAmbiguity, // Ambiguity
-                  1, // Tag count
-                  cameraToTarget.getTranslation().getNorm(), // Average tag distance
-                  PoseObservationType.PHOTONVISION)); // Observation type
+        var estimate = poseEstimator.estimatePnpDistanceTrigSolvePose(result);
+        if (estimate.isEmpty()) {
+          estimate = poseEstimator.estimateLowestAmbiguityPose(result);
         }
+        if (estimate.isEmpty()) {
+          continue;
+        }
+        estimatedRobotPose = estimate.get();
+
+        var bestTarget = result.getBestTarget();
+        if (bestTarget.getFiducialId() >= 0) {
+          tagIds.add((short) bestTarget.getFiducialId());
+        }
+        ambiguity =
+            estimatedRobotPose.strategy == PhotonPoseEstimator.PoseStrategy.PNP_DISTANCE_TRIG_SOLVE
+                ? 0.0
+                : bestTarget.poseAmbiguity;
+        tagCount = 1;
+        averageTagDistance = bestTarget.bestCameraToTarget.getTranslation().getNorm();
+      } else {
+        continue;
       }
+
+      poseObservations.add(
+          new PoseObservation(
+              estimatedRobotPose.timestampSeconds,
+              estimatedRobotPose.estimatedPose,
+              ambiguity,
+              tagCount,
+              averageTagDistance,
+              PoseObservationType.PHOTONVISION));
     }
 
     // Save pose observations to inputs object

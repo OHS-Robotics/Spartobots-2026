@@ -57,6 +57,9 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
+  private static final double hubAlignLinearAccelerationLimitMetersPerSecSquared =
+      DriveConstants.maxAccelerationMeterPerSecSquared * 0.65;
+
   // PathPlanner PID values
   // Conservative starting values for PathPlanner holonomic control. Final values still need
   // carpet tuning, but these avoid the severe saturation caused by the previous defaults.
@@ -670,7 +673,11 @@ public class Drive extends SubsystemBase {
   public Command alignToHub(
       DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
     return DriveCommands.joystickDriveAtAngle(
-        this, x, y, () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()));
+        this,
+        x,
+        y,
+        () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()),
+        () -> hubAlignLinearAccelerationLimitMetersPerSecSquared);
   }
 
   private Command pathfindToTranslationWithRotationOverride(

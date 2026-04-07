@@ -6,6 +6,7 @@
 package frc.robot;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -54,10 +55,15 @@ import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
 import frc.robot.targeting.FieldTargetingService;
 import frc.robot.targeting.HubTargetingService;
+<<<<<<< Updated upstream
 import java.util.Optional;
+=======
+import frc.robot.util.NetworkTablesUtil;
+>>>>>>> Stashed changes
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -77,11 +83,24 @@ public class RobotContainer {
   private static final double visionPoseSyncMaxAverageTagDistanceMeters = 4.5;
   private static final double visionPoseSyncSingleTagMaxAverageTagDistanceMeters = 2.5;
   private static final double visionPoseSyncSingleTagMaxAmbiguity = 0.20;
-  private static final double visionPoseSyncMaxLinearSpeedMetersPerSec = 0.20;
-  private static final double visionPoseSyncMaxAngularSpeedRadPerSec = Units.degreesToRadians(20.0);
+  private static final double visionPoseSyncMaxLinearSpeedMetersPerSec = 0.35;
+  private static final double visionPoseSyncMaxAngularSpeedRadPerSec = Units.degreesToRadians(25.0);
+  private static final double visionPoseSyncMultiTagMaxLinearSpeedMetersPerSec = 1.25;
+  private static final double visionPoseSyncMultiTagMaxAngularSpeedRadPerSec =
+      Units.degreesToRadians(90.0);
+  private static final double visionPoseSyncForceMultiTagTranslationErrorMeters = 0.50;
   private static final double visionPoseSyncMinTranslationErrorMeters = 0.08;
   private static final double visionPoseSyncMinRotationErrorRadians = Units.degreesToRadians(3.0);
-  private static final double visionPoseSyncCooldownSeconds = 0.5;
+  private static final double visionPoseSyncCooldownSeconds = 0.10;
+  private static final int visionPoseSyncDecisionNoEstimate = 0;
+  private static final int visionPoseSyncDecisionTooOld = 1;
+  private static final int visionPoseSyncDecisionTooFewTags = 2;
+  private static final int visionPoseSyncDecisionTooFar = 3;
+  private static final int visionPoseSyncDecisionTooAmbiguous = 4;
+  private static final int visionPoseSyncDecisionCooldown = 5;
+  private static final int visionPoseSyncDecisionTooFast = 6;
+  private static final int visionPoseSyncDecisionWithinErrorBand = 7;
+  private static final int visionPoseSyncDecisionApplied = 8;
 
   private final Drive drive;
   private final Shooter shooter;
@@ -142,13 +161,15 @@ public class RobotContainer {
                     ? new VisionIOPhotonVision(
                         VisionConstants.camera0Name,
                         VisionConstants.robotToCamera0,
-                        VisionConstants.camera0Pipeline)
+                        VisionConstants.camera0Pipeline,
+                        driveLocal::getPose)
                     : new VisionIO() {},
                 enableRealVisionHardware
                     ? new VisionIOPhotonVision(
                         VisionConstants.camera1Name,
                         VisionConstants.robotToCamera1,
-                        VisionConstants.camera1Pipeline)
+                        VisionConstants.camera1Pipeline,
+                        driveLocal::getPose)
                     : new VisionIO() {});
         break;
 
@@ -205,11 +226,13 @@ public class RobotContainer {
                 new VisionIOPhotonVision(
                     VisionConstants.camera0Name,
                     VisionConstants.robotToCamera0,
-                    VisionConstants.camera0Pipeline),
+                    VisionConstants.camera0Pipeline,
+                    driveLocal::getPose),
                 new VisionIOPhotonVision(
                     VisionConstants.camera1Name,
                     VisionConstants.robotToCamera1,
-                    VisionConstants.camera1Pipeline));
+                    VisionConstants.camera1Pipeline,
+                    driveLocal::getPose));
         break;
     }
 
@@ -306,15 +329,54 @@ public class RobotContainer {
   private void syncDrivePoseToVisionIfNeeded() {
     var estimate = vision.getBestRobotPoseEstimate();
     if (estimate.isEmpty()) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionNoEstimate,
+          false,
+          new Pose2d(),
+          0,
+          Double.NaN,
+          Double.NaN,
+          Double.NaN,
+          drive.getFieldRelativeVelocityMetersPerSecond().getNorm(),
+          Math.abs(drive.getYawVelocityRadPerSec()));
       return;
     }
 
     double nowSeconds = Timer.getFPGATimestamp();
     var poseEstimate = estimate.get();
+    Pose2d relocalizedPose = new Pose2d(poseEstimate.pose().getTranslation(), drive.getRotation());
+    double linearSpeedMetersPerSec = drive.getFieldRelativeVelocityMetersPerSecond().getNorm();
+    double angularSpeedRadPerSec = Math.abs(drive.getYawVelocityRadPerSec());
+    double translationErrorMeters =
+        drive.getPose().getTranslation().getDistance(relocalizedPose.getTranslation());
+    double rotationErrorRadians =
+        Math.abs(
+            MathUtil.angleModulus(
+                drive.getRotation().minus(relocalizedPose.getRotation()).getRadians()));
     if (nowSeconds - poseEstimate.timestampSeconds() > visionPoseSyncMaxAgeSeconds) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionTooOld,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
     if (poseEstimate.tagCount() < visionPoseSyncMinTagCount) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionTooFewTags,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
     double maxAverageTagDistanceMeters =
@@ -322,38 +384,131 @@ public class RobotContainer {
             ? visionPoseSyncSingleTagMaxAverageTagDistanceMeters
             : visionPoseSyncMaxAverageTagDistanceMeters;
     if (poseEstimate.averageTagDistanceMeters() > maxAverageTagDistanceMeters) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionTooFar,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
     if (poseEstimate.tagCount() == 1
         && poseEstimate.ambiguity() > visionPoseSyncSingleTagMaxAmbiguity) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionTooAmbiguous,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
     if (nowSeconds - lastVisionPoseSyncTimestampSeconds < visionPoseSyncCooldownSeconds) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionCooldown,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
 
     boolean disabled = DriverStation.isDisabled();
-    double linearSpeedMetersPerSec = drive.getFieldRelativeVelocityMetersPerSecond().getNorm();
-    double angularSpeedRadPerSec = Math.abs(drive.getYawVelocityRadPerSec());
+    boolean multiTagEstimate = poseEstimate.tagCount() > 1;
+    boolean forceLargeCorrection =
+        multiTagEstimate
+            && translationErrorMeters >= visionPoseSyncForceMultiTagTranslationErrorMeters;
+    double maxLinearSpeedMetersPerSec =
+        multiTagEstimate
+            ? visionPoseSyncMultiTagMaxLinearSpeedMetersPerSec
+            : visionPoseSyncMaxLinearSpeedMetersPerSec;
+    double maxAngularSpeedRadPerSec =
+        multiTagEstimate
+            ? visionPoseSyncMultiTagMaxAngularSpeedRadPerSec
+            : visionPoseSyncMaxAngularSpeedRadPerSec;
     if (!disabled
-        && (linearSpeedMetersPerSec > visionPoseSyncMaxLinearSpeedMetersPerSec
-            || angularSpeedRadPerSec > visionPoseSyncMaxAngularSpeedRadPerSec)) {
+        && !forceLargeCorrection
+        && (linearSpeedMetersPerSec > maxLinearSpeedMetersPerSec
+            || angularSpeedRadPerSec > maxAngularSpeedRadPerSec)) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionTooFast,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
 
-    double translationErrorMeters =
-        drive.getPose().getTranslation().getDistance(poseEstimate.pose().getTranslation());
-    double rotationErrorRadians =
-        Math.abs(
-            MathUtil.angleModulus(
-                drive.getRotation().minus(poseEstimate.pose().getRotation()).getRadians()));
     if (translationErrorMeters < visionPoseSyncMinTranslationErrorMeters
         && rotationErrorRadians < visionPoseSyncMinRotationErrorRadians) {
+      logVisionPoseSync(
+          visionPoseSyncDecisionWithinErrorBand,
+          false,
+          relocalizedPose,
+          poseEstimate.tagCount(),
+          poseEstimate.averageTagDistanceMeters(),
+          poseEstimate.ambiguity(),
+          translationErrorMeters,
+          linearSpeedMetersPerSec,
+          angularSpeedRadPerSec);
       return;
     }
 
-    drive.setPose(poseEstimate.pose());
+    drive.setPose(relocalizedPose);
     lastVisionPoseSyncTimestampSeconds = nowSeconds;
+    logVisionPoseSync(
+        visionPoseSyncDecisionApplied,
+        true,
+        relocalizedPose,
+        poseEstimate.tagCount(),
+        poseEstimate.averageTagDistanceMeters(),
+        poseEstimate.ambiguity(),
+        translationErrorMeters,
+        linearSpeedMetersPerSec,
+        angularSpeedRadPerSec);
+  }
+
+  private void logVisionPoseSync(
+      int decisionCode,
+      boolean applied,
+      Pose2d candidatePose,
+      int tagCount,
+      double averageTagDistanceMeters,
+      double ambiguity,
+      double translationErrorMeters,
+      double linearSpeedMetersPerSec,
+      double angularSpeedRadPerSec) {
+    Logger.recordOutput(NetworkTablesUtil.logPath("Vision/PoseSync/DecisionCode"), decisionCode);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Vision/PoseSync/Applied"), applied);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Vision/PoseSync/CandidatePose"), candidatePose);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Vision/PoseSync/CandidateTagCount"), tagCount);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/PoseSync/CandidateAverageTagDistanceMeters"),
+        averageTagDistanceMeters);
+    Logger.recordOutput(NetworkTablesUtil.logPath("Vision/PoseSync/CandidateAmbiguity"), ambiguity);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/PoseSync/CandidateTranslationErrorMeters"),
+        translationErrorMeters);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/PoseSync/LinearSpeedMetersPerSec"),
+        linearSpeedMetersPerSec);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("Vision/PoseSync/AngularSpeedRadPerSec"), angularSpeedRadPerSec);
   }
 
   private void disableMechanismCalibrationModes() {

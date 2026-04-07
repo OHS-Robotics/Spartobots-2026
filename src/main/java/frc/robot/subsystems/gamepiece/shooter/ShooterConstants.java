@@ -51,8 +51,8 @@ public final class ShooterConstants {
   public static final double defaultWheelSpeedScale = 1.0;
   public static final double defaultPair1Direction = 1.0;
   public static final double defaultPair2Direction = 1.0;
-  public static final double wheelCommandRampUpRadPerSecSquared = 100000.0;
-  public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
+  public static final double wheelCommandRampUpRadPerSecSquared = 1400.0;
+  public static final double wheelCommandRampDownRadPerSecSquared = 2200.0;
   public static final double simWheelCommandRampDownRadPerSecSquared = 100000.0;
 
   // Hardware geometry
@@ -93,6 +93,7 @@ public final class ShooterConstants {
   public static final Rotation2d hubShotFarPreferredAngle = Rotation2d.fromDegrees(44.0);
 
   // Hood angular limits from the floor plane. These are the two-point calibration anchors.
+  // The retracted hard stop is the steeper shot and the extended hard stop is the flatter shot.
   public static final Rotation2d minHoodAngleFromFloor = Rotation2d.fromDegrees(45.0);
   public static final Rotation2d maxHoodAngleFromFloor = Rotation2d.fromDegrees(83.0);
 

@@ -15,10 +15,10 @@ class ShooterFeedInterlockTest {
   }
 
   @Test
-  void manualFeedIndexerPausesOnlyWhenAutoAimShotIsInfeasible() {
+  void manualFeedIndexerAlwaysRunsWhenRequested() {
     assertTrue(ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true, false, false));
     assertTrue(ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true, false, true));
-    assertFalse(ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true, true, false));
+    assertTrue(ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true, true, false));
     assertTrue(ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true, true, true));
     assertFalse(ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(false, true, true));
   }
