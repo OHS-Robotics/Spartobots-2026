@@ -8,7 +8,9 @@ package frc.robot;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -51,6 +53,7 @@ import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
 import frc.robot.targeting.FieldTargetingService;
 import frc.robot.targeting.HubTargetingService;
+import java.util.Optional;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
@@ -276,6 +279,7 @@ public class RobotContainer {
     robotVisualizationPublisher.publish();
     operatorFeedbackController.periodic();
     operatorDashboard.periodic();
+    updateDashboard();
   }
 
   public void onDisabledInit() {
@@ -456,5 +460,106 @@ public class RobotContainer {
             drive.followNamedPath(pathName),
             Commands.run(() -> gamePieceCoordinator.applyBasicCollect(true), intake, indexers))
         .finallyDo(gamePieceCoordinator::stopGamePieceFlow);
+  }
+
+  public boolean isHubActive() {
+    Optional<Alliance> alliance = DriverStation.getAlliance();
+    // If we have no alliance, we cannot be enabled, therefore no hub.
+    if (alliance.isEmpty()) {
+      return false;
+    }
+    // Hub is always enabled in autonomous.
+    if (DriverStation.isAutonomousEnabled()) {
+      return true;
+    }
+    // At this point, if we're not teleop enabled, there is no hub.
+    if (!DriverStation.isTeleopEnabled()) {
+      return false;
+    }
+
+    // We're teleop enabled, compute.
+    double matchTime = DriverStation.getMatchTime();
+    String gameData = DriverStation.getGameSpecificMessage();
+    // If we have no game data, we cannot compute, assume hub is active, as its likely early in
+    // teleop.
+    if (gameData.isEmpty()) {
+      return true;
+    }
+    boolean redInactiveFirst = false;
+    switch (gameData.charAt(0)) {
+      case 'R' -> redInactiveFirst = true;
+      case 'B' -> redInactiveFirst = false;
+      default -> {
+        // If we have invalid game data, assume hub is active.
+        return true;
+      }
+    }
+
+    // Shift was is active for blue if red won auto, or red if blue won auto.
+    boolean shift1Active =
+        switch (alliance.get()) {
+          case Red -> !redInactiveFirst;
+          case Blue -> redInactiveFirst;
+        };
+
+    if (matchTime > 130) {
+      // Transition shift, hub is active.
+      return true;
+    } else if (matchTime > 105) {
+      // Shift 1
+      return shift1Active;
+    } else if (matchTime > 80) {
+      // Shift 2
+      return !shift1Active;
+    } else if (matchTime > 55) {
+      // Shift 3
+      return shift1Active;
+    } else if (matchTime > 30) {
+      // Shift 4
+      return !shift1Active;
+    } else {
+      // End game, hub always active.
+      return true;
+    }
+  }
+
+  public double nextPeriodTime() {
+    double matchTime = DriverStation.getMatchTime();
+
+    if (DriverStation.isAutonomous()) {
+      return matchTime;
+    }
+
+    if (matchTime > 130) {
+      // Transition shift, 10s
+      return matchTime % 130;
+    } else if (matchTime > 105) {
+      // Shift 1
+      return matchTime % 105;
+    } else if (matchTime > 80) {
+      // Shift 2
+      return matchTime % 80;
+    } else if (matchTime > 55) {
+      // Shift 3
+      return matchTime % 55;
+    } else if (matchTime > 30) {
+      // Shift 4
+      return matchTime % 30;
+    } else {
+      // End game
+      return matchTime;
+    }
+  }
+
+  private void updateDashboard() {
+    SmartDashboard.putBoolean("DriverStation/hubActive", isHubActive());
+    SmartDashboard.putNumber("DriverStation/periodTime", nextPeriodTime());
+
+    double matchTime = DriverStation.getMatchTime();
+    double timeMinutes = 0;
+    if (matchTime != -1) timeMinutes = Math.floor(matchTime / 60.0);
+    matchTime = matchTime % 60;
+    SmartDashboard.putString(
+        "DriverStation/matchTime", String.format("%1.0f:%02.1f", timeMinutes, matchTime));
   }
 }
