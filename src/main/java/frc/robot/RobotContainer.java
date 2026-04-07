@@ -273,7 +273,10 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return autoRoutines.selectAutonomousCommand(autoChooser);
+    return Commands.sequence(
+        shooter.homeHoodToHardStopCommand(),
+        intake.calibrateIntakePivotToHardStopsCommand(),
+        autoRoutines.selectAutonomousCommand(autoChooser));
   }
 
   public void periodic() {
