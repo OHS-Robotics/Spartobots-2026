@@ -9,6 +9,8 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -102,6 +104,7 @@ public class RobotContainer {
   private final RobotVisualizationPublisher robotVisualizationPublisher;
   private final FieldSimulationManager fieldSimulationManager;
   private double lastVisionPoseSyncTimestampSeconds = Double.NEGATIVE_INFINITY;
+  private final Field2d field = new Field2d();
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -213,6 +216,8 @@ public class RobotContainer {
     gameState = new GameStateSubsystem();
     vision = visionLocal;
 
+    SmartDashboard.putData("Field", field);
+
     gamePieceCoordinator = new GamePieceCoordinator(intake, indexers, shooter);
     hubTargetingService = new HubTargetingService(drive, shooter);
     fieldTargetingService = new FieldTargetingService(drive);
@@ -274,6 +279,7 @@ public class RobotContainer {
     robotVisualizationPublisher.publish();
     operatorFeedbackController.periodic();
     operatorDashboard.periodic();
+    field.setRobotPose(drive.getPose());
   }
 
   public void onDisabledInit() {
