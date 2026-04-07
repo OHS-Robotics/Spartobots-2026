@@ -180,6 +180,7 @@ public class Vision extends SubsystemBase {
                 observation.timestamp(),
                 observation.tagCount(),
                 observation.averageTagDistance(),
+                observation.ambiguity(),
                 cameraIndex);
         if (isBetterRobotPoseEstimate(candidateEstimate, bestRobotPoseEstimate)) {
           bestRobotPoseEstimate = candidateEstimate;
@@ -360,6 +361,9 @@ public class Vision extends SubsystemBase {
         > 1e-9) {
       return candidate.averageTagDistanceMeters() < currentBest.averageTagDistanceMeters();
     }
+    if (Math.abs(candidate.ambiguity() - currentBest.ambiguity()) > 1e-9) {
+      return candidate.ambiguity() < currentBest.ambiguity();
+    }
     return candidate.timestampSeconds() > currentBest.timestampSeconds();
   }
 
@@ -368,6 +372,7 @@ public class Vision extends SubsystemBase {
       double timestampSeconds,
       int tagCount,
       double averageTagDistanceMeters,
+      double ambiguity,
       int cameraIndex) {}
 
   @FunctionalInterface

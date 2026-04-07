@@ -36,4 +36,9 @@ public class GyroIOSim implements GyroIO {
             .map((yaw) -> Rotation2d.fromRadians(yawSign * yaw.getRadians()))
             .toArray(Rotation2d[]::new);
   }
+
+  @Override
+  public void setAngle(Rotation2d angle) {
+    gyroSimulation.setRotation(angle);
+  }
 }

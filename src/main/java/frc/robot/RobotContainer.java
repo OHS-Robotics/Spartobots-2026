@@ -67,12 +67,14 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   private static final int driverControllerPort = 0;
   private static final int operatorControllerPort = 1;
-  // Temporary bringup switches to keep missing hardware from flooding the CAN bus.
+  // Temporary bringup switches for hardware that may be absent during bench work.
   private static final boolean enableRealGamePieceHardware = true;
-  private static final boolean enableRealVisionHardware = false;
-  private static final int visionPoseSyncMinTagCount = 2;
+  private static final boolean enableRealVisionHardware = true;
+  private static final int visionPoseSyncMinTagCount = 1;
   private static final double visionPoseSyncMaxAgeSeconds = 0.25;
   private static final double visionPoseSyncMaxAverageTagDistanceMeters = 4.5;
+  private static final double visionPoseSyncSingleTagMaxAverageTagDistanceMeters = 2.5;
+  private static final double visionPoseSyncSingleTagMaxAmbiguity = 0.20;
   private static final double visionPoseSyncMaxLinearSpeedMetersPerSec = 0.20;
   private static final double visionPoseSyncMaxAngularSpeedRadPerSec = Units.degreesToRadians(20.0);
   private static final double visionPoseSyncMinTranslationErrorMeters = 0.08;
@@ -312,7 +314,15 @@ public class RobotContainer {
     if (poseEstimate.tagCount() < visionPoseSyncMinTagCount) {
       return;
     }
-    if (poseEstimate.averageTagDistanceMeters() > visionPoseSyncMaxAverageTagDistanceMeters) {
+    double maxAverageTagDistanceMeters =
+        poseEstimate.tagCount() == 1
+            ? visionPoseSyncSingleTagMaxAverageTagDistanceMeters
+            : visionPoseSyncMaxAverageTagDistanceMeters;
+    if (poseEstimate.averageTagDistanceMeters() > maxAverageTagDistanceMeters) {
+      return;
+    }
+    if (poseEstimate.tagCount() == 1
+        && poseEstimate.ambiguity() > visionPoseSyncSingleTagMaxAmbiguity) {
       return;
     }
     if (nowSeconds - lastVisionPoseSyncTimestampSeconds < visionPoseSyncCooldownSeconds) {
