@@ -10,6 +10,6 @@ public final class ShooterFeedInterlock {
 
   public static boolean shouldRunIndexerDuringManualFeed(
       boolean manualFeedRequested, boolean autoAimActive, boolean shotSolutionFeasible) {
-    return manualFeedRequested;
+    return manualFeedRequested && (!autoAimActive || shotSolutionFeasible);
   }
 }

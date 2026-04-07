@@ -96,7 +96,6 @@ public class Vision extends SubsystemBase {
     List<Pose3d> allRobotPosesRejected = new LinkedList<>();
     int totalProcessedResultCount = 0;
     int totalDetectedTargetCount = 0;
-    int totalPoseObservationCount = 0;
     int totalAcceptedPoseCount = 0;
     int totalRejectedPoseCount = 0;
     int totalRejectedNoTags = 0;
@@ -110,7 +109,6 @@ public class Vision extends SubsystemBase {
       disconnectedAlerts[cameraIndex].set(!inputs[cameraIndex].connected);
       totalProcessedResultCount += inputs[cameraIndex].processedResultCount;
       totalDetectedTargetCount += inputs[cameraIndex].detectedTargetCount;
-      totalPoseObservationCount += inputs[cameraIndex].poseObservations.length;
 
       // Initialize logging values
       List<Pose3d> tagPoses = new LinkedList<>();
@@ -176,13 +174,9 @@ public class Vision extends SubsystemBase {
           continue;
         }
 
-        Pose2d preferredVisionPose =
-            new Pose2d(
-                observation.pose().toPose2d().getTranslation(),
-                robotPoseSupplier.get().getRotation());
         VisionPoseEstimate candidateEstimate =
             new VisionPoseEstimate(
-                preferredVisionPose,
+                observation.pose().toPose2d(),
                 observation.timestamp(),
                 observation.tagCount(),
                 observation.averageTagDistance(),
@@ -208,7 +202,7 @@ public class Vision extends SubsystemBase {
 
         // Send vision observation
         consumer.accept(
-            preferredVisionPose,
+            observation.pose().toPose2d(),
             observation.timestamp(),
             VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
       }
@@ -233,9 +227,6 @@ public class Vision extends SubsystemBase {
       Logger.recordOutput(
           cameraIndexToLogKey(cameraIndex) + "/LatestResultTimestampSeconds",
           inputs[cameraIndex].latestResultTimestampSeconds);
-      Logger.recordOutput(
-          cameraIndexToLogKey(cameraIndex) + "/PoseObservationCount",
-          inputs[cameraIndex].poseObservations.length);
       Logger.recordOutput(
           cameraIndexToLogKey(cameraIndex) + "/AcceptedPoseCount", acceptedPoseCount);
       Logger.recordOutput(
@@ -275,9 +266,6 @@ public class Vision extends SubsystemBase {
         totalProcessedResultCount);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Vision/Summary/DetectedTargetCount"), totalDetectedTargetCount);
-    Logger.recordOutput(
-        NetworkTablesUtil.logPath("Vision/Summary/PoseObservationCount"),
-        totalPoseObservationCount);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Vision/Summary/AcceptedPoseCount"), totalAcceptedPoseCount);
     Logger.recordOutput(

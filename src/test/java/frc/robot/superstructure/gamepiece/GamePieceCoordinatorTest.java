@@ -91,7 +91,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void manualFeedKeepsIndexersRunningDuringAutoAimAssist() {
+  void manualFeedInterlockStopsIndexersButStillSweepsIntake() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
     Intake intake = new Intake(intakeIO);
@@ -110,8 +110,8 @@ class GamePieceCoordinatorTest {
     command.execute();
     command.execute();
 
-    assertEquals(-1.0, indexersIO.topOutput, 1e-9);
-    assertEquals(1.0, indexersIO.bottomOutput, 1e-9);
+    assertEquals(0.0, indexersIO.topOutput, 1e-9);
+    assertEquals(0.0, indexersIO.bottomOutput, 1e-9);
     assertEquals(getExpectedSweepSetpoint(intake, 0.5, 1.0), intakeIO.pivotSetpoint, 1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
 

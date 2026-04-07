@@ -36,12 +36,12 @@ import java.util.function.Supplier;
 public class DriveCommands {
   private static final double DEADBAND = 0.1;
   private static final double CONTROL_LOOP_PERIOD_SECONDS = 0.02;
-  private static final double ANGLE_KP = 3.0;
+  private static final double ANGLE_KP = 5.0;
   private static final double ANGLE_KI = 0.0;
-  private static final double ANGLE_KD = 0.35;
-  private static final double ANGLE_KFF = 0.35;
-  private static final double ANGLE_MAX_VELOCITY = 2.6;
-  private static final double ANGLE_MAX_ACCELERATION = 7.0;
+  private static final double ANGLE_KD = 1.0;
+  private static final double ANGLE_KFF = 0.9;
+  private static final double ANGLE_MAX_VELOCITY = 3.8;
+  private static final double ANGLE_MAX_ACCELERATION = 12.0;
   private static final double ANGLE_POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.5);
   private static final double ANGLE_VELOCITY_TOLERANCE_RAD_PER_SEC = Units.degreesToRadians(8.0);
   private static final double ANGLE_GOAL_JUMP_REJECT_RAD = Units.degreesToRadians(120.0);

@@ -402,8 +402,6 @@ public class Shooter extends SubsystemBase {
     shotControlEnabled = enabled;
     if (!enabled) {
       lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
-      pair1VelocityCommandRadPerSec = 0.0;
-      pair2VelocityCommandRadPerSec = 0.0;
     }
   }
 
@@ -1111,7 +1109,7 @@ public class Shooter extends SubsystemBase {
     hoodHomed = true;
     setHoodCalibrationFromHardStops(
         hoodHomingRetractedHardStopRotations, hoodHomingExtendedHardStopRotations);
-    hoodSetpointMotorRotations = hoodAngleToMotorRotations(ShooterConstants.defaultLaunchAngle);
+    hoodSetpointMotorRotations = hoodExtendedPositionRotations;
     manualHoodOverrideEnabled = false;
   }
 
@@ -1713,7 +1711,7 @@ public class Shooter extends SubsystemBase {
                 ShooterConstants.minLaunchAngle.getDegrees(),
                 ShooterConstants.maxLaunchAngle.getDegrees()));
     return interpolate(
-        hoodRetractedPositionRotations, hoodExtendedPositionRotations, 1.0 - normalizedAngle);
+        hoodRetractedPositionRotations, hoodExtendedPositionRotations, normalizedAngle);
   }
 
   public Rotation2d motorRotationsToHoodAngle(double hoodMotorRotations) {
@@ -1725,7 +1723,7 @@ public class Shooter extends SubsystemBase {
         interpolate(
             ShooterConstants.minLaunchAngle.getDegrees(),
             ShooterConstants.maxLaunchAngle.getDegrees(),
-            1.0 - normalizedHoodPosition);
+            normalizedHoodPosition);
     return Rotation2d.fromDegrees(hoodAngleDegrees);
   }
 

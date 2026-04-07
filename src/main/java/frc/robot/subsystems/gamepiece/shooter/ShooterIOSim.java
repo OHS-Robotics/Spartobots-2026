@@ -39,7 +39,7 @@ public class ShooterIOSim implements ShooterIO {
 
   private double sharedVelocitySetpointRadPerSec = 0.0;
   private double hoodPositionSetpointRotations =
-      angleToHoodRotations(ShooterConstants.simHoodStartingAngleRadians);
+      ShooterConstants.defaultHoodRetractedPositionRotations;
   private boolean hoodOpenLoopControlEnabled = false;
   private double hoodOpenLoopOutput = 0.0;
   private double wheelAppliedVolts = 0.0;
@@ -154,13 +154,13 @@ public class ShooterIOSim implements ShooterIO {
   }
 
   private static double hoodRotationsToAngle(double hoodPositionRotations) {
-    return ShooterConstants.simHoodMaxAngleRadians
-        - ((hoodPositionRotations - ShooterConstants.defaultHoodRetractedPositionRotations)
+    return ShooterConstants.simHoodMinAngleRadians
+        + ((hoodPositionRotations - ShooterConstants.defaultHoodRetractedPositionRotations)
             / hoodRotationsPerRadian);
   }
 
   private static double angleToHoodRotations(double hoodAngleRadians) {
     return ShooterConstants.defaultHoodRetractedPositionRotations
-        + ((ShooterConstants.simHoodMaxAngleRadians - hoodAngleRadians) * hoodRotationsPerRadian);
+        + ((hoodAngleRadians - ShooterConstants.simHoodMinAngleRadians) * hoodRotationsPerRadian);
   }
 }
