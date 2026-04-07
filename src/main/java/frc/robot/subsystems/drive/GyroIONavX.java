@@ -46,11 +46,20 @@ public class GyroIONavX implements GyroIO {
   @Override
   public void zeroYaw() {
     navX.zeroYaw();
+    navX.setAngleAdjustment(0.0);
+    clearOdometryQueues();
   }
 
   @Override
   public void setAngle(Rotation2d angle) {
+    double yawSign = navxYawInverted ? -1.0 : 1.0;
     navX.zeroYaw();
-    navX.setAngleAdjustment(angle.getDegrees());
+    navX.setAngleAdjustment(yawSign * angle.getDegrees());
+    clearOdometryQueues();
+  }
+
+  private void clearOdometryQueues() {
+    yawTimestampQueue.clear();
+    yawPositionQueue.clear();
   }
 }
