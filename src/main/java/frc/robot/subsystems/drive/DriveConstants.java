@@ -148,6 +148,7 @@ public class DriveConstants {
           maxRotationalSpeedRadiansPerSec * pathfindingSpeedFactor,
           maxRotationalAccelerationRadiansPerSecSquared * pathfindingSpeedFactor);
   public static final double trenchLongAxisAlignmentToleranceRadians = Units.degreesToRadians(2.0);
+  public static final double hubAlignLinearAccelerationLimitMetersPerSecSquared = 2.0;
 
   // MapleSim configuration
   public static final double bumperLengthXMeters = 0.75;

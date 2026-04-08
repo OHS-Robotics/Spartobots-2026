@@ -326,9 +326,9 @@ public class Shooter extends SubsystemBase {
     double pair2VelocityTargetRadPerSec =
         shotControlEnabled ? getPair2VelocityTargetSetpointRadPerSec() : 0.0;
     pair1VelocityCommandRadPerSec =
-        rampWheelVelocityCommand(pair1VelocityCommandRadPerSec, pair1VelocityTargetRadPerSec);
+        updateWheelVelocityCommand(pair1VelocityCommandRadPerSec, pair1VelocityTargetRadPerSec);
     pair2VelocityCommandRadPerSec =
-        rampWheelVelocityCommand(pair2VelocityCommandRadPerSec, pair2VelocityTargetRadPerSec);
+        updateWheelVelocityCommand(pair2VelocityCommandRadPerSec, pair2VelocityTargetRadPerSec);
 
     io.setWheelVelocityClosedLoopGains(
         wheelVelocityKp, wheelVelocityKi, wheelVelocityKd, wheelVelocityKv);
@@ -1708,8 +1708,8 @@ public class Shooter extends SubsystemBase {
         clampUnitInterval(
             inverseInterpolate(
                 hoodAngle.getDegrees(),
-                ShooterConstants.minLaunchAngle.getDegrees(),
-                ShooterConstants.maxLaunchAngle.getDegrees()));
+                ShooterConstants.maxLaunchAngle.getDegrees(),
+                ShooterConstants.minLaunchAngle.getDegrees()));
     return interpolate(
         hoodRetractedPositionRotations, hoodExtendedPositionRotations, normalizedAngle);
   }
@@ -1721,8 +1721,8 @@ public class Shooter extends SubsystemBase {
                 hoodMotorRotations, hoodRetractedPositionRotations, hoodExtendedPositionRotations));
     double hoodAngleDegrees =
         interpolate(
-            ShooterConstants.minLaunchAngle.getDegrees(),
             ShooterConstants.maxLaunchAngle.getDegrees(),
+            ShooterConstants.minLaunchAngle.getDegrees(),
             normalizedHoodPosition);
     return Rotation2d.fromDegrees(hoodAngleDegrees);
   }
@@ -1856,6 +1856,12 @@ public class Shooter extends SubsystemBase {
       return targetRadPerSec;
     }
     return currentRadPerSec + Math.copySign(maxStepRadPerSec, deltaRadPerSec);
+  }
+
+  private double updateWheelVelocityCommand(double currentRadPerSec, double targetRadPerSec) {
+    return calibrationModeEnabled
+        ? targetRadPerSec
+        : rampWheelVelocityCommand(currentRadPerSec, targetRadPerSec);
   }
 
   private double clampToHoodCalibrationRange(double hoodPositionRotations) {

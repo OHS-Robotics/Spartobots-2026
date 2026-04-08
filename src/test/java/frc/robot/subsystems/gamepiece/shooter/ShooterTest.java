@@ -28,6 +28,41 @@ class ShooterTest {
   }
 
   @Test
+  void hoodCalibrationMapsRetractedStopToSteeperLaunchAngles() {
+    var tuningTable =
+        NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(ShooterConstants.configTableName));
+    tuningTable
+        .getEntry("Hood/Calibration/RetractedPositionRotations")
+        .setDouble(ShooterConstants.defaultHoodRetractedPositionRotations);
+    tuningTable
+        .getEntry("Hood/Calibration/ExtendedPositionRotations")
+        .setDouble(ShooterConstants.defaultHoodExtendedPositionRotations);
+
+    Shooter shooter = new Shooter(new FakeShooterIO());
+
+    assertEquals(
+        ShooterConstants.defaultHoodRetractedPositionRotations,
+        shooter.hoodAngleToMotorRotations(ShooterConstants.maxLaunchAngle),
+        1e-9);
+    assertEquals(
+        ShooterConstants.defaultHoodExtendedPositionRotations,
+        shooter.hoodAngleToMotorRotations(ShooterConstants.minLaunchAngle),
+        1e-9);
+    assertEquals(
+        ShooterConstants.maxLaunchAngle.getDegrees(),
+        shooter
+            .motorRotationsToHoodAngle(ShooterConstants.defaultHoodRetractedPositionRotations)
+            .getDegrees(),
+        1e-9);
+    assertEquals(
+        ShooterConstants.minLaunchAngle.getDegrees(),
+        shooter
+            .motorRotationsToHoodAngle(ShooterConstants.defaultHoodExtendedPositionRotations)
+            .getDegrees(),
+        1e-9);
+  }
+
+  @Test
   void readyToFireTracksMeasuredWheelReadiness() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);
@@ -45,12 +80,11 @@ class ShooterTest {
     shooter.periodic();
     assertFalse(shooter.isReadyToFire());
 
-    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
-    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
-    shooter.periodic();
+    followShooterCommand(io, shooter, 100);
     assertTrue(shooter.isReadyToFire());
 
     io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec * 0.5;
+    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec * 0.5;
     shooter.periodic();
     assertFalse(shooter.isReadyToFire());
   }
@@ -68,9 +102,7 @@ class ShooterTest {
 
     shooter.setShotControlEnabled(true);
     shooter.periodic();
-    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
-    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
-    shooter.periodic();
+    followShooterCommand(io, shooter, 100);
 
     assertTrue(shooter.isSpinupComplete());
     assertFalse(shooter.isHubShotPredictedToScore());
@@ -98,9 +130,7 @@ class ShooterTest {
 
     shooter.setShotControlEnabled(true);
     shooter.periodic();
-    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
-    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
-    shooter.periodic();
+    followShooterCommand(io, shooter, 100);
 
     assertTrue(shooter.isSpinupComplete());
     assertFalse(shooter.isHubShotPredictedToScore());
@@ -120,9 +150,7 @@ class ShooterTest {
 
     shooter.setShotControlEnabled(true);
     shooter.periodic();
-    io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
-    io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
-    shooter.periodic();
+    followShooterCommand(io, shooter, 100);
 
     assertTrue(shooter.isSpinupComplete());
     assertFalse(shooter.isReadyToFire());
@@ -201,6 +229,28 @@ class ShooterTest {
     assertTrue(solution.feasible());
     assertEquals(
         shooter.getPair1WheelSetpointRadPerSec(), shooter.getPair2WheelSetpointRadPerSec(), 1e-9);
+  }
+
+  @Test
+  void shooterSpinupRampsWheelCommandOutsideCalibrationMode() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    shooter.setCalibrationModeEnabled(false);
+    shooter.updateHubShotSolution(
+        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    shooter.setShotControlEnabled(true);
+    shooter.periodic();
+
+    assertTrue(io.pair1SetpointRadPerSec > 0.0);
+    assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
+
+    for (int i = 0; i < 100; i++) {
+      shooter.periodic();
+    }
+
+    assertEquals(shooter.getPair1WheelSetpointRadPerSec(), io.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(shooter.getPair2WheelSetpointRadPerSec(), io.pair2SetpointRadPerSec, 1e-9);
   }
 
   @Test
@@ -299,6 +349,14 @@ class ShooterTest {
     assertEquals(
         "test sample",
         calibrationTelemetry.getEntry("LastRecorded/Measurement/Notes").getString(""));
+  }
+
+  private static void followShooterCommand(FakeShooterIO io, Shooter shooter, int cycles) {
+    for (int i = 0; i < cycles; i++) {
+      io.pair1MeasuredVelocityRadPerSec = io.pair1SetpointRadPerSec;
+      io.pair2MeasuredVelocityRadPerSec = io.pair2SetpointRadPerSec;
+      shooter.periodic();
+    }
   }
 
   private static class FakeShooterIO implements ShooterIO {

@@ -670,7 +670,11 @@ public class Drive extends SubsystemBase {
   public Command alignToHub(
       DoubleSupplier x, DoubleSupplier y, DoubleSupplier shotAirtimeSecondsSupplier) {
     return DriveCommands.joystickDriveAtAngle(
-        this, x, y, () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()));
+        this,
+        x,
+        y,
+        () -> getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble()),
+        () -> DriveConstants.hubAlignLinearAccelerationLimitMetersPerSecSquared);
   }
 
   private Command pathfindToTranslationWithRotationOverride(

@@ -51,7 +51,7 @@ public final class ShooterConstants {
   public static final double defaultWheelSpeedScale = 1.0;
   public static final double defaultPair1Direction = 1.0;
   public static final double defaultPair2Direction = 1.0;
-  public static final double wheelCommandRampUpRadPerSecSquared = 100000.0;
+  public static final double wheelCommandRampUpRadPerSecSquared = 700.0;
   public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
   public static final double simWheelCommandRampDownRadPerSecSquared = 100000.0;
 
@@ -78,7 +78,7 @@ public final class ShooterConstants {
   public static final double maxWheelSpeedRadPerSec = neoFreeSpeedRadPerSec * 0.90;
 
   // Shooter geometry
-  public static final double defaultLaunchHeightMeters = Units.inchesToMeters(30.0);
+  public static final double defaultLaunchHeightMeters = Units.inchesToMeters(22.0);
   public static final double hubCenterHeightMeters = Units.inchesToMeters(104.0);
   public static final double defaultHubAimHeightOffsetMeters = 0.0;
   public static final double defaultHubAimHeightMeters =
@@ -116,6 +116,7 @@ public final class ShooterConstants {
   public static final double hoodHomingMinTravelRotations = 4.0;
 
   // Hood two-point calibration in motor rotations.
+  // Retracted is the steepest launch-angle hard stop, extended is the flattest.
   // Update the extended value after the first real two-hard-stop homing run.
   public static final double defaultHoodRetractedPositionRotations =
       hoodRetractedHardStopReferenceRotations;
@@ -149,8 +150,10 @@ public final class ShooterConstants {
   public static final double simShotCadenceSeconds = 0.05;
   public static final double simWheelReadyRatio = 0.88;
 
-  // Shooter muzzle relative to robot center (robot frame)
-  public static final Translation2d shooterMuzzleOffsetOnRobot = new Translation2d(-0.25, 0.0);
+  // Shooter muzzle relative to robot center (robot frame).
+  // The drum sits close to the rear bumper, so model the launch point well behind center.
+  public static final Translation2d shooterMuzzleOffsetOnRobot =
+      new Translation2d(-Units.inchesToMeters(13.0), 0.0);
   public static final Rotation2d shooterFacingOffset = Rotation2d.fromDegrees(180.0);
 
   // MapleSim target matching tolerance for projectile hit checks

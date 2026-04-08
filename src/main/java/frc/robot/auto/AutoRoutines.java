@@ -82,14 +82,14 @@ public class AutoRoutines {
     return Commands.defer(
         () -> {
           Pose2d newPose =
-              new Pose2d(drive.getPose().getX() - 1.5, drive.getPose().getY(), drive.getRotation());
+              new Pose2d(drive.getPose().getX() - 1, drive.getPose().getY(), drive.getRotation());
 
           // return drive.followNamedPath("Test");
           // return drive.pathfindToTranslation(newPose);
 
           return Commands.sequence(
-              drive.autoDriveUnderTrenchCommand(0.0),
-              drive.autoDriveUnderTrenchCommand(0.0),
+              // drive.autoDriveUnderTrenchCommand(0.0),
+              // drive.autoDriveUnderTrenchCommand(0.0),
               // drive.pathfindToTranslation(newPose.getTranslation()),
               drive
                   .pathfindToTranslationAndAlignToHub(
@@ -104,17 +104,15 @@ public class AutoRoutines {
                   }),
               Commands.waitSeconds(4.0),
               Commands.deadline(
-                  Commands.waitSeconds(6.0),
                   Commands.run(
                       () -> {
-                        drive
-                            .pathfindToTranslationAndAlignToHub(
-                                newPose.getTranslation(),
-                                hubTargetingService::updateAndGetAirtimeSeconds)
-                            .withTimeout(competitionAutoDriveToShotTimeoutSeconds);
-                        gamePieceCoordinator.applyBasicFeed(true);
-                      })),
-              // Commands.waitSeconds(2.0),
+                        gamePieceCoordinator.runManualFeedAndIndexersWhileHeldCommand(
+                            () -> {
+                              return 0.3;
+                            });
+                      }),
+                  Commands.waitSeconds(5.0)),
+              // Commands.waitSeconds(5.0),
               Commands.runOnce(
                   () -> {
                     gamePieceCoordinator.stopGamePieceFlow();

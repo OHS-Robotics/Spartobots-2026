@@ -152,9 +152,7 @@ public class GamePieceCoordinator {
     intake.stopIntake();
     double throttleScale = getManualFeedThrottleScale(throttle);
     intake.sweepIntakePivotBetweenCalibratedLimits(throttleScale);
-    boolean allowFeedPath =
-        ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(
-            true, shooterDemandFromAlign, shooter.isHubShotSolutionFeasible());
+    boolean allowFeedPath = ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true);
     if (!allowFeedPath) {
       indexers.stopIndexers();
       recordMode("MANUAL_FEED_INTERLOCKED");

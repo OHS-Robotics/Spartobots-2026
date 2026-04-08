@@ -8,8 +8,7 @@ public final class ShooterFeedInterlock {
     return feedModeRequested && shooterReadyToFire && hasStagedGamePiece;
   }
 
-  public static boolean shouldRunIndexerDuringManualFeed(
-      boolean manualFeedRequested, boolean autoAimActive, boolean shotSolutionFeasible) {
-    return manualFeedRequested && (!autoAimActive || shotSolutionFeasible);
+  public static boolean shouldRunIndexerDuringManualFeed(boolean manualFeedRequested) {
+    return manualFeedRequested;
   }
 }

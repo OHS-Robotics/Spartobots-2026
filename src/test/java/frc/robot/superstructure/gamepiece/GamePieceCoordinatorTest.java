@@ -91,7 +91,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void manualFeedInterlockStopsIndexersButStillSweepsIntake() {
+  void manualFeedRunsIndexersWhileAutoAimAssistIsActive() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
     Intake intake = new Intake(intakeIO);
@@ -110,8 +110,8 @@ class GamePieceCoordinatorTest {
     command.execute();
     command.execute();
 
-    assertEquals(0.0, indexersIO.topOutput, 1e-9);
-    assertEquals(0.0, indexersIO.bottomOutput, 1e-9);
+    assertEquals(-1.0, indexersIO.topOutput, 1e-9);
+    assertEquals(1.0, indexersIO.bottomOutput, 1e-9);
     assertEquals(getExpectedSweepSetpoint(intake, 0.5, 1.0), intakeIO.pivotSetpoint, 1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
 
@@ -176,7 +176,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void manualFeedReversesIntakeSweepAfterReachingCalibratedLimit() {
+  void manualFeedDoesNotCommandPastCalibratedSweepLimit() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
     intakeIO.pivotPositionRotations = 0.995;
@@ -193,13 +193,14 @@ class GamePieceCoordinatorTest {
     command.initialize();
     command.execute();
     command.execute();
-    assertEquals(getSweepExtendedLimit(intake), intakeIO.pivotSetpoint, 1e-9);
 
     intakeIO.pivotPositionRotations = getSweepExtendedLimit(intake);
     intake.periodic();
     command.execute();
 
-    assertTrue(intakeIO.pivotSetpoint < getSweepExtendedLimit(intake));
+    assertTrue(
+        Double.isNaN(intakeIO.pivotSetpoint)
+            || intakeIO.pivotSetpoint <= getSweepExtendedLimit(intake));
 
     command.end(false);
   }

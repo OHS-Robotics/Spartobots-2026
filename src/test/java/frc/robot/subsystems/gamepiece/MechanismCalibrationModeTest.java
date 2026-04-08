@@ -15,11 +15,17 @@ import org.junit.jupiter.api.Test;
 class MechanismCalibrationModeTest {
   @Test
   void intakeCalibrationModeUsesNetworkTableClosedLoopSetpoints() {
-    FakeIntakeIO io = new FakeIntakeIO();
-    Intake intake = new Intake(io);
     var calibrationTable =
         NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(IntakeConstants.configTableName))
             .getSubTable("Calibration");
+    calibrationTable.getEntry("Enabled").setBoolean(false);
+    calibrationTable.getEntry("Drive/VelocitySetpointRotationsPerSec").setDouble(0.0);
+    calibrationTable
+        .getEntry("Pivot/PositionSetpointRotations")
+        .setDouble(IntakeConstants.defaultCalibrationPivotPositionSetpointRotations);
+
+    FakeIntakeIO io = new FakeIntakeIO();
+    Intake intake = new Intake(io);
 
     calibrationTable.getEntry("Drive/VelocitySetpointRotationsPerSec").setDouble(18.0);
     calibrationTable.getEntry("Pivot/PositionSetpointRotations").setDouble(0.75);
@@ -33,11 +39,15 @@ class MechanismCalibrationModeTest {
 
   @Test
   void indexerCalibrationModeUsesNetworkTableClosedLoopSetpoints() {
-    FakeIndexersIO io = new FakeIndexersIO();
-    Indexers indexers = new Indexers(io);
     var calibrationTable =
         NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(IndexersConstants.configTableName))
             .getSubTable("Calibration");
+    calibrationTable.getEntry("Enabled").setBoolean(false);
+    calibrationTable.getEntry("Top/VelocitySetpointRotationsPerSec").setDouble(0.0);
+    calibrationTable.getEntry("Bottom/VelocitySetpointRotationsPerSec").setDouble(0.0);
+
+    FakeIndexersIO io = new FakeIndexersIO();
+    Indexers indexers = new Indexers(io);
 
     calibrationTable.getEntry("Top/VelocitySetpointRotationsPerSec").setDouble(5.0);
     calibrationTable.getEntry("Bottom/VelocitySetpointRotationsPerSec").setDouble(-6.0);

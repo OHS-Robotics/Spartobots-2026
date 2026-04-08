@@ -19,14 +19,22 @@ import org.junit.jupiter.api.Test;
 class MechanismHomingTest {
   @Test
   void intakeCalibrationMeasuresExtendedStopThenZerosRetractedStop() {
+    var tuningTable =
+        NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(IntakeConstants.configTableName));
+    tuningTable
+        .getEntry("Pivot/Calibration/RetractedPositionRotations")
+        .setDouble(IntakeConstants.defaultIntakePivotRetractedPositionRotations);
+    tuningTable
+        .getEntry("Pivot/Calibration/ExtendedPositionRotations")
+        .setDouble(IntakeConstants.defaultIntakePivotExtendedPositionRotations);
+    tuningTable.getSubTable("Calibration").getEntry("Enabled").setBoolean(false);
+
     FakeIntakeHomingIO io = new FakeIntakeHomingIO();
     Intake intake = new Intake(io);
 
     runCommandUntilFinished(
         intake.calibrateIntakePivotToHardStopsCommand(), intake::periodic, io::advanceCalibration);
-
-    var tuningTable =
-        NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(IntakeConstants.configTableName));
+    intake.periodic();
 
     assertTrue(intake.isIntakePivotCalibrated());
     assertTrue(intake.didLastIntakePivotCalibrationSucceed());

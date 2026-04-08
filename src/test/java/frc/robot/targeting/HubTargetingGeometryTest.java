@@ -15,7 +15,8 @@ class HubTargetingGeometryTest {
     Pose2d robotPose = new Pose2d(2.0, 3.0, Rotation2d.fromDegrees(180.0));
     Translation2d launchOrigin = HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
 
-    assertEquals(2.25, launchOrigin.getX(), 1e-9);
+    assertEquals(
+        2.0 + ShooterConstants.shooterMuzzleOffsetOnRobot.getNorm(), launchOrigin.getX(), 1e-9);
     assertEquals(3.0, launchOrigin.getY(), 1e-9);
   }
 
@@ -23,9 +24,13 @@ class HubTargetingGeometryTest {
   void hubDistanceUsesLaunchOriginInsteadOfRobotCenter() {
     Pose2d robotPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(180.0));
     Pose2d hubPose = new Pose2d(5.0, 2.0, Rotation2d.kZero);
+    double expectedDistanceMeters =
+        hubPose.getX() - (robotPose.getX() + ShooterConstants.shooterMuzzleOffsetOnRobot.getNorm());
 
     assertEquals(
-        2.75, HubTargetingGeometry.getDistanceFromLaunchOriginToHub(robotPose, hubPose), 1e-9);
+        expectedDistanceMeters,
+        HubTargetingGeometry.getDistanceFromLaunchOriginToHub(robotPose, hubPose),
+        1e-9);
     assertNotEquals(
         robotPose.getTranslation().getDistance(hubPose.getTranslation()),
         HubTargetingGeometry.getDistanceFromLaunchOriginToHub(robotPose, hubPose),
@@ -36,11 +41,13 @@ class HubTargetingGeometryTest {
   void hubAimRotationUsesLaunchOriginInsteadOfRobotCenter() {
     Pose2d robotPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(180.0));
     Pose2d hubPose = new Pose2d(5.0, 3.0, Rotation2d.kZero);
+    double launchOriginX = robotPose.getX() + ShooterConstants.shooterMuzzleOffsetOnRobot.getNorm();
 
     Rotation2d centerBasedRotation =
         new Rotation2d(Math.atan2(1.0, 3.0)).plus(ShooterConstants.shooterFacingOffset);
     Rotation2d launchOriginBasedRotation =
-        new Rotation2d(Math.atan2(1.0, 2.75)).plus(ShooterConstants.shooterFacingOffset);
+        new Rotation2d(Math.atan2(1.0, hubPose.getX() - launchOriginX))
+            .plus(ShooterConstants.shooterFacingOffset);
 
     assertEquals(
         launchOriginBasedRotation.getDegrees(),
