@@ -121,6 +121,8 @@ public class Shooter extends SubsystemBase {
           false);
   private PredictedHubShot latestPredictedHubShot =
       new PredictedHubShot(false, Double.NaN, Double.NaN, Double.NaN, false);
+  private double wheelPowerRamp = 0.025; // amount increase per update, 0.025 = 2 second
+  private double wheelPowerPercent = 0.0;
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(ShooterConstants.configTableName);
   private final NetworkTable tuningTable = NetworkTablesUtil.tuningCommon(subsystemTable);
@@ -312,6 +314,11 @@ public class Shooter extends SubsystemBase {
 
   @Override
   public void periodic() {
+    if (shotControlEnabled) {
+      wheelPowerPercent += wheelPowerRamp;
+      wheelPowerPercent = Math.min(wheelPowerPercent, 1.0);
+    } else wheelPowerPercent = 0.0;
+
     io.updateInputs(inputs);
     Logger.processInputs(NetworkTablesUtil.logPath("GamePiece/Shooter/Inputs"), inputs);
     loadNetworkTableConfig();
@@ -322,9 +329,9 @@ public class Shooter extends SubsystemBase {
       pair2WheelSetpointRadPerSec = calibrationPair2WheelSetpointRadPerSec;
     }
     double pair1VelocityTargetRadPerSec =
-        shotControlEnabled ? getPair1VelocityTargetSetpointRadPerSec() : 0.0;
+        shotControlEnabled ? getPair1VelocityTargetSetpointRadPerSec() * wheelPowerPercent : 0.0;
     double pair2VelocityTargetRadPerSec =
-        shotControlEnabled ? getPair2VelocityTargetSetpointRadPerSec() : 0.0;
+        shotControlEnabled ? getPair2VelocityTargetSetpointRadPerSec() * wheelPowerPercent : 0.0;
     pair1VelocityCommandRadPerSec =
         updateWheelVelocityCommand(pair1VelocityCommandRadPerSec, pair1VelocityTargetRadPerSec);
     pair2VelocityCommandRadPerSec =
