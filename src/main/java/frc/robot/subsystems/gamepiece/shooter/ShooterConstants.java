@@ -107,10 +107,10 @@ public final class ShooterConstants {
   // Hood hard-stop calibration.
   // Each successful homing cycle zeros the relative encoder at the retracted hard stop.
   public static final double hoodRetractedHardStopReferenceRotations = 0.0;
-  // Keep this slow, but still high enough to trip the hood stall-current threshold at the hard
-  // stop.
-  public static final double hoodHomingOutputTowardRetractedHardStop = -0.12;
-  public static final double hoodHomingOutputTowardExtendedHardStop = 0.12;
+  // Run faster than the normal hood position loop, but still low enough to trip the
+  // stall-current threshold cleanly at the hard stop.
+  public static final double hoodHomingOutputTowardRetractedHardStop = -0.5;
+  public static final double hoodHomingOutputTowardExtendedHardStop = 0.5;
   public static final double hoodHomingMinCurrentAmps = 18.0;
   public static final double hoodHomingMaxVelocityRotationsPerSec = 0.08;
   public static final double hoodHomingRelaxBeforeCalibrationSeconds = 1.0;
