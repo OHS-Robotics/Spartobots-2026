@@ -180,14 +180,14 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void manualFeedPulsesIntakeDriveAtExtendedLimit() {
+  void manualFeedPulsesIntakeDriveAtDownLimit() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
     Intake intake = new Intake(intakeIO);
     intake.periodic();
     double manualFeedLowerLimit = getManualFeedSweepLowerLimit(intake);
-    double manualFeedExtendedLimit = getSweepExtendedLimit(intake);
-    intakeIO.pivotPositionRotations = manualFeedExtendedLimit;
+    double manualFeedUpperLimit = getManualFeedSweepUpperLimit(intake);
+    intakeIO.pivotPositionRotations = manualFeedLowerLimit;
     intake.periodic();
     FakeIndexersIO indexersIO = new FakeIndexersIO();
     Shooter shooter = new Shooter(new ShooterIO() {});
@@ -204,7 +204,7 @@ class GamePieceCoordinatorTest {
 
     assertTrue(Double.isFinite(intakeIO.pivotSetpoint));
     assertTrue(intakeIO.pivotSetpoint >= manualFeedLowerLimit - 1e-9);
-    assertTrue(intakeIO.pivotSetpoint <= manualFeedExtendedLimit + 1e-9);
+    assertTrue(intakeIO.pivotSetpoint <= manualFeedUpperLimit + 1e-9);
     assertTrue(Math.abs(intakeIO.driveOutput) > 1e-9);
     assertEquals(-1.0, indexersIO.topOutput, 1e-9);
     assertEquals(1.0, indexersIO.bottomOutput, 1e-9);
@@ -245,7 +245,7 @@ class GamePieceCoordinatorTest {
   private static double getExpectedManualFeedSweepSetpoint(
       Intake intake, double startingPositionRotations, double throttleScale) {
     double sweepRetractedLimit = getManualFeedSweepLowerLimit(intake);
-    double sweepExtendedLimit = getSweepExtendedLimit(intake);
+    double sweepExtendedLimit = getManualFeedSweepUpperLimit(intake);
     double sweepMidpoint = 0.5 * (sweepRetractedLimit + sweepExtendedLimit);
     double sweepHalfTravel = 0.5 * (sweepExtendedLimit - sweepRetractedLimit);
     double clampedStartingPosition =
@@ -266,10 +266,14 @@ class GamePieceCoordinatorTest {
   }
 
   private static double getManualFeedSweepLowerLimit(Intake intake) {
+    return getSweepRetractedLimit(intake);
+  }
+
+  private static double getManualFeedSweepUpperLimit(Intake intake) {
     return MathUtil.interpolate(
         intake.getIntakePivotRetractedPositionRotations(),
         intake.getIntakePivotExtendedPositionRotations(),
-        IntakeConstants.intakePivotManualFeedLowerLimitNormalized);
+        MathUtil.clamp(IntakeConstants.intakePivotManualFeedUpperLimitNormalized, 0.0, 1.0));
   }
 
   private static double getSweepRetractedLimit(Intake intake) {

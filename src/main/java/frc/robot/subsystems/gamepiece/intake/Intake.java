@@ -230,8 +230,8 @@ public class Intake extends SubsystemBase {
   public void sweepIntakePivotBetweenManualFeedLimits(double speedMagnitude) {
     sweepIntakePivotBetweenLimits(
         speedMagnitude,
-        getIntakePivotManualFeedLowerLimitRotations(),
-        getIntakePivotSweepExtendedLimitRotations(),
+        getIntakePivotSweepRetractedLimitRotations(),
+        getIntakePivotManualFeedUpperLimitRotations(),
         true);
   }
 
@@ -644,11 +644,11 @@ public class Intake extends SubsystemBase {
         1.0 - getIntakePivotSweepHardStopInsetNormalized());
   }
 
-  private double getIntakePivotManualFeedLowerLimitRotations() {
+  private double getIntakePivotManualFeedUpperLimitRotations() {
     return MathUtil.interpolate(
         intakePivotRetractedPositionRotations,
         intakePivotExtendedPositionRotations,
-        MathUtil.clamp(IntakeConstants.intakePivotManualFeedLowerLimitNormalized, 0.0, 1.0));
+        MathUtil.clamp(IntakeConstants.intakePivotManualFeedUpperLimitNormalized, 0.0, 1.0));
   }
 
   private double getIntakePivotSweepHardStopInsetNormalized() {
@@ -700,7 +700,7 @@ public class Intake extends SubsystemBase {
 
   private boolean isIntakePivotManualFeedPulseWindowActive() {
     return getIntakePivotSweepNormalizedPosition()
-        >= 1.0 - getIntakePivotManualFeedPulseWindowNormalized();
+        <= getIntakePivotManualFeedPulseWindowNormalized();
   }
 
   private double getIntakePivotSweepNormalizedPosition() {

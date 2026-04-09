@@ -42,8 +42,8 @@ public final class IntakeConstants {
   public static final double intakePivotSweepTraversalSecondsAtFullTrigger = 0.75;
   public static final double intakePivotSweepHardStopInsetNormalized = 0.05;
   public static final double intakePivotIntakingPositionInsetNormalized = 0.08;
-  // Manual feed stays in the upper half of travel and pulses the rollers near full extension.
-  public static final double intakePivotManualFeedLowerLimitNormalized = 0.50;
+  // Manual feed cycles between the down position and halfway up, and pulses near the down end.
+  public static final double intakePivotManualFeedUpperLimitNormalized = 0.50;
   public static final double intakePivotManualFeedPulseWindowNormalized = 0.03;
 
   // Calibration-mode closed-loop defaults
