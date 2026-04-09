@@ -273,15 +273,18 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return Commands.sequence(
-        shooter.homeHoodToHardStopCommand(),
-        intake.calibrateIntakePivotToHardStopsCommand(),
-        autoRoutines.selectAutonomousCommand(autoChooser));
+    return autoRoutines.selectAutonomousCommand(autoChooser);
   }
 
   public void periodic() {
     syncDrivePoseToVisionIfNeeded();
-    shooter.setTrenchSafetyRetractOverrideEnabled(fieldTargetingService.isRobotNearTrench());
+    boolean shooterAutoAimEnabled = gamePieceCoordinator.isShooterDemandFromAlign();
+    shooter.setTrenchSafetyRetractOverrideEnabled(
+        shouldApplyTrenchSafetyRetract(
+            fieldTargetingService.isRobotNearTrench(),
+            DriverStation.isAutonomousEnabled(),
+            shooter.isShotControlEnabled(),
+            shooterAutoAimEnabled));
     hubTargetingService.update();
     robotVisualizationPublisher.publish();
     operatorFeedbackController.periodic();
@@ -468,6 +471,16 @@ public class RobotContainer {
             drive.followNamedPath(pathName),
             Commands.run(() -> gamePieceCoordinator.applyBasicCollect(true), intake, indexers))
         .finallyDo(gamePieceCoordinator::stopGamePieceFlow);
+  }
+
+  static boolean shouldApplyTrenchSafetyRetract(
+      boolean nearTrench,
+      boolean autonomousEnabled,
+      boolean shooterShotControlEnabled,
+      boolean shooterAutoAimEnabled) {
+    return nearTrench
+        && !(autonomousEnabled && shooterShotControlEnabled)
+        && !shooterAutoAimEnabled;
   }
 
   public boolean isHubActive() {

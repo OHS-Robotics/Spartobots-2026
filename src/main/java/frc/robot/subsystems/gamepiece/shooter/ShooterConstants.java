@@ -55,7 +55,7 @@ public final class ShooterConstants {
   public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
   // Release decel is intentionally gentler than the normal downward ramp so the wheels coast
   // down instead of braking hard when the operator lets go of shoot.
-  public static final double wheelCommandReleaseRampDownRadPerSecSquared = 90.0;
+  public static final double wheelCommandReleaseRampDownRadPerSecSquared = 70.0;
   public static final double simWheelCommandRampDownRadPerSecSquared = 100000.0;
 
   // Hardware geometry
@@ -146,7 +146,7 @@ public final class ShooterConstants {
 
   // Feed interlock readiness
   public static final double wheelReadyToleranceRatio = 0.08;
-  public static final double minWheelSetpointForReadinessRadPerSec = 300.0;
+  public static final double minWheelSetpointForReadinessRadPerSec = minWheelSpeedRadPerSec;
 
   // Simulated shot behavior
   public static final double simShotCadenceSeconds = 0.05;

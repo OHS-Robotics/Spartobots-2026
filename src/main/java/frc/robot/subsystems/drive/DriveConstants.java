@@ -19,7 +19,7 @@ import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 
 public class DriveConstants {
-  public static final double maxSpeedMetersPerSec = 3.65;
+  public static final double maxSpeedMetersPerSec = 4.0;
   public static final double moduleAngleHoldMinSpeedMetersPerSec = maxSpeedMetersPerSec * 0.01;
   public static final double maxAccelerationMeterPerSecSquared = 4.1;
   public static final double maxRotationalSpeedRadiansPerSec = Units.degreesToRadians(270);

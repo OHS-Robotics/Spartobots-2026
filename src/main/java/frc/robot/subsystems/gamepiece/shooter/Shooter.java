@@ -413,7 +413,14 @@ public class Shooter extends SubsystemBase {
   }
 
   public void setShotControlEnabled(boolean enabled) {
+    setShotControlEnabled(enabled, false);
+  }
+
+  public void setShotControlEnabled(boolean enabled, boolean skipWheelPowerRamp) {
     shotControlEnabled = enabled;
+    if (enabled && skipWheelPowerRamp) {
+      wheelPowerPercent = 1.0;
+    }
     if (!enabled) {
       lastSimShotTimestampSeconds = Double.NEGATIVE_INFINITY;
     }

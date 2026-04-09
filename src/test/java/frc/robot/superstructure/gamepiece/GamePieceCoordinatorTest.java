@@ -1,6 +1,7 @@
 package frc.robot.superstructure.gamepiece;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.wpi.first.math.MathUtil;
@@ -145,6 +146,24 @@ class GamePieceCoordinatorTest {
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
 
     command.end(false);
+  }
+
+  @Test
+  void shooterDemandFromAlignTracksAlignState() {
+    configureDefaultMechanismDirections();
+    FakeIndexersIO indexersIO = new FakeIndexersIO();
+    Shooter shooter = new Shooter(new ShooterIO() {});
+    shooter.setCalibrationModeEnabled(false);
+    GamePieceCoordinator coordinator =
+        new GamePieceCoordinator(new Intake(new IntakeIO() {}), new Indexers(indexersIO), shooter);
+
+    assertFalse(coordinator.isShooterDemandFromAlign());
+
+    coordinator.setShooterDemandFromAlign(true);
+    assertTrue(coordinator.isShooterDemandFromAlign());
+
+    coordinator.setShooterDemandFromAlign(false);
+    assertFalse(coordinator.isShooterDemandFromAlign());
   }
 
   @Test

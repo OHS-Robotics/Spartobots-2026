@@ -10,6 +10,7 @@ import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
@@ -475,23 +476,38 @@ public class Drive extends SubsystemBase {
   }
 
   public Command autoDriveUnderTrenchCommand(double goalEndVelocity) {
+    return autoDriveUnderTrenchCommand(goalEndVelocity, pathConstraints);
+  }
+
+  public Command autoDriveUnderTrenchCommand(
+      double goalEndVelocity, PathConstraints trenchPathConstraints) {
     return Commands.defer(
         () -> {
           Translation2d[] trenchPoses = determineTrenchPoses();
           double trenchHeadingRadians = selectTrenchHeadingRadians(getPose(), trenchPoses[1]);
-          return buildTrenchPathCommand(trenchPoses[1], trenchHeadingRadians, goalEndVelocity);
+          return buildTrenchPathCommand(
+              trenchPoses[1], trenchHeadingRadians, goalEndVelocity, trenchPathConstraints);
         },
         Set.of(this));
   }
 
   private Command buildTrenchPathCommand(
-      Translation2d targetPose, double angleRadians, double goalEndVelocity) {
+      Translation2d targetPose,
+      double angleRadians,
+      double goalEndVelocity,
+      PathConstraints trenchPathConstraints) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
     Command trenchPathCommand =
-        alignToHeadingCommand(trenchHeading)
-            .andThen(
-                AutoBuilder.pathfindToPose(
-                    new Pose2d(targetPose, trenchHeading), pathConstraints, goalEndVelocity));
+        Commands.either(
+            AutoBuilder.pathfindToPose(
+                new Pose2d(targetPose, trenchHeading), trenchPathConstraints, goalEndVelocity),
+            alignToHeadingCommand(trenchHeading)
+                .andThen(
+                    AutoBuilder.pathfindToPose(
+                        new Pose2d(targetPose, trenchHeading),
+                        trenchPathConstraints,
+                        goalEndVelocity)),
+            () -> isHeadingAligned(trenchHeading));
     return Math.abs(goalEndVelocity) <= 1e-9
         ? trenchPathCommand.finallyDo(this::stop)
         : trenchPathCommand;
@@ -580,10 +596,68 @@ public class Drive extends SubsystemBase {
     return AutoBuilder.pathfindToPose(target, pathConstraints);
   }
 
-  public Command pathfindToTranslation(Translation2d target) {
+  public Command pathfindToPose(Pose2d target, PathConstraints constraints) {
+    return pathfindToPose(target, constraints, 0.0);
+  }
+
+  public Command pathfindToPose(
+      Pose2d target, PathConstraints constraints, double goalEndVelocity) {
     return Commands.defer(
-        () -> AutoBuilder.pathfindToPose(new Pose2d(target, getRotation()), pathConstraints, 0.0),
+        () -> AutoBuilder.pathfindToPose(target, constraints, goalEndVelocity), Set.of(this));
+  }
+
+  public Command pathfindToPoseWithHeading(Pose2d target, PathConstraints constraints) {
+    return pathfindToPoseWithHeading(target, constraints, 0.0);
+  }
+
+  public Command pathfindToPoseWithHeading(
+      Pose2d target, PathConstraints constraints, double goalEndVelocity) {
+    return pathfindToPoseWithRotationOverride(
+        target, constraints, goalEndVelocity, () -> Optional.of(target.getRotation()));
+  }
+
+  public Command pathfindToPoseWithHubAim(
+      Pose2d target, DoubleSupplier shotAirtimeSecondsSupplier, PathConstraints constraints) {
+    return pathfindToPoseWithRotationOverride(
+        target,
+        constraints,
+        () -> Optional.of(getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble())));
+  }
+
+  public Command pathfindToTranslation(Translation2d target) {
+    return pathfindToTranslation(target, pathConstraints);
+  }
+
+  public Command pathfindToTranslation(Translation2d target, PathConstraints constraints) {
+    return pathfindToTranslation(target, constraints, 0.0);
+  }
+
+  public Command pathfindToTranslation(
+      Translation2d target, PathConstraints constraints, double goalEndVelocity) {
+    return Commands.defer(
+        () ->
+            AutoBuilder.pathfindToPose(
+                new Pose2d(target, getRotation()), constraints, goalEndVelocity),
         Set.of(this));
+  }
+
+  public Command pathfindToTranslationWithHubAim(
+      Translation2d target,
+      DoubleSupplier shotAirtimeSecondsSupplier,
+      PathConstraints constraints) {
+    return pathfindToTranslationWithHubAim(target, shotAirtimeSecondsSupplier, constraints, 0.0);
+  }
+
+  public Command pathfindToTranslationWithHubAim(
+      Translation2d target,
+      DoubleSupplier shotAirtimeSecondsSupplier,
+      PathConstraints constraints,
+      double goalEndVelocity) {
+    return pathfindToTranslationWithRotationOverride(
+        target,
+        constraints,
+        goalEndVelocity,
+        () -> Optional.of(getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble())));
   }
 
   public Command followNamedPath(String pathName) {
@@ -596,8 +670,26 @@ public class Drive extends SubsystemBase {
 
   public Command pathfindToTranslationAndAlignToHub(
       Translation2d target, DoubleSupplier shotAirtimeSecondsSupplier) {
+    return pathfindToTranslationAndAlignToHub(target, shotAirtimeSecondsSupplier, pathConstraints);
+  }
+
+  public Command pathfindToTranslationAndAlignToHub(
+      Translation2d target,
+      DoubleSupplier shotAirtimeSecondsSupplier,
+      PathConstraints constraints) {
+    return pathfindToTranslationAndAlignToHub(target, shotAirtimeSecondsSupplier, constraints, 0.0);
+  }
+
+  public Command pathfindToTranslationAndAlignToHub(
+      Translation2d target,
+      DoubleSupplier shotAirtimeSecondsSupplier,
+      PathConstraints constraints,
+      double goalEndVelocity) {
     return pathfindToTranslationWithRotationOverride(
-            target, () -> Optional.of(getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble())))
+            target,
+            constraints,
+            goalEndVelocity,
+            () -> Optional.of(getHubAimRotation(shotAirtimeSecondsSupplier.getAsDouble())))
         .andThen(alignToHub(() -> 0.0, () -> 0.0, shotAirtimeSecondsSupplier));
   }
 
@@ -687,7 +779,43 @@ public class Drive extends SubsystemBase {
 
   private Command pathfindToTranslationWithRotationOverride(
       Translation2d target, Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
-    return pathfindToTranslation(target)
+    return pathfindToTranslationWithRotationOverride(
+        target, pathConstraints, rotationTargetOverrideSupplier);
+  }
+
+  private Command pathfindToTranslationWithRotationOverride(
+      Translation2d target,
+      PathConstraints constraints,
+      Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
+    return pathfindToTranslationWithRotationOverride(
+        target, constraints, 0.0, rotationTargetOverrideSupplier);
+  }
+
+  private Command pathfindToTranslationWithRotationOverride(
+      Translation2d target,
+      PathConstraints constraints,
+      double goalEndVelocity,
+      Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
+    return pathfindToTranslation(target, constraints, goalEndVelocity)
+        .beforeStarting(
+            () -> pathController.setRotationTargetOverride(rotationTargetOverrideSupplier))
+        .finallyDo(pathController::clearRotationTargetOverride);
+  }
+
+  private Command pathfindToPoseWithRotationOverride(
+      Pose2d target,
+      PathConstraints constraints,
+      Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
+    return pathfindToPoseWithRotationOverride(
+        target, constraints, 0.0, rotationTargetOverrideSupplier);
+  }
+
+  private Command pathfindToPoseWithRotationOverride(
+      Pose2d target,
+      PathConstraints constraints,
+      double goalEndVelocity,
+      Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
+    return pathfindToPose(target, constraints, goalEndVelocity)
         .beforeStarting(
             () -> pathController.setRotationTargetOverride(rotationTargetOverrideSupplier))
         .finallyDo(pathController::clearRotationTargetOverride);

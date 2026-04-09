@@ -25,6 +25,7 @@ import frc.robot.subsystems.gamepiece.intake.Intake;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.subsystems.gamepiece.shooter.ShooterConstants;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
+import frc.robot.targeting.HubTargetingGeometry;
 import frc.robot.util.NetworkTablesUtil;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -34,6 +35,7 @@ import org.littletonrobotics.junction.Logger;
 public class FieldSimulationManager {
   private static final Pose2d simStartPose = Constants.simulationStartPose;
   private static final Pose3d[] emptyPose3dArray = new Pose3d[] {};
+  private static final String fuelGamePieceType = "Fuel";
   private static final double hubTopLengthYMeters = Units.inchesToMeters(47.0);
   private static final double hubRampLengthYMeters = Units.inchesToMeters(73.0);
   private static final double hubWidthXMeters = Units.inchesToMeters(47.0);
@@ -125,8 +127,9 @@ public class FieldSimulationManager {
         NetworkTablesUtil.logPath("Simulation/Shooter/ShotTrajectory"), emptyPose3dArray);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Simulation/Shooter/ActiveFuelProjectiles"), emptyPose3dArray);
+    Pose3d[] fuelGamePiecePoses = getFuelGamePiecePoses(arena);
     Logger.recordOutput(
-        NetworkTablesUtil.logPath("Simulation/Field/GamePieces/Fuel"), emptyPose3dArray);
+        NetworkTablesUtil.logPath("Simulation/Field/GamePieces/Fuel"), fuelGamePiecePoses);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Simulation/Shooter/LastLaunchSpeedMetersPerSec"), 0.0);
     Logger.recordOutput(
@@ -157,8 +160,9 @@ public class FieldSimulationManager {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Simulation/Field/RobotParts/SwerveModules"),
         getSimulatedModulePoses(robotPose, humpPoseSample));
+    Pose3d[] fuelGamePiecePoses = getFuelGamePiecePoses(arena);
     Logger.recordOutput(
-        NetworkTablesUtil.logPath("Simulation/Field/GamePieces/Fuel"), emptyPose3dArray);
+        NetworkTablesUtil.logPath("Simulation/Field/GamePieces/Fuel"), fuelGamePiecePoses);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Simulation/Field/GamePieces/Note"),
         arena.getGamePiecesArrayByType("Note"));
@@ -208,7 +212,7 @@ public class FieldSimulationManager {
     RebuiltFuelOnFly projectile =
         new RebuiltFuelOnFly(
             robotPose.getTranslation(),
-            ShooterConstants.shooterMuzzleOffsetOnRobot,
+            getMapleSimShooterOffsetOnRobot(),
             fieldRelativeSpeeds,
             shooterFacing,
             Meters.of(shooter.getLaunchHeightMeters()),
@@ -268,8 +272,8 @@ public class FieldSimulationManager {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("Simulation/Shooter/LastLaunchPose3d"),
         new Pose3d(
-            robotPose.getX(),
-            robotPose.getY(),
+            getSimulatedLaunchOrigin(robotPose).getX(),
+            getSimulatedLaunchOrigin(robotPose).getY(),
             shooter.getLaunchHeightMeters(),
             new Rotation3d(0.0, -launchPitch.getRadians(), shooterFacing.getRadians())));
   }
@@ -309,9 +313,24 @@ public class FieldSimulationManager {
 
   private Pose3d[] getActiveFuelProjectilePoses(SimulatedArena arena) {
     return arena.gamePieceLaunched().stream()
-        .filter(projectile -> "Fuel".equals(projectile.getType()))
+        .filter(projectile -> fuelGamePieceType.equals(projectile.getType()))
         .map(projectile -> projectile.getPose3d())
         .toArray(Pose3d[]::new);
+  }
+
+  static Pose3d[] getFuelGamePiecePoses(SimulatedArena arena) {
+    return arena.getGamePiecesArrayByType(fuelGamePieceType);
+  }
+
+  static Translation2d getMapleSimShooterOffsetOnRobot() {
+    // MapleSim rotates this offset by the shooter facing direction, so convert our normal
+    // robot-frame muzzle offset into that frame before constructing the projectile.
+    return ShooterConstants.shooterMuzzleOffsetOnRobot.rotateBy(
+        Rotation2d.fromRadians(-ShooterConstants.shooterFacingOffset.getRadians()));
+  }
+
+  static Translation2d getSimulatedLaunchOrigin(Pose2d robotPose) {
+    return HubTargetingGeometry.getLaunchOriginFieldPosition(robotPose);
   }
 
   private boolean isApproachingFieldWall(Pose2d robotPose, ChassisSpeeds fieldSpeeds) {

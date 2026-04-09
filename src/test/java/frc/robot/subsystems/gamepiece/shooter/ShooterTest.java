@@ -255,6 +255,64 @@ class ShooterTest {
   }
 
   @Test
+  void shotControlCanSkipWheelPowerSoftRampForAuto() {
+    FakeShooterIO rampedIo = new FakeShooterIO();
+    Shooter rampedShooter = new Shooter(rampedIo);
+    rampedShooter.setCalibrationModeEnabled(false);
+    rampedShooter.updateHubShotSolution(
+        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    FakeShooterIO fullPowerIo = new FakeShooterIO();
+    Shooter fullPowerShooter = new Shooter(fullPowerIo);
+    fullPowerShooter.setCalibrationModeEnabled(false);
+    fullPowerShooter.updateHubShotSolution(
+        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    rampedShooter.setShotControlEnabled(true);
+    fullPowerShooter.setShotControlEnabled(true, true);
+    rampedShooter.periodic();
+    fullPowerShooter.periodic();
+
+    assertTrue(fullPowerIo.pair1SetpointRadPerSec > rampedIo.pair1SetpointRadPerSec);
+    assertTrue(fullPowerIo.pair2SetpointRadPerSec > rampedIo.pair2SetpointRadPerSec);
+  }
+
+  @Test
+  void simulatedShotTriggersDuringAutoFeedWindow() {
+    Shooter shooter = new Shooter(new ShooterIOSim());
+    shooter.setCalibrationModeEnabled(false);
+    Pose2d hubPose = new Pose2d(5.0, 2.0, Rotation2d.kZero);
+    Pose2d robotPose =
+        new Pose2d(
+            2.0,
+            2.0,
+            HubTargetingGeometry.getRobotRotationToAimAtHub(
+                new Pose2d(2.0, 2.0, Rotation2d.kZero), hubPose));
+    shooter.updateHubShotSolution(robotPose, hubPose);
+    shooter.setShotControlEnabled(true, true);
+
+    boolean shotTriggered = false;
+    for (int cycle = 0; cycle < 175; cycle++) {
+      shooter.periodic();
+      double timestampSeconds = cycle * 0.02;
+      double feedRateRatio = timestampSeconds >= 0.5 ? 1.0 : 0.0;
+      shotTriggered |= shooter.shouldTriggerSimulatedShot(timestampSeconds, feedRateRatio);
+    }
+
+    assertTrue(
+        shotTriggered,
+        () ->
+            "expected simulated shot during feed window; spinupComplete="
+                + shooter.isSpinupComplete()
+                + ", launchSpeed="
+                + shooter.getEstimatedLaunchSpeedFromMeasuredWheelsMetersPerSec()
+                + ", pair1Command="
+                + shooter.getPair1WheelSetpointRadPerSec()
+                + ", pair2Command="
+                + shooter.getPair2WheelSetpointRadPerSec());
+  }
+
+  @Test
   void shooterSpinDownRampsWheelCommandAfterDemandEnds() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);

@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
@@ -32,10 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 class AutoRoutinesTest {
-  private static final String competitionAutoName =
-      "Competition: Outpost -> Shoot -> Reload -> Shoot";
-  private static final String doNothingAutoName = "Do Nothing";
-  private static final String testAutoName = "Test";
+  private static final String competitionAutoName = "Competition: Hub Cycle";
   private static final Pattern namedCommandPattern =
       Pattern.compile(
           "\"type\"\\s*:\\s*\"named\"\\s*,\\s*\"data\"\\s*:\\s*\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"",
@@ -49,10 +48,8 @@ class AutoRoutinesTest {
   }
 
   @Test
-  void exposesOnlyCompetitionAutoAndDoNothing() {
-    assertArrayEquals(
-        new String[] {competitionAutoName, doNothingAutoName, testAutoName},
-        autoRoutines.getAutoOptionNames());
+  void exposesOnlyCompetitionAuto() {
+    assertArrayEquals(new String[] {competitionAutoName}, autoRoutines.getAutoOptionNames());
   }
 
   @Test
@@ -85,6 +82,22 @@ class AutoRoutinesTest {
     runToCompletion(autoRoutines.buildCompetitionShotCommandForTest(true, false));
 
     assertEquals("SKIPPED_NO_SHOT_WINDOW", autoRoutines.getCompetitionAutoShotState());
+  }
+
+  @Test
+  void selectsDriverStationRelativeTrenchHeadingByDirectionOfTravel() {
+    assertEquals(
+        Rotation2d.kZero.getRadians(),
+        AutoRoutines.selectDriverStationRelativeTrenchHeading(
+                new Translation2d(3.0, 1.0), new Translation2d(6.0, 0.9))
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kPi.getRadians(),
+        AutoRoutines.selectDriverStationRelativeTrenchHeading(
+                new Translation2d(13.0, 7.0), new Translation2d(10.0, 7.1))
+            .getRadians(),
+        1e-9);
   }
 
   @Test

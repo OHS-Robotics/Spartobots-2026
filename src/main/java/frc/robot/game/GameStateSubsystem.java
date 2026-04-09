@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.util.NetworkTablesUtil;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -22,6 +23,7 @@ public class GameStateSubsystem extends SubsystemBase {
 
   private final Supplier<String> gameDataSupplier;
   private final DoubleSupplier timestampSupplier;
+  private final BooleanSupplier autonomousEnabledSupplier;
 
   private final NetworkTable gameStateTable = NetworkTablesUtil.state("Game");
   private final NetworkTableEntry rawGameDataEntry = gameStateTable.getEntry("RawGameData");
@@ -36,12 +38,24 @@ public class GameStateSubsystem extends SubsystemBase {
   private boolean gameDataValid = false;
 
   public GameStateSubsystem() {
-    this(DriverStation::getGameSpecificMessage, Timer::getFPGATimestamp);
+    this(
+        DriverStation::getGameSpecificMessage,
+        Timer::getFPGATimestamp,
+        DriverStation::isAutonomousEnabled);
   }
 
   GameStateSubsystem(Supplier<String> gameDataSupplier, DoubleSupplier timestampSupplier) {
+    this(gameDataSupplier, timestampSupplier, () -> false);
+  }
+
+  GameStateSubsystem(
+      Supplier<String> gameDataSupplier,
+      DoubleSupplier timestampSupplier,
+      BooleanSupplier autonomousEnabledSupplier) {
     this.gameDataSupplier = gameDataSupplier != null ? gameDataSupplier : () -> "";
     this.timestampSupplier = timestampSupplier != null ? timestampSupplier : () -> 0.0;
+    this.autonomousEnabledSupplier =
+        autonomousEnabledSupplier != null ? autonomousEnabledSupplier : () -> false;
   }
 
   @Override
@@ -71,7 +85,9 @@ public class GameStateSubsystem extends SubsystemBase {
     double nowSeconds = timestampSupplier.getAsDouble();
 
     gameDataValid = parsedHubState != HubState.UNKNOWN;
-    if (gameDataValid) {
+    if (autonomousEnabledSupplier.getAsBoolean()) {
+      hubState = HubState.ACTIVE;
+    } else if (gameDataValid) {
       hubState = parsedHubState;
       lastValidHubState = parsedHubState;
       lastValidTimestampSeconds = nowSeconds;

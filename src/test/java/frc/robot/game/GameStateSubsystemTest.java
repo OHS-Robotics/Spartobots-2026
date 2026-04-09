@@ -29,4 +29,24 @@ class GameStateSubsystemTest {
     subsystem.periodic();
     assertEquals(HubState.INACTIVE, subsystem.getHubState());
   }
+
+  @Test
+  void autonomousForcesHubActiveWithoutGameData() {
+    AtomicReference<String> rawGameData = new AtomicReference<>("");
+    GameStateSubsystem subsystem = new GameStateSubsystem(rawGameData::get, () -> 0.0, () -> true);
+
+    subsystem.periodic();
+
+    assertEquals(HubState.ACTIVE, subsystem.getHubState());
+  }
+
+  @Test
+  void autonomousForcesHubActiveOverInactiveGameData() {
+    AtomicReference<String> rawGameData = new AtomicReference<>("I");
+    GameStateSubsystem subsystem = new GameStateSubsystem(rawGameData::get, () -> 0.0, () -> true);
+
+    subsystem.periodic();
+
+    assertEquals(HubState.ACTIVE, subsystem.getHubState());
+  }
 }

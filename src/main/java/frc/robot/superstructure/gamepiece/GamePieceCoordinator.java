@@ -138,6 +138,10 @@ public class GamePieceCoordinator {
     refreshShooterControlDemand();
   }
 
+  public boolean isShooterDemandFromAlign() {
+    return shooterDemandFromAlign;
+  }
+
   public void onDisabledInit() {
     shooterDemandFromAlign = false;
     shooterDemandFromTriggerThrottle = 0.0;
