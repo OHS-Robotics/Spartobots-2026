@@ -27,6 +27,7 @@ public class Intake extends SubsystemBase {
   private double lastAppliedIntakePivotSpeed = 0.0;
   private boolean intakePivotSweepPhaseInitialized = false;
   private double intakePivotSweepPhaseRadians = 0.0;
+  private boolean intakePivotManualFeedPulseActive = false;
   private double intakePivotRetractedPositionRotations =
       IntakeConstants.defaultIntakePivotRetractedPositionRotations;
   private double intakePivotExtendedPositionRotations =
@@ -219,40 +220,19 @@ public class Intake extends SubsystemBase {
   }
 
   public void sweepIntakePivotBetweenCalibratedLimits(double speedMagnitude) {
-    if (intakePivotCalibrationActive || calibrationModeEnabled) {
-      return;
-    }
+    sweepIntakePivotBetweenLimits(
+        speedMagnitude,
+        getIntakePivotSweepRetractedLimitRotations(),
+        getIntakePivotSweepExtendedLimitRotations(),
+        false);
+  }
 
-    double appliedSpeedMagnitude = clampSpeed(Math.abs(speedMagnitude));
-    if (appliedSpeedMagnitude <= 1e-6) {
-      stopIntakePivot();
-      return;
-    }
-
-    double sweepRetractedLimitRotations = getIntakePivotSweepRetractedLimitRotations();
-    double sweepExtendedLimitRotations = getIntakePivotSweepExtendedLimitRotations();
-    if (Math.abs(sweepExtendedLimitRotations - sweepRetractedLimitRotations) <= 1e-6) {
-      stopIntakePivot();
-      return;
-    }
-
-    if (!intakePivotSweepPhaseInitialized) {
-      intakePivotSweepPhaseRadians =
-          getInitialIntakePivotSweepPhaseRadians(
-              sweepRetractedLimitRotations, sweepExtendedLimitRotations);
-      intakePivotSweepPhaseInitialized = true;
-    } else {
-      intakePivotSweepPhaseRadians =
-          MathUtil.angleModulus(
-              intakePivotSweepPhaseRadians
-                  + getIntakePivotSweepPhaseStepRadians(appliedSpeedMagnitude));
-    }
-
-    setIntakePivotPositionRotations(
-        getIntakePivotSweepTargetRotations(
-            sweepRetractedLimitRotations,
-            sweepExtendedLimitRotations,
-            intakePivotSweepPhaseRadians));
+  public void sweepIntakePivotBetweenManualFeedLimits(double speedMagnitude) {
+    sweepIntakePivotBetweenLimits(
+        speedMagnitude,
+        getIntakePivotManualFeedLowerLimitRotations(),
+        getIntakePivotSweepExtendedLimitRotations(),
+        true);
   }
 
   public void setIntakePivotPositionRotations(double positionRotations) {
@@ -269,8 +249,13 @@ public class Intake extends SubsystemBase {
     }
     intakePivotSweepPhaseInitialized = false;
     intakePivotSweepPhaseRadians = 0.0;
+    intakePivotManualFeedPulseActive = false;
     lastAppliedIntakePivotSpeed = 0.0;
     io.setPivotOutput(0.0);
+  }
+
+  public boolean shouldPulseIntakeDriveDuringManualFeed() {
+    return intakePivotManualFeedPulseActive;
   }
 
   public Command manualIntakePivotWhileHeldCommand(double speed) {
@@ -659,8 +644,71 @@ public class Intake extends SubsystemBase {
         1.0 - getIntakePivotSweepHardStopInsetNormalized());
   }
 
+  private double getIntakePivotManualFeedLowerLimitRotations() {
+    return MathUtil.interpolate(
+        intakePivotRetractedPositionRotations,
+        intakePivotExtendedPositionRotations,
+        MathUtil.clamp(IntakeConstants.intakePivotManualFeedLowerLimitNormalized, 0.0, 1.0));
+  }
+
   private double getIntakePivotSweepHardStopInsetNormalized() {
     return MathUtil.clamp(IntakeConstants.intakePivotSweepHardStopInsetNormalized, 0.0, 0.5);
+  }
+
+  private void sweepIntakePivotBetweenLimits(
+      double speedMagnitude,
+      double sweepRetractedLimitRotations,
+      double sweepExtendedLimitRotations,
+      boolean updateManualFeedPulseActive) {
+    intakePivotManualFeedPulseActive = false;
+    if (intakePivotCalibrationActive || calibrationModeEnabled) {
+      return;
+    }
+
+    double appliedSpeedMagnitude = clampSpeed(Math.abs(speedMagnitude));
+    if (appliedSpeedMagnitude <= 1e-6) {
+      stopIntakePivot();
+      return;
+    }
+
+    if (Math.abs(sweepExtendedLimitRotations - sweepRetractedLimitRotations) <= 1e-6) {
+      stopIntakePivot();
+      return;
+    }
+
+    if (!intakePivotSweepPhaseInitialized) {
+      intakePivotSweepPhaseRadians =
+          getInitialIntakePivotSweepPhaseRadians(
+              sweepRetractedLimitRotations, sweepExtendedLimitRotations);
+      intakePivotSweepPhaseInitialized = true;
+    } else {
+      intakePivotSweepPhaseRadians =
+          MathUtil.angleModulus(
+              intakePivotSweepPhaseRadians
+                  + getIntakePivotSweepPhaseStepRadians(appliedSpeedMagnitude));
+    }
+
+    setIntakePivotPositionRotations(
+        getIntakePivotSweepTargetRotations(
+            sweepRetractedLimitRotations,
+            sweepExtendedLimitRotations,
+            intakePivotSweepPhaseRadians));
+    if (updateManualFeedPulseActive) {
+      intakePivotManualFeedPulseActive = isIntakePivotManualFeedPulseWindowActive();
+    }
+  }
+
+  private boolean isIntakePivotManualFeedPulseWindowActive() {
+    return getIntakePivotSweepNormalizedPosition()
+        >= 1.0 - getIntakePivotManualFeedPulseWindowNormalized();
+  }
+
+  private double getIntakePivotSweepNormalizedPosition() {
+    return MathUtil.clamp(0.5 + (0.5 * Math.sin(intakePivotSweepPhaseRadians)), 0.0, 1.0);
+  }
+
+  private double getIntakePivotManualFeedPulseWindowNormalized() {
+    return MathUtil.clamp(IntakeConstants.intakePivotManualFeedPulseWindowNormalized, 0.0, 0.5);
   }
 
   private void startIntakePivotCalibration() {
@@ -811,6 +859,9 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Intake/State/LastAppliedPivotOutput"),
         lastAppliedIntakePivotSpeed);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Intake/State/ManualFeedDrivePulseActive"),
+        intakePivotManualFeedPulseActive);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Intake/State/ActualDriveOutput"),
         inputs.driveAppliedOutput);

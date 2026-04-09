@@ -10,7 +10,7 @@ The default layout supports either Xbox controller on USB port 0 or 1. Driver tr
 | Right stick X | Rotate the robot |
 | Right stick press | Hold hub auto-align and shooter demand together |
 | Right trigger | Hold shooter demand with trigger-based throttle scaling |
-| Left trigger | Hold manual feed plus indexers |
+| Left trigger | Hold manual feed plus indexers; the intake pivots through the upper half of travel and pulses the rollers near full extension |
 | Left bumper | Cancel the active auto-assist |
 | Right bumper | Schedule `AutoAssist/DriveUnderTrench` |
 | Left stick press | Hold X-lock on the swerve modules |

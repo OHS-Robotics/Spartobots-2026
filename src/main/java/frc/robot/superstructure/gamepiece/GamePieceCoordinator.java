@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.intake.Intake;
+import frc.robot.subsystems.gamepiece.intake.IntakeConstants;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.util.NetworkTablesUtil;
 import java.util.function.DoubleSupplier;
@@ -57,17 +58,15 @@ public class GamePieceCoordinator {
   public Command runManualFeedAndIndexersWhileHeldCommand(DoubleSupplier throttleSupplier) {
     return Commands.runEnd(
             () -> applyManualFeed(throttleSupplier.getAsDouble()),
-            () -> {
-              intake.stopIntake();
-              intake.stopIntakePivot();
-              indexers.stopIndexers();
-            },
+            this::stopGamePieceFlow,
             intake,
             indexers)
         .beforeStarting(
-            () ->
-                sharedIndexerBreakawayUntilTimestampSeconds =
-                    Timer.getFPGATimestamp() + SHARED_INDEXER_BREAKAWAY_SECONDS);
+            () -> {
+              sharedIndexerBreakawayUntilTimestampSeconds =
+                  Timer.getFPGATimestamp() + SHARED_INDEXER_BREAKAWAY_SECONDS;
+              intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
+            });
   }
 
   public void applyBasicCollect(boolean runIndexers) {
@@ -125,6 +124,7 @@ public class GamePieceCoordinator {
 
   public void stopGamePieceFlow() {
     intake.stopIntake();
+    intake.stopIntakePivot();
     indexers.stopIndexers();
     recordMode("IDLE");
   }
@@ -150,15 +150,25 @@ public class GamePieceCoordinator {
   }
 
   private void applyManualFeed(double throttle) {
-    intake.stopIntake();
     double throttleScale = getManualFeedThrottleScale(throttle);
-    intake.sweepIntakePivotBetweenCalibratedLimits(throttleScale);
     boolean allowFeedPath = ShooterFeedInterlock.shouldRunIndexerDuringManualFeed(true);
     if (!allowFeedPath) {
+      intake.stopIntake();
+      intake.stopIntakePivot();
       indexers.stopIndexers();
       recordMode("MANUAL_FEED_INTERLOCKED");
       Logger.recordOutput(logRoot + "/State/ManualFeedThrottleScale", throttleScale);
+      Logger.recordOutput(logRoot + "/State/ManualFeedDrivePulseActive", false);
       return;
+    }
+
+    intake.sweepIntakePivotBetweenManualFeedLimits(throttleScale);
+    boolean pulseIntakeDrive = intake.shouldPulseIntakeDriveDuringManualFeed();
+    if (pulseIntakeDrive) {
+      intake.setTargetIntakeSpeed(IntakeConstants.defaultIntakeSpeed);
+      intake.updateIntake();
+    } else {
+      intake.stopIntake();
     }
 
     boolean inSharedIndexerBreakaway =
@@ -170,6 +180,7 @@ public class GamePieceCoordinator {
     indexers.setManualOutputs(sharedIndexerOutput, beltOutput);
     recordMode("MANUAL_FEED");
     Logger.recordOutput(logRoot + "/State/ManualFeedThrottleScale", throttleScale);
+    Logger.recordOutput(logRoot + "/State/ManualFeedDrivePulseActive", pulseIntakeDrive);
   }
 
   private double getManualFeedThrottleScale(double throttle) {

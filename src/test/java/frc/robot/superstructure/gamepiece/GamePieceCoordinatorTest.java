@@ -112,7 +112,8 @@ class GamePieceCoordinatorTest {
 
     assertEquals(-1.0, indexersIO.topOutput, 1e-9);
     assertEquals(1.0, indexersIO.bottomOutput, 1e-9);
-    assertEquals(getExpectedSweepSetpoint(intake, 0.5, 1.0), intakeIO.pivotSetpoint, 1e-9);
+    assertEquals(
+        getExpectedManualFeedSweepSetpoint(intake, 0.5, 1.0), intakeIO.pivotSetpoint, 1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
 
     command.end(false);
@@ -139,7 +140,8 @@ class GamePieceCoordinatorTest {
 
     assertEquals(-1.0, indexersIO.topOutput, 1e-9);
     assertEquals(1.0, indexersIO.bottomOutput, 1e-9);
-    assertEquals(getExpectedSweepSetpoint(intake, 0.5, 1.0), intakeIO.pivotSetpoint, 1e-9);
+    assertEquals(
+        getExpectedManualFeedSweepSetpoint(intake, 0.5, 1.0), intakeIO.pivotSetpoint, 1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
 
     command.end(false);
@@ -167,10 +169,45 @@ class GamePieceCoordinatorTest {
     command.execute();
 
     assertEquals(
-        getExpectedSweepSetpoint(intake, 0.5, expectedThrottleScale), intakeIO.pivotSetpoint, 1e-9);
+        getExpectedManualFeedSweepSetpoint(intake, 0.5, expectedThrottleScale),
+        intakeIO.pivotSetpoint,
+        1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
     assertEquals(-expectedThrottleScale, indexersIO.topOutput, 1e-9);
     assertEquals(expectedThrottleScale, indexersIO.bottomOutput, 1e-9);
+
+    command.end(false);
+  }
+
+  @Test
+  void manualFeedPulsesIntakeDriveAtExtendedLimit() {
+    configureDefaultMechanismDirections();
+    FakeIntakeIO intakeIO = new FakeIntakeIO();
+    Intake intake = new Intake(intakeIO);
+    intake.periodic();
+    double manualFeedLowerLimit = getManualFeedSweepLowerLimit(intake);
+    double manualFeedExtendedLimit = getSweepExtendedLimit(intake);
+    intakeIO.pivotPositionRotations = manualFeedExtendedLimit;
+    intake.periodic();
+    FakeIndexersIO indexersIO = new FakeIndexersIO();
+    Shooter shooter = new Shooter(new ShooterIO() {});
+    shooter.setCalibrationModeEnabled(false);
+    GamePieceCoordinator coordinator =
+        new GamePieceCoordinator(intake, new Indexers(indexersIO), shooter);
+
+    Command command = coordinator.runManualFeedAndIndexersWhileHeldCommand(() -> 1.0);
+
+    command.initialize();
+    command.execute();
+    command.execute();
+    command.execute();
+
+    assertTrue(Double.isFinite(intakeIO.pivotSetpoint));
+    assertTrue(intakeIO.pivotSetpoint >= manualFeedLowerLimit - 1e-9);
+    assertTrue(intakeIO.pivotSetpoint <= manualFeedExtendedLimit + 1e-9);
+    assertTrue(Math.abs(intakeIO.driveOutput) > 1e-9);
+    assertEquals(-1.0, indexersIO.topOutput, 1e-9);
+    assertEquals(1.0, indexersIO.bottomOutput, 1e-9);
 
     command.end(false);
   }
@@ -205,9 +242,9 @@ class GamePieceCoordinatorTest {
     command.end(false);
   }
 
-  private static double getExpectedSweepSetpoint(
+  private static double getExpectedManualFeedSweepSetpoint(
       Intake intake, double startingPositionRotations, double throttleScale) {
-    double sweepRetractedLimit = getSweepRetractedLimit(intake);
+    double sweepRetractedLimit = getManualFeedSweepLowerLimit(intake);
     double sweepExtendedLimit = getSweepExtendedLimit(intake);
     double sweepMidpoint = 0.5 * (sweepRetractedLimit + sweepExtendedLimit);
     double sweepHalfTravel = 0.5 * (sweepExtendedLimit - sweepRetractedLimit);
@@ -226,6 +263,13 @@ class GamePieceCoordinatorTest {
         sweepMidpoint + (sweepHalfTravel * Math.sin(initialSweepPhase + sweepPhaseStep)),
         Math.min(sweepRetractedLimit, sweepExtendedLimit),
         Math.max(sweepRetractedLimit, sweepExtendedLimit));
+  }
+
+  private static double getManualFeedSweepLowerLimit(Intake intake) {
+    return MathUtil.interpolate(
+        intake.getIntakePivotRetractedPositionRotations(),
+        intake.getIntakePivotExtendedPositionRotations(),
+        IntakeConstants.intakePivotManualFeedLowerLimitNormalized);
   }
 
   private static double getSweepRetractedLimit(Intake intake) {
