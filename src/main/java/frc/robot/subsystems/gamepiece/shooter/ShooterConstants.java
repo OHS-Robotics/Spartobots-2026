@@ -109,8 +109,8 @@ public final class ShooterConstants {
   public static final double hoodRetractedHardStopReferenceRotations = 0.0;
   // Keep this slow, but still high enough to trip the hood stall-current threshold at the hard
   // stop.
-  public static final double hoodHomingOutputTowardRetractedHardStop = -0.12;
-  public static final double hoodHomingOutputTowardExtendedHardStop = 0.12;
+  public static final double hoodHomingOutputTowardRetractedHardStop = -0.1;
+  public static final double hoodHomingOutputTowardExtendedHardStop = 0.1;
   public static final double hoodHomingMinCurrentAmps = 18.0;
   public static final double hoodHomingMaxVelocityRotationsPerSec = 0.08;
   public static final double hoodHomingRelaxBeforeCalibrationSeconds = 1.0;

@@ -205,7 +205,9 @@ public class GamePieceCoordinator {
             ? (shooterDemandFromAlign ? 1.0 : shooterDemandFromTriggerThrottle)
             : 1.0;
     shooter.setOperatorWheelThrottleScale(shooterThrottleScale);
-    shooter.setShotControlEnabled(shooterDemandEnabled);
+    // Hub align is an assist mode, so skip the soft teleop spool ramp and let the existing
+    // velocity ramp start accelerating the flywheel immediately.
+    shooter.setShotControlEnabled(shooterDemandEnabled, shooterDemandFromAlign);
   }
 
   private void recordMode(String mode) {

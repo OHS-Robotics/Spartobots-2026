@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.gamepiece.indexers.Indexers;
 import frc.robot.subsystems.gamepiece.indexers.IndexersConstants;
@@ -13,6 +15,7 @@ import frc.robot.subsystems.gamepiece.intake.Intake;
 import frc.robot.subsystems.gamepiece.intake.IntakeConstants;
 import frc.robot.subsystems.gamepiece.intake.IntakeIO;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
+import frc.robot.subsystems.gamepiece.shooter.ShooterConstants;
 import frc.robot.subsystems.gamepiece.shooter.ShooterIO;
 import frc.robot.util.NetworkTablesUtil;
 import org.junit.jupiter.api.Test;
@@ -164,6 +167,42 @@ class GamePieceCoordinatorTest {
 
     coordinator.setShooterDemandFromAlign(false);
     assertFalse(coordinator.isShooterDemandFromAlign());
+  }
+
+  @Test
+  void shooterDemandFromAlignSkipsSoftSpinupRamp() {
+    FakeShooterIO alignIo = new FakeShooterIO();
+    Shooter alignShooter = new Shooter(alignIo);
+    alignShooter.setCalibrationModeEnabled(false);
+    alignShooter.updateHubShotSolution(
+        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    FakeShooterIO triggerIo = new FakeShooterIO();
+    Shooter triggerShooter = new Shooter(triggerIo);
+    triggerShooter.setCalibrationModeEnabled(false);
+    triggerShooter.updateHubShotSolution(
+        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    GamePieceCoordinator alignCoordinator =
+        new GamePieceCoordinator(
+            new Intake(new IntakeIO() {}), new Indexers(new IndexersIO() {}), alignShooter);
+    GamePieceCoordinator triggerCoordinator =
+        new GamePieceCoordinator(
+            new Intake(new IntakeIO() {}), new Indexers(new IndexersIO() {}), triggerShooter);
+
+    Command triggerDemandCommand = triggerCoordinator.runShooterDemandWhileHeldCommand(() -> 1.0);
+
+    alignCoordinator.setShooterDemandFromAlign(true);
+    triggerDemandCommand.initialize();
+    triggerDemandCommand.execute();
+
+    alignShooter.periodic();
+    triggerShooter.periodic();
+
+    assertTrue(alignIo.pair1SetpointRadPerSec > triggerIo.pair1SetpointRadPerSec);
+    assertTrue(alignIo.pair2SetpointRadPerSec > triggerIo.pair2SetpointRadPerSec);
+
+    triggerDemandCommand.end(false);
   }
 
   @Test
@@ -381,6 +420,25 @@ class GamePieceCoordinatorTest {
     @Override
     public void setBottomOutput(double output) {
       bottomOutput = output;
+    }
+  }
+
+  private static class FakeShooterIO implements ShooterIO {
+    double pair1SetpointRadPerSec = 0.0;
+    double pair2SetpointRadPerSec = 0.0;
+
+    @Override
+    public void updateInputs(ShooterIOInputs inputs) {
+      inputs.pair1Connected = true;
+      inputs.pair2Connected = true;
+      inputs.hoodConnected = true;
+      inputs.hoodPositionRotations = ShooterConstants.defaultHoodRetractedPositionRotations;
+    }
+
+    @Override
+    public void setWheelVelocitySetpoints(double pair1RadPerSec, double pair2RadPerSec) {
+      pair1SetpointRadPerSec = pair1RadPerSec;
+      pair2SetpointRadPerSec = pair2RadPerSec;
     }
   }
 }
