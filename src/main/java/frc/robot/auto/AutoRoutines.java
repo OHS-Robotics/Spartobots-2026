@@ -30,24 +30,21 @@ public class AutoRoutines {
   private static final double competitionAutoDriverStationRetreatMeters = 1.0;
   private static final double competitionAutoInitialRetreatTimeoutSeconds = 3.0;
   private static final double competitionAutoAimBeforeFeedSeconds = 0.5;
+  private static final double competitionAutoPoint5ReadyWaitTimeoutSeconds = 2.0;
   private static final double competitionAutoHubShotFeedSeconds = 3.0;
-  private static final double competitionAutoPoint5ShotSeconds =
-      competitionAutoAimBeforeFeedSeconds + competitionAutoHubShotFeedSeconds;
   private static final double competitionAutoPointDriveTimeoutSeconds = 4.0;
   private static final double competitionAutoPoint5ToPoint2TimeoutSeconds = 6.0;
   private static final double competitionAutoIntakeDriveTimeoutSeconds = 4.5;
   private static final double competitionAutoBumpDriveTimeoutSeconds = 3.0;
-  private static final double competitionAutoFastVelocityMetersPerSecond = 4.0;
+  private static final double competitionAutoFastVelocityMetersPerSecond =
+      DriveConstants.maxSpeedMetersPerSec * (2.0 / 3.0);
+  private static final double competitionAutoIntakeVelocityMetersPerSecond = 1.0;
   private static final PathConstraints competitionAutoFastPathConstraints =
-      new PathConstraints(
-          competitionAutoFastVelocityMetersPerSecond,
-          DriveConstants.maxAccelerationMeterPerSecSquared,
-          DriveConstants.maxRotationalSpeedRadiansPerSec,
-          DriveConstants.maxRotationalAccelerationRadiansPerSecSquared);
+      buildDriveScaledPathConstraints(competitionAutoFastVelocityMetersPerSecond);
   private static final PathConstraints competitionAutoSlowPathConstraints =
       scalePathConstraints(DriveConstants.pathConstraints, 0.60);
   private static final PathConstraints competitionAutoIntakePathConstraints =
-      scalePathConstraints(DriveConstants.pathConstraints, 1.40);
+      buildDriveScaledPathConstraints(competitionAutoIntakeVelocityMetersPerSecond);
   private static final double competitionAutoIntakeHandoffVelocityMetersPerSecond =
       competitionAutoIntakePathConstraints.maxVelocityMPS();
   private static final double competitionAutoBumpHandoffVelocityMetersPerSecond =
@@ -259,7 +256,7 @@ public class AutoRoutines {
                     competitionAutoBumpHandoffVelocityMetersPerSecond)
                 .withTimeout(competitionAutoPointDriveTimeoutSeconds),
             drive
-                .followNamedPath(targets.bumpReturnPathName())
+                .followNamedPath(targets.bumpReturnPathName(), competitionAutoFastPathConstraints)
                 .withTimeout(competitionAutoBumpDriveTimeoutSeconds));
 
     return Commands.deadline(
@@ -270,15 +267,15 @@ public class AutoRoutines {
     Command feedAfterAim =
         Commands.sequence(
             Commands.waitSeconds(competitionAutoAimBeforeFeedSeconds),
-            gamePieceCoordinator
-                .runManualFeedAndIndexersWhileHeldCommand(() -> 1.0)
+            Commands.waitUntil(shooter::isReadyToFire)
+                .withTimeout(competitionAutoPoint5ReadyWaitTimeoutSeconds),
+            Commands.run(() -> gamePieceCoordinator.applyBasicFeed(true), intake, indexers)
                 .withTimeout(competitionAutoHubShotFeedSeconds));
 
     return Commands.deadline(
-            Commands.waitSeconds(competitionAutoPoint5ShotSeconds),
+            feedAfterAim,
             drive.alignToHub(() -> 0.0, () -> 0.0, hubTargetingService::updateAndGetAirtimeSeconds),
-            buildShooterDemandFromAlignCommand("SHOOTING_AT_POINT5"),
-            feedAfterAim)
+            buildShooterDemandFromAlignCommand("SHOOTING_AT_POINT5"))
         .finallyDo(
             () -> {
               shooter.setShotControlEnabled(false);
@@ -333,6 +330,16 @@ public class AutoRoutines {
   static Rotation2d selectDriverStationRelativeTrenchHeading(
       Translation2d start, Translation2d end) {
     return end.getX() >= start.getX() ? Rotation2d.kZero : Rotation2d.kPi;
+  }
+
+  private static PathConstraints buildDriveScaledPathConstraints(
+      double maxVelocityMetersPerSecond) {
+    double scale = maxVelocityMetersPerSecond / DriveConstants.maxSpeedMetersPerSec;
+    return new PathConstraints(
+        maxVelocityMetersPerSecond,
+        DriveConstants.maxAccelerationMeterPerSecSquared * scale,
+        DriveConstants.maxRotationalSpeedRadiansPerSec * scale,
+        DriveConstants.maxRotationalAccelerationRadiansPerSecSquared * scale);
   }
 
   private static PathConstraints scalePathConstraints(PathConstraints constraints, double scale) {

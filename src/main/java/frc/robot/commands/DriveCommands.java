@@ -36,13 +36,13 @@ import java.util.function.Supplier;
 public class DriveCommands {
   private static final double DEADBAND = 0.1;
   private static final double CONTROL_LOOP_PERIOD_SECONDS = 0.02;
-  // Aggressive defaults for hub aim assist heading lock.
-  private static final double ANGLE_KP = 6.0;
+  // Conservative defaults for hub aim assist heading lock on the real robot.
+  private static final double ANGLE_KP = 3.5;
   private static final double ANGLE_KI = 0.0;
-  private static final double ANGLE_KD = 0.55;
-  private static final double ANGLE_KFF = 0.15;
-  private static final double ANGLE_MAX_VELOCITY = 3.5;
-  private static final double ANGLE_MAX_ACCELERATION = 8.5;
+  private static final double ANGLE_KD = 0.12;
+  private static final double ANGLE_KFF = 0.0;
+  private static final double ANGLE_MAX_VELOCITY = 2.0;
+  private static final double ANGLE_MAX_ACCELERATION = 4.0;
   private static final double ANGLE_POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.5);
   private static final double ANGLE_VELOCITY_TOLERANCE_RAD_PER_SEC = Units.degreesToRadians(8.0);
   private static final double ANGLE_GOAL_JUMP_REJECT_RAD = Units.degreesToRadians(120.0);

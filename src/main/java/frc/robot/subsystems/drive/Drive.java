@@ -10,6 +10,8 @@ import static frc.robot.subsystems.drive.DriveConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.path.GoalEndState;
+import com.pathplanner.lib.path.IdealStartingState;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
@@ -664,6 +666,10 @@ public class Drive extends SubsystemBase {
     return Commands.defer(() -> buildNamedPathCommand(pathName, false), Set.of(this));
   }
 
+  public Command followNamedPath(String pathName, PathConstraints constraints) {
+    return Commands.defer(() -> buildNamedPathCommand(pathName, false, constraints), Set.of(this));
+  }
+
   public Command pathfindThenFollowNamedPath(String pathName) {
     return Commands.defer(() -> buildNamedPathCommand(pathName, true), Set.of(this));
   }
@@ -822,8 +828,16 @@ public class Drive extends SubsystemBase {
   }
 
   private Command buildNamedPathCommand(String pathName, boolean pathfindFirst) {
+    return buildNamedPathCommand(pathName, pathfindFirst, null);
+  }
+
+  private Command buildNamedPathCommand(
+      String pathName, boolean pathfindFirst, PathConstraints constraintsOverride) {
     try {
       PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
+      if (constraintsOverride != null) {
+        path = copyPathWithConstraints(path, constraintsOverride);
+      }
       return pathfindFirst
           ? AutoBuilder.pathfindThenFollowPath(path, pathConstraints)
           : AutoBuilder.followPath(path);
@@ -833,6 +847,50 @@ public class Drive extends SubsystemBase {
           e.getStackTrace());
       return Commands.none();
     }
+  }
+
+  static PathPlannerPath copyPathWithConstraints(
+      PathPlannerPath path, PathConstraints constraints) {
+    PathPlannerPath constrainedPath =
+        new PathPlannerPath(
+            path.getWaypoints(),
+            path.getRotationTargets(),
+            path.getPointTowardsZones(),
+            path.getConstraintZones(),
+            path.getEventMarkers(),
+            constraints,
+            clampIdealStartingState(path.getIdealStartingState(), constraints),
+            clampGoalEndState(path.getGoalEndState(), constraints),
+            path.isReversed());
+    constrainedPath.name = path.name;
+    constrainedPath.preventFlipping = path.preventFlipping;
+    return constrainedPath;
+  }
+
+  private static IdealStartingState clampIdealStartingState(
+      IdealStartingState state, PathConstraints constraints) {
+    if (state == null) {
+      return null;
+    }
+    return new IdealStartingState(
+        clampPathVelocity(state.velocityMPS(), constraints), state.rotation());
+  }
+
+  private static GoalEndState clampGoalEndState(GoalEndState state, PathConstraints constraints) {
+    if (state == null) {
+      return null;
+    }
+    return new GoalEndState(clampPathVelocity(state.velocityMPS(), constraints), state.rotation());
+  }
+
+  private static double clampPathVelocity(
+      double velocityMetersPerSecond, PathConstraints constraints) {
+    if (constraints == null || constraints.unlimited()) {
+      return velocityMetersPerSecond;
+    }
+    return Math.copySign(
+        Math.min(Math.abs(velocityMetersPerSecond), constraints.maxVelocityMPS()),
+        velocityMetersPerSecond);
   }
 
   private Rotation2d getHubAimRotation(double airtimeSeconds) {

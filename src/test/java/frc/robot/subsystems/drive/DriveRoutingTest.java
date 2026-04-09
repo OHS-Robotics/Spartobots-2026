@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.path.Waypoint;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -104,6 +105,19 @@ class DriveRoutingTest {
     var command = drive.followNamedPath("Depot");
     assertNotNull(command);
     assertEquals("DeferredCommand", command.getClass().getSimpleName());
+  }
+
+  @Test
+  void namedPathConstraintOverrideClampsStartingVelocity() throws Exception {
+    PathConstraints constraints =
+        new PathConstraints(2.0, 2.0, Math.toRadians(90.0), Math.toRadians(45.0));
+    PathPlannerPath constrainedPath =
+        Drive.copyPathWithConstraints(PathPlannerPath.fromPathFile("Bump Right In"), constraints);
+
+    assertEquals(2.0, constrainedPath.getGlobalConstraints().maxVelocityMPS(), 1e-9);
+    assertEquals(2.0, constrainedPath.getGlobalConstraints().maxAccelerationMPSSq(), 1e-9);
+    assertEquals(2.0, constrainedPath.getIdealStartingState().velocityMPS(), 1e-9);
+    assertEquals(0.0, constrainedPath.getGoalEndState().velocityMPS(), 1e-9);
   }
 
   @Test
