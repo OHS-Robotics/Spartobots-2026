@@ -51,9 +51,48 @@ class DriveOdometryTest {
         1e-9);
   }
 
+  @Test
+  void periodicReseedsGyroAfterReconnectWithoutHeadingJump() {
+    TestGyroIO gyro = new TestGyroIO(Rotation2d.fromDegrees(90.0));
+    Drive drive =
+        new Drive(
+            gyro, new TestModuleIO(), new TestModuleIO(), new TestModuleIO(), new TestModuleIO());
+
+    gyro.setReportedHeading(Rotation2d.fromDegrees(90.0));
+    drive.periodic();
+
+    gyro.setConnected(false);
+    drive.periodic();
+
+    gyro.setConnected(true);
+    gyro.setReportedHeading(Rotation2d.fromDegrees(90.0));
+    drive.periodic();
+
+    assertEquals(90.0, gyro.getLastSetAngle().getDegrees(), 1e-9);
+    assertEquals(90.0, drive.getPose().getRotation().getDegrees(), 1e-9);
+  }
+
+  @Test
+  void periodicReseedsGyroAfterLargeHeadingJump() {
+    TestGyroIO gyro = new TestGyroIO(Rotation2d.fromDegrees(90.0));
+    Drive drive =
+        new Drive(
+            gyro, new TestModuleIO(), new TestModuleIO(), new TestModuleIO(), new TestModuleIO());
+
+    gyro.setReportedHeading(Rotation2d.fromDegrees(90.0));
+    drive.periodic();
+
+    gyro.setReportedHeading(Rotation2d.fromDegrees(0.0));
+    drive.periodic();
+
+    assertEquals(90.0, gyro.getLastSetAngle().getDegrees(), 1e-9);
+    assertEquals(90.0, drive.getPose().getRotation().getDegrees(), 1e-9);
+  }
+
   private static class TestGyroIO implements GyroIO {
     private Rotation2d measuredHeading;
     private Rotation2d lastSetAngle = Rotation2d.kZero;
+    private boolean connected = true;
     private double timestampSeconds = 0.0;
 
     private TestGyroIO(Rotation2d measuredHeading) {
@@ -62,7 +101,7 @@ class DriveOdometryTest {
 
     @Override
     public void updateInputs(GyroIOInputs inputs) {
-      inputs.connected = true;
+      inputs.connected = connected;
       inputs.yawPosition = measuredHeading;
       timestampSeconds += 0.02;
       inputs.odometryYawTimestamps = new double[] {timestampSeconds};
@@ -81,6 +120,10 @@ class DriveOdometryTest {
 
     private void setReportedHeading(Rotation2d heading) {
       measuredHeading = heading;
+    }
+
+    private void setConnected(boolean connected) {
+      this.connected = connected;
     }
   }
 

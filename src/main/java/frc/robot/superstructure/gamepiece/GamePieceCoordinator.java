@@ -98,7 +98,7 @@ public class GamePieceCoordinator {
               shooter.isReadyToFire(),
               true /* Sensorless path: assume staged piece is present when feed is requested. */);
       if (feedAllowed) {
-        indexers.setTargetTopIndexerSpeed(BASIC_FEED_INDEXER_SPEED);
+        indexers.setTargetTopIndexerSpeed(-BASIC_FEED_INDEXER_SPEED);
         indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
         indexers.updateIndexers();
         recordMode("FEED");

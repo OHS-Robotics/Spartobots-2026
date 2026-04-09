@@ -74,6 +74,8 @@ public class Drive extends SubsystemBase {
   private static final double defaultPathRotationKp = 4.0;
   private static final double defaultPathRotationKi = 0.0;
   private static final double defaultPathRotationKd = 0.0;
+  // Large enough to ignore normal motion, small enough to catch gyro resets or bad re-seeds.
+  private static final double gyroResyncThresholdRadians = Math.toRadians(45.0);
 
   /*private static final double defaultPathRotationKp = 4.0;
   private static final double defaultPathRotationKi = 0.0;
@@ -153,6 +155,8 @@ public class Drive extends SubsystemBase {
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(moduleTranslations);
   private Rotation2d rawGyroRotation = startingPose.getRotation();
+  private boolean gyroWasConnected = true;
+  private boolean gyroHasBeenInitialized = false;
   private SwerveModulePosition[] lastModulePositions = // For delta tracking
       new SwerveModulePosition[] {
         new SwerveModulePosition(),
@@ -271,6 +275,7 @@ public class Drive extends SubsystemBase {
     double[] sampleTimestamps =
         modules[0].getOdometryTimestamps(); // All signals are sampled together
     int sampleCount = sampleTimestamps.length;
+    boolean resyncGyro = gyroInputs.connected && !gyroWasConnected;
     for (int i = 0; i < sampleCount; i++) {
       // Read wheel positions and deltas from each module
       SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
@@ -284,14 +289,31 @@ public class Drive extends SubsystemBase {
                 modulePositions[moduleIndex].angle);
         lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
       }
+      Twist2d twist = kinematics.toTwist2d(moduleDeltas);
 
       // Update gyro angle
-      if (gyroInputs.connected) {
-        // Use the real gyro angle
-        rawGyroRotation = gyroInputs.odometryYawPositions[i];
+      if (gyroInputs.connected && !resyncGyro) {
+        Rotation2d measuredGyroRotation = gyroInputs.odometryYawPositions[i];
+        if (!gyroHasBeenInitialized) {
+          // Trust the first connected sample so startup and explicit pose resets can establish a
+          // baseline before jump detection kicks in.
+          rawGyroRotation = measuredGyroRotation;
+        } else {
+          double gyroJumpRadians =
+              Math.abs(
+                  MathUtil.angleModulus(measuredGyroRotation.minus(rawGyroRotation).getRadians()));
+          if (gyroJumpRadians > gyroResyncThresholdRadians) {
+            // The gyro likely reset or re-zeroed itself. Keep the current field frame and
+            // re-seed the gyro once this batch is done so teleop and auto do not flip.
+            resyncGyro = true;
+            rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+          } else {
+            // Use the real gyro angle.
+            rawGyroRotation = measuredGyroRotation;
+          }
+        }
       } else {
-        // Use the angle delta from the kinematics and module deltas
-        Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+        // Use the angle delta from the kinematics and module deltas.
         rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
       }
 
@@ -300,6 +322,14 @@ public class Drive extends SubsystemBase {
       // Apply update
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
     }
+
+    if (resyncGyro) {
+      gyroIO.setAngle(rawGyroRotation);
+    }
+    if (gyroInputs.connected && sampleCount > 0) {
+      gyroHasBeenInitialized = true;
+    }
+    gyroWasConnected = gyroInputs.connected;
 
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
@@ -455,6 +485,7 @@ public class Drive extends SubsystemBase {
     rawGyroRotation = pose.getRotation();
     gyroIO.setAngle(rawGyroRotation);
     poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+    gyroHasBeenInitialized = true;
     setSimulationPoseCallback.accept(pose);
   }
 
