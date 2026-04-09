@@ -124,7 +124,7 @@ public class Shooter extends SubsystemBase {
           false);
   private PredictedHubShot latestPredictedHubShot =
       new PredictedHubShot(false, Double.NaN, Double.NaN, Double.NaN, false);
-  private double wheelPowerRamp = 0.025; // amount increase per update, 0.025 = 2 second
+  private double wheelPowerRamp = 0.01; // amount increase per update, about 2 seconds
   private double wheelPowerPercent = 0.0;
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(ShooterConstants.configTableName);
@@ -1922,13 +1922,16 @@ public class Shooter extends SubsystemBase {
         * pair2Direction;
   }
 
-  private static double rampWheelVelocityCommand(double currentRadPerSec, double targetRadPerSec) {
+  private static double rampWheelVelocityCommand(
+      double currentRadPerSec, double targetRadPerSec, boolean shotControlEnabled) {
     double rampRateRadPerSecSquared =
         Math.abs(targetRadPerSec) > Math.abs(currentRadPerSec)
             ? ShooterConstants.wheelCommandRampUpRadPerSecSquared
-            : Constants.currentMode == Constants.Mode.SIM
-                ? ShooterConstants.simWheelCommandRampDownRadPerSecSquared
-                : ShooterConstants.wheelCommandRampDownRadPerSecSquared;
+            : !shotControlEnabled
+                ? ShooterConstants.wheelCommandReleaseRampDownRadPerSecSquared
+                : Constants.currentMode == Constants.Mode.SIM
+                    ? ShooterConstants.simWheelCommandRampDownRadPerSecSquared
+                    : ShooterConstants.wheelCommandRampDownRadPerSecSquared;
     double maxStepRadPerSec = rampRateRadPerSecSquared * loopPeriodSeconds;
     double deltaRadPerSec = targetRadPerSec - currentRadPerSec;
     if (Math.abs(deltaRadPerSec) <= maxStepRadPerSec) {
@@ -1940,7 +1943,7 @@ public class Shooter extends SubsystemBase {
   private double updateWheelVelocityCommand(double currentRadPerSec, double targetRadPerSec) {
     return calibrationModeEnabled
         ? targetRadPerSec
-        : rampWheelVelocityCommand(currentRadPerSec, targetRadPerSec);
+        : rampWheelVelocityCommand(currentRadPerSec, targetRadPerSec, shotControlEnabled);
   }
 
   private double clampToHoodCalibrationRange(double hoodPositionRotations) {

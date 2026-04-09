@@ -53,6 +53,9 @@ public final class ShooterConstants {
   public static final double defaultPair2Direction = 1.0;
   public static final double wheelCommandRampUpRadPerSecSquared = 700.0;
   public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
+  // Release decel is intentionally gentler than the normal downward ramp so the wheels coast
+  // down instead of braking hard when the operator lets go of shoot.
+  public static final double wheelCommandReleaseRampDownRadPerSecSquared = 90.0;
   public static final double simWheelCommandRampDownRadPerSecSquared = 100000.0;
 
   // Hardware geometry

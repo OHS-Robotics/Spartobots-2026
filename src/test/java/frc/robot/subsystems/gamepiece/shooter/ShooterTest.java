@@ -245,12 +245,37 @@ class ShooterTest {
     assertTrue(io.pair1SetpointRadPerSec > 0.0);
     assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
 
-    for (int i = 0; i < 100; i++) {
-      shooter.periodic();
-    }
+    followShooterCommand(io, shooter, 50);
+    assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
+
+    followShooterCommand(io, shooter, 50);
 
     assertEquals(shooter.getPair1WheelSetpointRadPerSec(), io.pair1SetpointRadPerSec, 1e-9);
     assertEquals(shooter.getPair2WheelSetpointRadPerSec(), io.pair2SetpointRadPerSec, 1e-9);
+  }
+
+  @Test
+  void shooterSpinDownRampsWheelCommandAfterDemandEnds() {
+    FakeShooterIO io = new FakeShooterIO();
+    Shooter shooter = new Shooter(io);
+    shooter.setCalibrationModeEnabled(false);
+    shooter.updateHubShotSolution(
+        new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
+
+    shooter.setShotControlEnabled(true);
+    shooter.periodic();
+    followShooterCommand(io, shooter, 100);
+
+    double enabledWheelCommandRadPerSec = io.pair1SetpointRadPerSec;
+    assertTrue(enabledWheelCommandRadPerSec > 0.0);
+
+    shooter.setShotControlEnabled(false);
+    followShooterCommand(io, shooter, 50);
+    assertTrue(io.pair1SetpointRadPerSec > (enabledWheelCommandRadPerSec * 0.78));
+
+    followShooterCommand(io, shooter, 250);
+    assertEquals(0.0, io.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(0.0, io.pair2SetpointRadPerSec, 1e-9);
   }
 
   @Test
