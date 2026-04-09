@@ -40,7 +40,7 @@ public final class IntakeConstants {
   public static final double defaultIntakeSpeed = 0.25;
   public static final double defaultIntakePivotSpeedScale = 1.0;
   public static final double intakePivotSweepTraversalSecondsAtFullTrigger = 0.75;
-  public static final double intakePivotSweepHardStopInsetNormalized = 0.75;
+  public static final double intakePivotSweepHardStopInsetNormalized = 0.05;
   public static final double intakePivotIntakingPositionInsetNormalized = 0.08;
 
   // Calibration-mode closed-loop defaults
