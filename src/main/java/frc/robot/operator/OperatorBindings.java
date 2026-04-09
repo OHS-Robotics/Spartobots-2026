@@ -100,7 +100,12 @@ public class OperatorBindings {
                         operatorController.getLeftTriggerAxis())));
 
     eitherController(CommandXboxController::leftBumper)
-        .onTrue(Commands.runOnce(autoAssistController::cancel));
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  autoAssistController.cancel();
+                  drive.stop();
+                }));
     eitherController(CommandXboxController::rightBumper)
         .onTrue(
             autoAssistController.scheduleAction(

@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.path.PathPlannerPath;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
@@ -70,6 +72,20 @@ class DriveRoutingTest {
     var command = drive.pathfindToTranslation(new Translation2d(2.0, 3.0));
     assertNotNull(command);
     assertEquals("DeferredCommand", command.getClass().getSimpleName());
+  }
+
+  @Test
+  void selectsTrenchHeadingTowardTheTarget() {
+    assertEquals(
+        0.0,
+        Drive.selectTrenchHeadingRadians(
+            new Pose2d(2.5, 1.0, Rotation2d.kZero), new Translation2d(5.9, 0.6)),
+        1e-9);
+    assertEquals(
+        Math.PI,
+        Drive.selectTrenchHeadingRadians(
+            new Pose2d(7.5, 1.0, Rotation2d.kZero), new Translation2d(5.9, 0.6)),
+        1e-9);
   }
 
   @Test

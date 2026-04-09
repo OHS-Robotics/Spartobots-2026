@@ -478,10 +478,8 @@ public class Drive extends SubsystemBase {
     return Commands.defer(
         () -> {
           Translation2d[] trenchPoses = determineTrenchPoses();
-          double snappedAngleRadians =
-              DriveConstants.trenchSnapTo
-                  * Math.round(getRotation().getRadians() / DriveConstants.trenchSnapTo);
-          return buildTrenchPathCommand(trenchPoses[1], snappedAngleRadians, goalEndVelocity);
+          double trenchHeadingRadians = selectTrenchHeadingRadians(getPose(), trenchPoses[1]);
+          return buildTrenchPathCommand(trenchPoses[1], trenchHeadingRadians, goalEndVelocity);
         },
         Set.of(this));
   }
@@ -489,10 +487,20 @@ public class Drive extends SubsystemBase {
   private Command buildTrenchPathCommand(
       Translation2d targetPose, double angleRadians, double goalEndVelocity) {
     Rotation2d trenchHeading = new Rotation2d(angleRadians);
-    return alignToHeadingCommand(trenchHeading)
-        .andThen(
-            AutoBuilder.pathfindToPose(
-                new Pose2d(targetPose, trenchHeading), pathConstraints, goalEndVelocity));
+    Command trenchPathCommand =
+        alignToHeadingCommand(trenchHeading)
+            .andThen(
+                AutoBuilder.pathfindToPose(
+                    new Pose2d(targetPose, trenchHeading), pathConstraints, goalEndVelocity));
+    return Math.abs(goalEndVelocity) <= 1e-9
+        ? trenchPathCommand.finallyDo(this::stop)
+        : trenchPathCommand;
+  }
+
+  static double selectTrenchHeadingRadians(Pose2d currentPose, Translation2d targetPose) {
+    // Face the direction of travel so the path controller does not start the trench move pointed
+    // away from the target and arc into the field edge.
+    return targetPose.getX() >= currentPose.getX() ? 0.0 : Math.PI;
   }
 
   private Command alignToHeadingCommand(Rotation2d targetHeading) {

@@ -19,9 +19,10 @@ public class AutoAssistController {
   }
 
   public void cancel() {
-    if (activeAutoAssistCommand != null) {
-      activeAutoAssistCommand.cancel();
-      activeAutoAssistCommand = null;
+    Command commandToCancel = activeAutoAssistCommand;
+    activeAutoAssistCommand = null;
+    if (commandToCancel != null) {
+      commandToCancel.cancel();
     }
   }
 
