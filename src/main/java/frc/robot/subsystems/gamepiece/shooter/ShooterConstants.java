@@ -66,7 +66,7 @@ public final class ShooterConstants {
   // Ball runs between the moving shooter drum and a stationary hood panel.
   // Ideal no-slip rolling gives ball center speed = 0.5 * drum surface speed.
   public static final double ballCenterSpeedFromWheelSurfaceRatio = 0.5;
-  public static final double launchSlipFactor = 0.93;
+  public static final double launchSlipFactor = 1.0;
   public static final double launchSpeedFromWheelSurfaceSpeedScale =
       launchSlipFactor * ballCenterSpeedFromWheelSurfaceRatio;
 

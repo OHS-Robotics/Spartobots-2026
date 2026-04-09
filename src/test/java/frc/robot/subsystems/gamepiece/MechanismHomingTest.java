@@ -124,6 +124,27 @@ class MechanismHomingTest {
     assertEquals(-0.25, io.pivotAppliedOutput, 1e-9);
   }
 
+  @Test
+  void intakeManualPivotJogIgnoresCalibrationLimitsBeforeHoming() {
+    FakeIntakeHomingIO io = new FakeIntakeHomingIO();
+    Intake intake = new Intake(io);
+    var tuningTable =
+        NetworkTablesUtil.tuningCommon(NetworkTablesUtil.domain(IntakeConstants.configTableName));
+    tuningTable
+        .getEntry("Pivot/SpeedScale")
+        .setDouble(IntakeConstants.defaultIntakePivotSpeedScale);
+    tuningTable.getEntry("Pivot/Inverted").setBoolean(IntakeConstants.defaultIntakePivotInverted);
+    tuningTable.getSubTable("Calibration").getEntry("Enabled").setBoolean(false);
+
+    io.pivotPositionRotations = IntakeConstants.defaultIntakePivotExtendedPositionRotations + 5.0;
+    intake.periodic();
+    intake.setIntakePivotSpeed(0.25);
+    assertEquals(0.25, io.pivotAppliedOutput, 1e-9);
+
+    intake.setIntakePivotSpeed(-0.25);
+    assertEquals(-0.25, io.pivotAppliedOutput, 1e-9);
+  }
+
   private static void runCommandUntilFinished(
       Command command, Runnable periodic, Runnable advanceSimulation) {
     CommandScheduler scheduler = CommandScheduler.getInstance();

@@ -33,7 +33,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void basicCollectMovesToIntakingSetpointBeforeRunningIntakeRollersWhileIndexing() {
+  void basicCollectRunsIntakeRollersBeforePivotCalibrationWhileIndexing() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
     Intake intake = new Intake(intakeIO);
@@ -46,7 +46,7 @@ class GamePieceCoordinatorTest {
 
     coordinator.applyBasicCollect(true);
 
-    assertEquals(0.0, intakeIO.driveOutput, 1e-9);
+    assertEquals(0.65, Math.abs(intakeIO.driveOutput), 1e-9);
     assertEquals(intake.getIntakePivotIntakingPositionRotations(), intakeIO.pivotSetpoint, 1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
     assertEquals(0.55, indexersIO.topOutput, 1e-9);
@@ -60,7 +60,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void basicCollectCommandMovesToIntakingSetpointBeforeRunningIntakeRollersInTeleop() {
+  void basicCollectCommandRunsIntakeRollersBeforePivotCalibrationInTeleop() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
     Intake intake = new Intake(intakeIO);
@@ -75,7 +75,7 @@ class GamePieceCoordinatorTest {
     command.initialize();
     command.execute();
 
-    assertEquals(0.0, intakeIO.driveOutput, 1e-9);
+    assertEquals(0.65, Math.abs(intakeIO.driveOutput), 1e-9);
     assertEquals(intake.getIntakePivotIntakingPositionRotations(), intakeIO.pivotSetpoint, 1e-9);
     assertEquals(0.0, intakeIO.pivotOutput, 1e-9);
     assertEquals(0.0, indexersIO.topOutput, 1e-9);

@@ -73,7 +73,7 @@ public class GamePieceCoordinator {
   public void applyBasicCollect(boolean runIndexers) {
     intake.setTargetIntakeSpeed(BASIC_COLLECT_INTAKE_SPEED);
     intake.moveIntakePivotToIntakingPosition();
-    if (intake.isIntakePivotInIntakingPosition()) {
+    if (!intake.isIntakePivotCalibrated() || intake.isIntakePivotInIntakingPosition()) {
       intake.updateIntake();
     } else {
       intake.stopIntake();
@@ -132,6 +132,7 @@ public class GamePieceCoordinator {
   public void setShooterDemandFromAlign(boolean enabled) {
     if (enabled) {
       shooter.setManualHoodOverrideEnabled(false);
+      shooter.setManualWheelOverrideEnabled(false);
     }
     shooterDemandFromAlign = enabled;
     refreshShooterControlDemand();

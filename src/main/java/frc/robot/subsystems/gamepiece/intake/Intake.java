@@ -193,7 +193,7 @@ public class Intake extends SubsystemBase {
     }
     double appliedSpeed =
         applyScaleAndInversion(speed, intakePivotSpeedScaleEntry, intakePivotInvertedEntry);
-    if (shouldBlockManualPivotMotionAtLimit(appliedSpeed)) {
+    if (intakePivotCalibrated && shouldBlockManualPivotMotionAtLimit(appliedSpeed)) {
       lastAppliedIntakePivotSpeed = 0.0;
       io.setPivotOutput(0.0);
       return;

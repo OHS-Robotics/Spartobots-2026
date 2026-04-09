@@ -144,7 +144,11 @@ public class AutoRoutines {
     NamedCommands.registerCommand(
         "shooterOn",
         Commands.runOnce(() -> shooter.setShotControlEnabled(true))
-            .beforeStarting(() -> shooter.setManualHoodOverrideEnabled(false)));
+            .beforeStarting(
+                () -> {
+                  shooter.setManualHoodOverrideEnabled(false);
+                  shooter.setManualWheelOverrideEnabled(false);
+                }));
     NamedCommands.registerCommand(
         "shooterOff",
         Commands.runOnce(
@@ -329,6 +333,7 @@ public class AutoRoutines {
             .beforeStarting(
                 () -> {
                   shooter.setManualHoodOverrideEnabled(false);
+                  shooter.setManualWheelOverrideEnabled(false);
                   gamePieceCoordinator.stopGamePieceFlow();
                   recordCompetitionAutoShotState("WAITING_READY");
                 });

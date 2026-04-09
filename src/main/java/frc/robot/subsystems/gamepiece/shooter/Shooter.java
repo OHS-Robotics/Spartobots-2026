@@ -4,6 +4,7 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.Timer;
@@ -58,6 +59,8 @@ public class Shooter extends SubsystemBase {
   private boolean shotControlEnabled = false;
   private boolean trenchSafetyRetractOverrideEnabled = false;
   private boolean manualHoodOverrideEnabled = false;
+  private boolean manualWheelOverrideEnabled = false;
+  private boolean manualHoodJogAllowedBeforeHoming = false;
   private double launchHeightMeters = ShooterConstants.defaultLaunchHeightMeters;
   private double pair1WheelSetpointRadPerSec = 0.0;
   private double pair2WheelSetpointRadPerSec = 0.0;
@@ -315,8 +318,12 @@ public class Shooter extends SubsystemBase {
   @Override
   public void periodic() {
     if (shotControlEnabled) {
-      wheelPowerPercent += wheelPowerRamp;
-      wheelPowerPercent = Math.min(wheelPowerPercent, 1.0);
+      if (calibrationModeEnabled) {
+        wheelPowerPercent = 1.0;
+      } else {
+        wheelPowerPercent += wheelPowerRamp;
+        wheelPowerPercent = Math.min(wheelPowerPercent, 1.0);
+      }
     } else wheelPowerPercent = 0.0;
 
     io.updateInputs(inputs);
@@ -343,7 +350,7 @@ public class Shooter extends SubsystemBase {
     io.setWheelVelocitySetpoints(pair1VelocityCommandRadPerSec, pair2VelocityCommandRadPerSec);
     if (hoodHomingActive) {
       updateHoodHoming();
-    } else if (!hoodHomed && Constants.currentMode == Constants.Mode.REAL) {
+    } else if (!canApplyHoodSetpointWithoutHoming()) {
       // On real hardware, hold the current measured position until homing establishes a reference.
       io.setHoodPositionSetpointRotations(inputs.hoodPositionRotations);
     } else {
@@ -436,12 +443,54 @@ public class Shooter extends SubsystemBase {
     return trenchSafetyRetractOverrideEnabled;
   }
 
+  public boolean isManualWheelOverrideEnabled() {
+    return manualWheelOverrideEnabled;
+  }
+
   public void setTrenchSafetyRetractOverrideEnabled(boolean enabled) {
     trenchSafetyRetractOverrideEnabled = enabled;
   }
 
   public void setManualHoodOverrideEnabled(boolean enabled) {
     manualHoodOverrideEnabled = calibrationModeEnabled ? false : enabled;
+    if (!manualHoodOverrideEnabled) {
+      manualHoodJogAllowedBeforeHoming = false;
+    }
+  }
+
+  public void setManualWheelOverrideEnabled(boolean enabled) {
+    manualWheelOverrideEnabled = calibrationModeEnabled ? false : enabled;
+  }
+
+  public void setManualHoodSetpointDegrees(double hoodAngleDegrees) {
+    Rotation2d targetAngle =
+        Rotation2d.fromDegrees(
+            MathUtil.clamp(
+                hoodAngleDegrees,
+                ShooterConstants.minLaunchAngle.getDegrees(),
+                ShooterConstants.maxLaunchAngle.getDegrees()));
+    if (calibrationModeEnabled) {
+      setCalibrationHoodSetpointRotations(hoodAngleToMotorRotations(targetAngle));
+      return;
+    }
+    manualHoodOverrideEnabled = true;
+    manualHoodJogAllowedBeforeHoming = false;
+    hoodSetpointMotorRotations = hoodAngleToMotorRotations(targetAngle);
+  }
+
+  public void setManualWheelSpeedRpm(double wheelSpeedRpm) {
+    double targetWheelSpeedRadPerSec =
+        Units.rotationsPerMinuteToRadiansPerSecond(Math.abs(wheelSpeedRpm));
+    WheelSpeedSetpoints manualWheelSetpoints =
+        sharedCalibrationWheelSetpoints(targetWheelSpeedRadPerSec, targetWheelSpeedRadPerSec);
+    if (calibrationModeEnabled) {
+      setCalibrationWheelSetpointsRadPerSec(
+          manualWheelSetpoints.pair1RadPerSec(), manualWheelSetpoints.pair2RadPerSec());
+      return;
+    }
+    manualWheelOverrideEnabled = true;
+    pair1WheelSetpointRadPerSec = manualWheelSetpoints.pair1RadPerSec();
+    pair2WheelSetpointRadPerSec = manualWheelSetpoints.pair2RadPerSec();
   }
 
   public void adjustHoodSetpointDegrees(double deltaDegrees) {
@@ -456,7 +505,7 @@ public class Shooter extends SubsystemBase {
           hoodAngleToMotorRotations(Rotation2d.fromDegrees(targetAngleDegrees)));
       return;
     }
-    manualHoodOverrideEnabled = true;
+    prepareForManualHoodJog();
     double targetAngleDegrees =
         MathUtil.clamp(
             motorRotationsToHoodAngle(hoodSetpointMotorRotations).getDegrees() + deltaDegrees,
@@ -471,7 +520,7 @@ public class Shooter extends SubsystemBase {
       setCalibrationHoodSetpointRotations(calibrationHoodSetpointRotations + deltaRotations);
       return;
     }
-    manualHoodOverrideEnabled = true;
+    prepareForManualHoodJog();
     hoodSetpointMotorRotations =
         clampToHoodCalibrationRange(hoodSetpointMotorRotations + deltaRotations);
   }
@@ -484,6 +533,8 @@ public class Shooter extends SubsystemBase {
     calibrationModeEnabled = enabled;
     if (enabled) {
       manualHoodOverrideEnabled = false;
+      manualWheelOverrideEnabled = false;
+      manualHoodJogAllowedBeforeHoming = false;
       hoodSetpointMotorRotations = calibrationHoodSetpointRotations;
       pair1WheelSetpointRadPerSec = calibrationPair1WheelSetpointRadPerSec;
       pair2WheelSetpointRadPerSec = calibrationPair2WheelSetpointRadPerSec;
@@ -698,6 +749,7 @@ public class Shooter extends SubsystemBase {
     calibrationModeEnabled = calibrationModeEnabledEntry.getBoolean(calibrationModeEnabled);
     if (calibrationModeEnabled) {
       manualHoodOverrideEnabled = false;
+      manualWheelOverrideEnabled = false;
     }
     calibrationHoodSetpointRotations =
         clampToHoodCalibrationRange(
@@ -1030,10 +1082,27 @@ public class Shooter extends SubsystemBase {
     hoodSetpointMotorRotations = clampToHoodCalibrationRange(hoodSetpointMotorRotations);
   }
 
+  private boolean canApplyHoodSetpointWithoutHoming() {
+    return hoodHomed
+        || Constants.currentMode != Constants.Mode.REAL
+        || manualHoodJogAllowedBeforeHoming;
+  }
+
+  private void prepareForManualHoodJog() {
+    manualHoodOverrideEnabled = true;
+    if (!hoodHomed && Constants.currentMode == Constants.Mode.REAL) {
+      if (!manualHoodJogAllowedBeforeHoming) {
+        hoodSetpointMotorRotations = clampToHoodCalibrationRange(inputs.hoodPositionRotations);
+      }
+      manualHoodJogAllowedBeforeHoming = true;
+    }
+  }
+
   private void startHoodHoming() {
     hoodHomingActive = true;
     hoodHomed = false;
     hoodHomingSucceeded = false;
+    manualHoodJogAllowedBeforeHoming = false;
     hoodHomingPhase = HoodHomingPhase.RELAX_BEFORE_CALIBRATION;
     hoodHomingElapsedSeconds = 0.0;
     hoodHomingPhaseElapsedSeconds = 0.0;
@@ -1108,6 +1177,7 @@ public class Shooter extends SubsystemBase {
   private void finishHoodHoming(boolean success) {
     hoodHomingActive = false;
     hoodHomingSucceeded = success;
+    manualHoodJogAllowedBeforeHoming = false;
     io.setHoodOpenLoopOutput(0.0);
     if (!success) {
       return;
@@ -1617,10 +1687,12 @@ public class Shooter extends SubsystemBase {
       hoodSetpointMotorRotations = hoodAngleToMotorRotations(clampedHoodAngle);
     }
 
-    WheelSpeedSetpoints wheelSetpoints =
-        calculateWheelSetpointsFromLaunchSpeed(solution.launchSpeedMetersPerSec());
-    pair1WheelSetpointRadPerSec = wheelSetpoints.pair1RadPerSec();
-    pair2WheelSetpointRadPerSec = wheelSetpoints.pair2RadPerSec();
+    if (!manualWheelOverrideEnabled) {
+      WheelSpeedSetpoints wheelSetpoints =
+          calculateWheelSetpointsFromLaunchSpeed(solution.launchSpeedMetersPerSec());
+      pair1WheelSetpointRadPerSec = wheelSetpoints.pair1RadPerSec();
+      pair2WheelSetpointRadPerSec = wheelSetpoints.pair2RadPerSec();
+    }
   }
 
   private WheelSpeedSetpoints calculateWheelSetpointsFromLaunchSpeed(
@@ -1957,6 +2029,9 @@ public class Shooter extends SubsystemBase {
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/ManualHoodOverrideEnabled"),
         manualHoodOverrideEnabled);
+    Logger.recordOutput(
+        NetworkTablesUtil.logPath("GamePiece/Shooter/Control/ManualWheelOverrideEnabled"),
+        manualWheelOverrideEnabled);
     Logger.recordOutput(
         NetworkTablesUtil.logPath("GamePiece/Shooter/Control/TrenchSafetyRetractOverrideEnabled"),
         trenchSafetyRetractOverrideEnabled);

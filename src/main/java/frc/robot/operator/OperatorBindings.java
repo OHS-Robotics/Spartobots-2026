@@ -15,6 +15,8 @@ import java.util.function.DoubleSupplier;
 
 public class OperatorBindings {
   private static final double manualHoodStepDegrees = 0.35;
+  private static final double manualOverrideHoodAngleDegrees = 58.0;
+  private static final double manualOverrideShooterSpeedRpm = 300.0;
   private static final double controllerActivityDeadband = 0.05;
   private static final double intakePivotManualSpeed = 0.25;
 
@@ -119,6 +121,15 @@ public class OperatorBindings {
         .toggleOnTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(false));
     eitherController(CommandXboxController::b)
         .whileTrue(gamePieceCoordinator.basicReverseWhileHeldCommand());
+    eitherController(CommandXboxController::x)
+        .onTrue(
+            Commands.runOnce(
+                () -> shooter.setManualWheelSpeedRpm(manualOverrideShooterSpeedRpm), shooter));
+    eitherController(CommandXboxController::y)
+        .onTrue(
+            Commands.runOnce(
+                () -> shooter.setManualHoodSetpointDegrees(manualOverrideHoodAngleDegrees),
+                shooter));
 
     eitherController(CommandXboxController::povUp)
         .whileTrue(Commands.run(() -> shooter.adjustHoodSetpointDegrees(manualHoodStepDegrees)));
