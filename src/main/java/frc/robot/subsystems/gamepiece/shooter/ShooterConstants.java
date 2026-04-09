@@ -143,8 +143,7 @@ public final class ShooterConstants {
 
   // Feed interlock readiness
   public static final double wheelReadyToleranceRatio = 0.08;
-  public static final double minWheelSetpointForReadinessRadPerSec =
-      Units.rotationsPerMinuteToRadiansPerSecond(300.0);
+  public static final double minWheelSetpointForReadinessRadPerSec = 300.0;
 
   // Simulated shot behavior
   public static final double simShotCadenceSeconds = 0.05;
