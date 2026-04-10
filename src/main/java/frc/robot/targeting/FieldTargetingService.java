@@ -141,7 +141,11 @@ public class FieldTargetingService {
         getAlliancePose(
             alliance, Constants.competitionAutoBlueStart, Constants.competitionAutoRedStart);
     double yOnStartingLine = MathUtil.clamp(currentPose.getY(), 0.0, Constants.fieldWidth);
-    return new Pose2d(nominalStartPose.getX(), yOnStartingLine, nominalStartPose.getRotation());
+    return new Pose2d(
+        nominalStartPose.getX(),
+        yOnStartingLine,
+        selectClosestDriverStationRelativeHeading(
+            currentPose.getRotation(), nominalStartPose.getRotation()));
   }
 
   static Pose2d selectOpeningShotPose(Optional<Alliance> alliance) {
@@ -241,6 +245,20 @@ public class FieldTargetingService {
 
   private static double getBlueReferenceY(Optional<Alliance> alliance, double fieldY) {
     return alliance.orElse(Alliance.Blue) == Alliance.Red ? Constants.fieldWidth - fieldY : fieldY;
+  }
+
+  static Rotation2d selectClosestDriverStationRelativeHeading(
+      Rotation2d currentHeading, Rotation2d tieBreakHeading) {
+    double zeroHeadingError =
+        Math.abs(MathUtil.angleModulus(currentHeading.minus(Rotation2d.kZero).getRadians()));
+    double piHeadingError =
+        Math.abs(MathUtil.angleModulus(currentHeading.minus(Rotation2d.kPi).getRadians()));
+    if (Math.abs(zeroHeadingError - piHeadingError) <= 1e-9) {
+      return Math.abs(MathUtil.angleModulus(tieBreakHeading.getRadians())) <= Math.PI / 2.0
+          ? Rotation2d.kZero
+          : Rotation2d.kPi;
+    }
+    return zeroHeadingError < piHeadingError ? Rotation2d.kZero : Rotation2d.kPi;
   }
 
   private static Pose2d mirrorBluePoseAcrossFieldWidth(Pose2d pose) {

@@ -48,6 +48,20 @@ class FieldTargetingServiceTest {
                 Optional.of(Alliance.Red), arbitraryRedStart)
             .getY(),
         1e-9);
+    assertEquals(
+        Rotation2d.kZero.getRadians(),
+        FieldTargetingService.selectCompetitionAutoStartPose(
+                Optional.of(Alliance.Blue), arbitraryBlueStart)
+            .getRotation()
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kZero.getRadians(),
+        FieldTargetingService.selectCompetitionAutoStartPose(
+                Optional.of(Alliance.Red), arbitraryRedStart)
+            .getRotation()
+            .getRadians(),
+        1e-9);
 
     assertEquals(
         -130.0,
@@ -60,6 +74,43 @@ class FieldTargetingServiceTest {
         FieldTargetingService.selectOpeningShotPose(Optional.of(Alliance.Red))
             .getRotation()
             .getDegrees(),
+        1e-9);
+  }
+
+  @Test
+  void competitionAutoStartPosePreservesBackwardsStartingHeading() {
+    Pose2d blueBackwardsStart = new Pose2d(2.0, 1.0, Rotation2d.fromDegrees(170.0));
+    Pose2d redBackwardsStart = new Pose2d(14.5, 1.0, Rotation2d.fromDegrees(10.0));
+    Pose2d blueForwardStart = new Pose2d(2.0, 1.0, Rotation2d.fromDegrees(10.0));
+    Pose2d redForwardStart = new Pose2d(14.5, 1.0, Rotation2d.fromDegrees(170.0));
+
+    assertEquals(
+        Rotation2d.kPi.getRadians(),
+        FieldTargetingService.selectCompetitionAutoStartPose(
+                Optional.of(Alliance.Blue), blueBackwardsStart)
+            .getRotation()
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kZero.getRadians(),
+        FieldTargetingService.selectCompetitionAutoStartPose(
+                Optional.of(Alliance.Red), redBackwardsStart)
+            .getRotation()
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kZero.getRadians(),
+        FieldTargetingService.selectCompetitionAutoStartPose(
+                Optional.of(Alliance.Blue), blueForwardStart)
+            .getRotation()
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kPi.getRadians(),
+        FieldTargetingService.selectCompetitionAutoStartPose(
+                Optional.of(Alliance.Red), redForwardStart)
+            .getRotation()
+            .getRadians(),
         1e-9);
   }
 
