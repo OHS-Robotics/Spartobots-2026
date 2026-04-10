@@ -601,7 +601,7 @@ public class Shooter extends SubsystemBase {
   }
 
   public Command homeHoodToHardStopCommand() {
-    return runOnce(this::startHoodHoming)
+    return startHoodHomingToHardStopCommand()
         .andThen(Commands.waitUntil(() -> !hoodHomingActive))
         .finallyDo(
             interrupted -> {
@@ -609,6 +609,14 @@ public class Shooter extends SubsystemBase {
                 cancelHoodHoming();
               }
             });
+  }
+
+  public Command startHoodHomingToHardStopCommand() {
+    return runOnce(this::startHoodHoming);
+  }
+
+  public void cancelHoodHomingToHardStop() {
+    cancelHoodHoming();
   }
 
   public boolean isHoodHomingActive() {

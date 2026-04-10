@@ -2,6 +2,7 @@ package frc.robot.auto;
 
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.path.PathConstraints;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -27,22 +28,20 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class AutoRoutines {
-  private static final double competitionAutoDriverStationRetreatMeters = 1.0;
-  private static final double competitionAutoInitialRetreatTimeoutSeconds = 3.0;
-  private static final double competitionAutoAimBeforeFeedSeconds = 0.5;
-  private static final double competitionAutoPoint5ReadyWaitTimeoutSeconds = 2.0;
+  private static final int competitionAutoCycleCount = 2;
   private static final double competitionAutoHubShotFeedSeconds = 3.0;
-  private static final double competitionAutoPointDriveTimeoutSeconds = 4.0;
-  private static final double competitionAutoPoint5ToPoint2TimeoutSeconds = 6.0;
-  private static final double competitionAutoIntakeDriveTimeoutSeconds = 4.5;
-  private static final double competitionAutoBumpDriveTimeoutSeconds = 3.0;
+  private static final double competitionAutoPointDriveSafetyTimeoutSeconds = 4.0;
+  private static final double competitionAutoPoint5ToPoint2SafetyTimeoutSeconds = 6.0;
+  private static final double competitionAutoIntakeDriveSafetyTimeoutSeconds = 4.5;
+  private static final double competitionAutoBumpDriveSafetyTimeoutSeconds = 4.5;
+  private static final double competitionAutoMilestoneTranslationToleranceMeters = 0.20;
+  private static final double competitionAutoMilestoneRotationToleranceRadians =
+      Math.toRadians(8.0);
   private static final double competitionAutoFastVelocityMetersPerSecond =
-      DriveConstants.maxSpeedMetersPerSec * (2.0 / 3.0);
+      DriveConstants.maxSpeedMetersPerSec;
   private static final double competitionAutoIntakeVelocityMetersPerSecond = 1.0;
   private static final PathConstraints competitionAutoFastPathConstraints =
       buildDriveScaledPathConstraints(competitionAutoFastVelocityMetersPerSecond);
-  private static final PathConstraints competitionAutoSlowPathConstraints =
-      scalePathConstraints(DriveConstants.pathConstraints, 0.60);
   private static final PathConstraints competitionAutoIntakePathConstraints =
       buildDriveScaledPathConstraints(competitionAutoIntakeVelocityMetersPerSecond);
   private static final double competitionAutoIntakeHandoffVelocityMetersPerSecond =
@@ -167,6 +166,10 @@ public class AutoRoutines {
     return namedCommandNames;
   }
 
+  static int getCompetitionAutoCycleCount() {
+    return competitionAutoCycleCount;
+  }
+
   Command buildCompetitionShotCommandForTest(boolean spinupComplete) {
     return buildCompetitionShotCommandForTest(spinupComplete, true);
   }
@@ -185,22 +188,32 @@ public class AutoRoutines {
   private Command buildCompetitionAutoRoutine() {
     return Commands.defer(
             () -> {
-              CompetitionAutoTargets targets =
-                  fieldTargetingService.getCompetitionAutoTargets(
-                      competitionAutoDriverStationRetreatMeters);
+              List<CompetitionAutoTargets> targetsByCycle = new ArrayList<>();
+              for (int cycleIndex = 0; cycleIndex < competitionAutoCycleCount; cycleIndex++) {
+                targetsByCycle.add(fieldTargetingService.getCompetitionAutoTargets(cycleIndex));
+              }
+              CompetitionAutoTargets firstCycleTargets = targetsByCycle.get(0);
+              List<Command> autoSteps = new ArrayList<>();
+              autoSteps.add(
+                  Commands.runOnce(
+                      () -> {
+                        drive.setPose(firstCycleTargets.startPose());
+                        recordCompetitionAutoShotState("RESET_POSE");
+                      },
+                      drive));
+              autoSteps.add(buildOpeningIntakeCycleCommand(firstCycleTargets));
+              for (int cycleIndex = 1; cycleIndex < targetsByCycle.size(); cycleIndex++) {
+                autoSteps.add(buildCompetitionCycleCommand(targetsByCycle.get(cycleIndex)));
+              }
+              autoSteps.add(
+                  buildShootOnMoveToTrenchEntranceCommand(
+                      targetsByCycle.get(targetsByCycle.size() - 1)));
 
-              return Commands.sequence(
-                      Commands.runOnce(
-                          () -> {
-                            drive.setPose(targets.startPose());
-                            recordCompetitionAutoShotState("RESET_POSE");
-                          },
-                          drive),
-                      buildInitialHomeAndRetreatCommand(targets.point5Pose()),
-                      Commands.repeatingSequence(buildCompetitionCycleCommand(targets)))
+              return Commands.sequence(autoSteps.toArray(Command[]::new))
                   .finallyDo(
                       () -> {
                         shooter.setShotControlEnabled(false);
+                        shooter.cancelHoodHomingToHardStop();
                         gamePieceCoordinator.setShooterDemandFromAlign(false);
                         gamePieceCoordinator.stopGamePieceFlow();
                         drive.stop();
@@ -211,79 +224,115 @@ public class AutoRoutines {
         .withName(competitionAutoName);
   }
 
-  private Command buildInitialHomeAndRetreatCommand(Pose2d point5Pose) {
-    return Commands.parallel(
-        drive
-            .pathfindToPose(point5Pose, competitionAutoSlowPathConstraints)
-            .withTimeout(competitionAutoInitialRetreatTimeoutSeconds),
-        shooter.homeHoodToHardStopCommand(),
-        intake.calibrateIntakePivotToHardStopsCommand());
-  }
-
-  private Command buildCompetitionCycleCommand(CompetitionAutoTargets targets) {
+  private Command buildOpeningIntakeCycleCommand(CompetitionAutoTargets targets) {
     return Commands.sequence(
-        buildStationaryPoint5ShotCommand(),
-        buildDriveFromPoint5ThroughTrenchToPoint2Command(targets),
+        Commands.parallel(
+            buildDriveThroughTrenchToPoint2Command(
+                targets.point2Pose(), "OPENING_HOME_INTAKE_AND_CROSS_TRENCH"),
+            intake.calibrateIntakePivotToHardStopsCommand()),
+        shooter.startHoodHomingToHardStopCommand(),
         buildIntakeFromPoint2ToPoint3Command(targets.point2Pose(), targets.point3Pose()),
         Commands.runOnce(() -> recordCompetitionAutoShotState("RETURN_OVER_BUMP")),
         buildReturnOverBumpWhileSpinningUpShooterCommand(targets));
   }
 
-  private Command buildDriveFromPoint5ThroughTrenchToPoint2Command(CompetitionAutoTargets targets) {
-    Pose2d point2WithTrenchHeading =
-        new Pose2d(
-            targets.point2Pose().getTranslation(),
-            selectDriverStationRelativeTrenchHeading(
-                targets.point5Pose().getTranslation(), targets.point2Pose().getTranslation()));
-
+  private Command buildCompetitionCycleCommand(CompetitionAutoTargets targets) {
     return Commands.sequence(
-        Commands.runOnce(() -> recordCompetitionAutoShotState("DRIVE_UNDER_TRENCH_TO_POINT2")),
-        drive
-            .pathfindToPoseWithHeading(
-                point2WithTrenchHeading,
-                competitionAutoFastPathConstraints,
-                competitionAutoIntakeHandoffVelocityMetersPerSecond)
-            .withTimeout(competitionAutoPoint5ToPoint2TimeoutSeconds));
+        buildShootOnMoveToTrenchEntranceCommand(targets),
+        buildDriveThroughTrenchToPoint2Command(
+            targets.point2Pose(), "DRIVE_UNDER_TRENCH_TO_POINT2"),
+        buildIntakeFromPoint2ToPoint3Command(targets.point2Pose(), targets.point3Pose()),
+        Commands.runOnce(() -> recordCompetitionAutoShotState("RETURN_OVER_BUMP")),
+        buildReturnOverBumpWhileSpinningUpShooterCommand(targets));
+  }
+
+  private Command buildShootOnMoveToTrenchEntranceCommand(CompetitionAutoTargets targets) {
+    return Commands.defer(
+        () -> {
+          PathConstraints shotOnMoveConstraints =
+              buildShotOnMovePathConstraints(
+                  drive.getPose().getTranslation(), targets.point1Pose().getTranslation());
+          Command driveToTrenchEntrance =
+              withTranslationMilestone(
+                  drive.pathfindToTranslationWithHubAim(
+                      targets.point1Pose().getTranslation(),
+                      hubTargetingService::updateAndGetAirtimeSeconds,
+                      shotOnMoveConstraints,
+                      shotOnMoveConstraints.maxVelocityMPS()),
+                  targets.point1Pose().getTranslation(),
+                  competitionAutoPointDriveSafetyTimeoutSeconds);
+
+          return Commands.deadline(
+                  driveToTrenchEntrance,
+                  buildShooterDemandFromAlignCommand("SHOOTING_ON_MOVE_TO_TRENCH"),
+                  Commands.run(
+                      () -> {
+                        hubTargetingService.updateAndGetAirtimeSeconds();
+                        gamePieceCoordinator.applyBasicFeed(true);
+                      },
+                      intake,
+                      indexers))
+              .finallyDo(
+                  () -> {
+                    shooter.setShotControlEnabled(false);
+                    gamePieceCoordinator.setShooterDemandFromAlign(false);
+                    gamePieceCoordinator.stopGamePieceFlow();
+                    recordCompetitionAutoShotState("MOVING_SHOT_COMPLETE");
+                  });
+        },
+        Set.of(drive, shooter, intake, indexers));
+  }
+
+  private Command buildDriveThroughTrenchToPoint2Command(Pose2d point2Pose, String state) {
+    return Commands.defer(
+        () -> {
+          Rotation2d trenchHeading =
+              selectClosestDriverStationRelativeHeading(drive.getPose(), point2Pose);
+          Pose2d point2WithTrenchHeading = new Pose2d(point2Pose.getTranslation(), trenchHeading);
+
+          return Commands.sequence(
+              Commands.runOnce(() -> recordCompetitionAutoShotState(state)),
+              withPoseMilestone(
+                  drive.pathfindToPoseWithHeading(
+                      point2WithTrenchHeading,
+                      competitionAutoFastPathConstraints,
+                      competitionAutoIntakeHandoffVelocityMetersPerSecond),
+                  point2WithTrenchHeading,
+                  competitionAutoPoint5ToPoint2SafetyTimeoutSeconds));
+        },
+        Set.of(drive));
   }
 
   private Command buildReturnOverBumpWhileSpinningUpShooterCommand(CompetitionAutoTargets targets) {
     Command returnOverBump =
-        Commands.sequence(
-            drive
-                .pathfindToPose(
-                    targets.point4Pose(),
-                    competitionAutoFastPathConstraints,
-                    competitionAutoBumpHandoffVelocityMetersPerSecond)
-                .withTimeout(competitionAutoPointDriveTimeoutSeconds),
-            drive
-                .followNamedPath(targets.bumpReturnPathName(), competitionAutoFastPathConstraints)
-                .withTimeout(competitionAutoBumpDriveTimeoutSeconds));
+        Commands.defer(
+            () -> {
+              Rotation2d bumpHeading =
+                  selectClosestDriverStationRelativeHeading(drive.getPose(), targets.point5Pose());
+              Pose2d point4WithBumpHeading =
+                  new Pose2d(targets.point4Pose().getTranslation(), bumpHeading);
+              Translation2d point5Translation = targets.point5Pose().getTranslation();
+
+              return Commands.sequence(
+                  withPoseMilestone(
+                      drive.pathfindToPoseWithHeading(
+                          point4WithBumpHeading,
+                          competitionAutoFastPathConstraints,
+                          competitionAutoBumpHandoffVelocityMetersPerSecond),
+                      point4WithBumpHeading,
+                      competitionAutoPointDriveSafetyTimeoutSeconds),
+                  withTranslationMilestone(
+                      drive.followNamedPathWithHeading(
+                          targets.bumpReturnPathName(),
+                          bumpHeading,
+                          competitionAutoFastPathConstraints),
+                      point5Translation,
+                      competitionAutoBumpDriveSafetyTimeoutSeconds));
+            },
+            Set.of(drive));
 
     return Commands.deadline(
         returnOverBump, buildShooterDemandFromAlignCommand("SPINNING_UP_FOR_POINT5_SHOT"));
-  }
-
-  private Command buildStationaryPoint5ShotCommand() {
-    Command feedAfterAim =
-        Commands.sequence(
-            Commands.waitSeconds(competitionAutoAimBeforeFeedSeconds),
-            Commands.waitUntil(shooter::isReadyToFire)
-                .withTimeout(competitionAutoPoint5ReadyWaitTimeoutSeconds),
-            Commands.run(() -> gamePieceCoordinator.applyBasicFeed(true), intake, indexers)
-                .withTimeout(competitionAutoHubShotFeedSeconds));
-
-    return Commands.deadline(
-            feedAfterAim,
-            drive.alignToHub(() -> 0.0, () -> 0.0, hubTargetingService::updateAndGetAirtimeSeconds),
-            buildShooterDemandFromAlignCommand("SHOOTING_AT_POINT5"))
-        .finallyDo(
-            () -> {
-              shooter.setShotControlEnabled(false);
-              gamePieceCoordinator.setShooterDemandFromAlign(false);
-              gamePieceCoordinator.stopGamePieceFlow();
-              drive.stop();
-              recordCompetitionAutoShotState("SHOT_PHASE_COMPLETE");
-            });
   }
 
   private Command buildIntakeFromPoint2ToPoint3Command(Pose2d point2Pose, Pose2d point3Pose) {
@@ -292,12 +341,13 @@ public class AutoRoutines {
     Pose2d point3WithIntakeHeading = new Pose2d(point3Pose.getTranslation(), intakeHeading);
 
     return Commands.deadline(
-            drive
-                .pathfindToPoseWithHeading(
+            withPoseMilestone(
+                drive.pathfindToPoseWithHeading(
                     point3WithIntakeHeading,
                     competitionAutoIntakePathConstraints,
-                    competitionAutoIntakeHandoffVelocityMetersPerSecond)
-                .withTimeout(competitionAutoIntakeDriveTimeoutSeconds),
+                    competitionAutoIntakeHandoffVelocityMetersPerSecond),
+                point3WithIntakeHeading,
+                competitionAutoIntakeDriveSafetyTimeoutSeconds),
             Commands.run(
                 () -> {
                   gamePieceCoordinator.applyBasicCollect(false);
@@ -319,6 +369,37 @@ public class AutoRoutines {
         () -> gamePieceCoordinator.setShooterDemandFromAlign(false));
   }
 
+  private Command withPoseMilestone(
+      Command driveCommand, Pose2d targetPose, double safetyTimeoutSeconds) {
+    return driveCommand
+        .until(() -> isAtCompetitionAutoMilestone(targetPose))
+        .withTimeout(safetyTimeoutSeconds);
+  }
+
+  private Command withTranslationMilestone(
+      Command driveCommand, Translation2d targetTranslation, double safetyTimeoutSeconds) {
+    return driveCommand
+        .until(() -> isAtCompetitionAutoTranslationMilestone(targetTranslation))
+        .withTimeout(safetyTimeoutSeconds);
+  }
+
+  private boolean isAtCompetitionAutoMilestone(Pose2d targetPose) {
+    Pose2d currentPose = drive.getPose();
+    double translationErrorMeters =
+        currentPose.getTranslation().getDistance(targetPose.getTranslation());
+    double rotationErrorRadians =
+        Math.abs(
+            MathUtil.angleModulus(
+                currentPose.getRotation().minus(targetPose.getRotation()).getRadians()));
+    return translationErrorMeters <= competitionAutoMilestoneTranslationToleranceMeters
+        && rotationErrorRadians <= competitionAutoMilestoneRotationToleranceRadians;
+  }
+
+  private boolean isAtCompetitionAutoTranslationMilestone(Translation2d targetTranslation) {
+    return drive.getPose().getTranslation().getDistance(targetTranslation)
+        <= competitionAutoMilestoneTranslationToleranceMeters;
+  }
+
   private static Rotation2d getDirectionOfTravelHeading(Translation2d start, Translation2d end) {
     Translation2d travel = end.minus(start);
     if (travel.getNorm() < 1e-9) {
@@ -327,9 +408,26 @@ public class AutoRoutines {
     return new Rotation2d(Math.atan2(travel.getY(), travel.getX()));
   }
 
-  static Rotation2d selectDriverStationRelativeTrenchHeading(
-      Translation2d start, Translation2d end) {
-    return end.getX() >= start.getX() ? Rotation2d.kZero : Rotation2d.kPi;
+  static Rotation2d selectClosestDriverStationRelativeHeading(
+      Pose2d currentPose, Pose2d targetPose) {
+    Rotation2d travelPreferredHeading =
+        targetPose.getX() >= currentPose.getX() ? Rotation2d.kZero : Rotation2d.kPi;
+    return selectClosestDriverStationRelativeHeading(
+        currentPose.getRotation(), travelPreferredHeading);
+  }
+
+  static Rotation2d selectClosestDriverStationRelativeHeading(
+      Rotation2d currentHeading, Rotation2d tieBreakHeading) {
+    double zeroHeadingError =
+        Math.abs(MathUtil.angleModulus(currentHeading.minus(Rotation2d.kZero).getRadians()));
+    double piHeadingError =
+        Math.abs(MathUtil.angleModulus(currentHeading.minus(Rotation2d.kPi).getRadians()));
+    if (Math.abs(zeroHeadingError - piHeadingError) <= 1e-9) {
+      return Math.abs(MathUtil.angleModulus(tieBreakHeading.getRadians())) <= Math.PI / 2.0
+          ? Rotation2d.kZero
+          : Rotation2d.kPi;
+    }
+    return zeroHeadingError < piHeadingError ? Rotation2d.kZero : Rotation2d.kPi;
   }
 
   private static PathConstraints buildDriveScaledPathConstraints(
@@ -342,14 +440,18 @@ public class AutoRoutines {
         DriveConstants.maxRotationalAccelerationRadiansPerSecSquared * scale);
   }
 
-  private static PathConstraints scalePathConstraints(PathConstraints constraints, double scale) {
+  private static PathConstraints buildShotOnMovePathConstraints(
+      Translation2d start, Translation2d end) {
+    double maxVelocityMetersPerSecond =
+        MathUtil.clamp(
+            start.getDistance(end) / competitionAutoHubShotFeedSeconds,
+            0.25,
+            competitionAutoFastVelocityMetersPerSecond);
     return new PathConstraints(
-        constraints.maxVelocityMPS() * scale,
-        constraints.maxAccelerationMPSSq() * scale,
-        constraints.maxAngularVelocityRadPerSec() * scale,
-        constraints.maxAngularAccelerationRadPerSecSq() * scale,
-        constraints.nominalVoltageVolts(),
-        constraints.unlimited());
+        maxVelocityMetersPerSecond,
+        DriveConstants.maxAccelerationMeterPerSecSquared,
+        DriveConstants.maxRotationalSpeedRadiansPerSec,
+        DriveConstants.maxRotationalAccelerationRadiansPerSecSquared);
   }
 
   private Command buildCompetitionShooterShotCommand(

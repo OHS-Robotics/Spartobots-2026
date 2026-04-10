@@ -93,6 +93,35 @@ class MechanismHomingTest {
   }
 
   @Test
+  void hoodHomingCanContinueAfterStartCommandCompletes() {
+    FakeShooterHomingIO io = new FakeShooterHomingIO();
+    Shooter shooter = new Shooter(io);
+    Command startCommand = shooter.startHoodHomingToHardStopCommand();
+    CommandScheduler scheduler = CommandScheduler.getInstance();
+    scheduler.cancelAll();
+    DriverStationSim.setEnabled(true);
+    DriverStationSim.notifyNewData();
+
+    scheduler.schedule(startCommand);
+    scheduler.run();
+
+    assertFalse(scheduler.isScheduled(startCommand));
+    assertTrue(shooter.isHoodHomingActive());
+
+    for (int i = 0; i < 300 && shooter.isHoodHomingActive(); i++) {
+      shooter.periodic();
+      io.advanceHoming();
+    }
+
+    assertFalse(shooter.isHoodHomingActive(), "Hood homing did not finish.");
+    assertTrue(shooter.isHoodHomed());
+    assertTrue(shooter.didLastHoodHomingSucceed());
+    scheduler.cancelAll();
+    DriverStationSim.setEnabled(false);
+    DriverStationSim.notifyNewData();
+  }
+
+  @Test
   void intakeManualPivotJogRespectsCalibratedHardStops() {
     FakeIntakeHomingIO io = new FakeIntakeHomingIO();
     Intake intake = new Intake(io);

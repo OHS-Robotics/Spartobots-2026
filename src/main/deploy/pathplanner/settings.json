@@ -16,7 +16,7 @@
   "driveGearing": 6.75,
   "maxDriveSpeed": 4.0,
   "driveMotorType": "NEO",
-  "driveCurrentLimit": 50.0,
+  "driveCurrentLimit": 40.0,
   "wheelCOF": 1.2,
   "flModuleX": 0.26035,
   "flModuleY": 0.26035,

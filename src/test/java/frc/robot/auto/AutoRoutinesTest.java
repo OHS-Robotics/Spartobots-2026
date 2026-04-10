@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
@@ -53,6 +53,11 @@ class AutoRoutinesTest {
   }
 
   @Test
+  void competitionAutoRunsTwoCycles() {
+    assertEquals(2, AutoRoutines.getCompetitionAutoCycleCount());
+  }
+
+  @Test
   void fallsBackToCompetitionAutoWhenChooserSelectionIsNull() {
     LoggedDashboardChooser<Command> chooser =
         new LoggedDashboardChooser<>("Auto Test", new SendableChooser<>());
@@ -85,17 +90,33 @@ class AutoRoutinesTest {
   }
 
   @Test
-  void selectsDriverStationRelativeTrenchHeadingByDirectionOfTravel() {
+  void selectsClosestDriverStationRelativeHeading() {
     assertEquals(
         Rotation2d.kZero.getRadians(),
-        AutoRoutines.selectDriverStationRelativeTrenchHeading(
-                new Translation2d(3.0, 1.0), new Translation2d(6.0, 0.9))
+        AutoRoutines.selectClosestDriverStationRelativeHeading(
+                new Pose2d(3.0, 1.0, Rotation2d.fromDegrees(20.0)),
+                new Pose2d(2.0, 1.0, Rotation2d.kZero))
             .getRadians(),
         1e-9);
     assertEquals(
         Rotation2d.kPi.getRadians(),
-        AutoRoutines.selectDriverStationRelativeTrenchHeading(
-                new Translation2d(13.0, 7.0), new Translation2d(10.0, 7.1))
+        AutoRoutines.selectClosestDriverStationRelativeHeading(
+                new Pose2d(3.0, 1.0, Rotation2d.fromDegrees(160.0)),
+                new Pose2d(6.0, 1.0, Rotation2d.kZero))
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kZero.getRadians(),
+        AutoRoutines.selectClosestDriverStationRelativeHeading(
+                new Pose2d(3.0, 1.0, Rotation2d.fromDegrees(90.0)),
+                new Pose2d(6.0, 1.0, Rotation2d.kZero))
+            .getRadians(),
+        1e-9);
+    assertEquals(
+        Rotation2d.kPi.getRadians(),
+        AutoRoutines.selectClosestDriverStationRelativeHeading(
+                new Pose2d(3.0, 1.0, Rotation2d.fromDegrees(90.0)),
+                new Pose2d(2.0, 1.0, Rotation2d.kZero))
             .getRadians(),
         1e-9);
   }

@@ -35,6 +35,7 @@ public class FieldTargetingService {
   private static final double competitionAutoCenterlineBumperMarginMeters = 0.05;
   private static final double competitionAutoPoint1BackMeters = 0.70;
   private static final double competitionAutoPoint1LeftMeters = 0.10;
+  private static final double competitionAutoCycleDriverStationShiftMeters = 1.0;
   private static final double competitionAutoMaxBlueSideCenterX =
       Constants.midLineX
           - (DriveConstants.bumperLengthXMeters / 2.0)
@@ -66,6 +67,10 @@ public class FieldTargetingService {
       new Pose2d(5.573116613700566, 2.4890436308262713, Rotation2d.fromDegrees(179.13));
   private static final Pose2d blueUpperAutoPoint4Pose =
       mirrorBluePoseAcrossFieldWidth(blueLowerAutoPoint4Pose);
+  private static final Pose2d blueLowerAutoPoint5Pose =
+      new Pose2d(2.6397276107874292, 2.4890436308262713, Rotation2d.fromDegrees(179.13));
+  private static final Pose2d blueUpperAutoPoint5Pose =
+      mirrorBluePoseAcrossFieldWidth(blueLowerAutoPoint5Pose);
   private static final Translation2d[][] trenchSegments = {
     {Constants.blueTrenchTopInner, Constants.blueTrenchTopOuter},
     {Constants.redTrenchTopOuter, Constants.redTrenchTopInner},
@@ -115,9 +120,12 @@ public class FieldTargetingService {
     return drive.pathfindToTranslation(getOpeningShotPose().getTranslation());
   }
 
-  public CompetitionAutoTargets getCompetitionAutoTargets(double driverStationRetreatMeters) {
-    return selectCompetitionAutoTargets(
-        DriverStation.getAlliance(), drive.getPose(), driverStationRetreatMeters);
+  public CompetitionAutoTargets getCompetitionAutoTargets() {
+    return selectCompetitionAutoTargets(DriverStation.getAlliance(), drive.getPose());
+  }
+
+  public CompetitionAutoTargets getCompetitionAutoTargets(int cycleIndex) {
+    return selectCompetitionAutoTargets(DriverStation.getAlliance(), drive.getPose(), cycleIndex);
   }
 
   static Pose2d selectDepotAlignPose(Optional<Alliance> alliance) {
@@ -145,10 +153,23 @@ public class FieldTargetingService {
   }
 
   static CompetitionAutoTargets selectCompetitionAutoTargets(
-      Optional<Alliance> alliance, Pose2d currentPose, double driverStationRetreatMeters) {
+      Optional<Alliance> alliance, Pose2d currentPose) {
+    return selectCompetitionAutoTargets(alliance, currentPose, 0);
+  }
+
+  static CompetitionAutoTargets selectCompetitionAutoTargets(
+      Optional<Alliance> alliance, Pose2d currentPose, int cycleIndex) {
     Pose2d startPose = selectCompetitionAutoStartPose(alliance, currentPose);
     boolean useUpperRouteInBlueReference =
         getBlueReferenceY(alliance, startPose.getY()) > Constants.midLineY;
+    Pose2d blueLowerCyclePoint2Pose =
+        shiftBlueReferencePoseTowardDriverStationByCycle(blueLowerAutoPoint2Pose, cycleIndex);
+    Pose2d blueUpperCyclePoint2Pose =
+        shiftBlueReferencePoseTowardDriverStationByCycle(blueUpperAutoPoint2Pose, cycleIndex);
+    Pose2d blueLowerCyclePoint3Pose =
+        shiftBlueReferencePoseTowardDriverStationByCycle(blueLowerAutoPoint3Pose, cycleIndex);
+    Pose2d blueUpperCyclePoint3Pose =
+        shiftBlueReferencePoseTowardDriverStationByCycle(blueUpperAutoPoint3Pose, cycleIndex);
 
     Pose2d point1Pose =
         selectAllianceAutoRoutePose(
@@ -160,14 +181,14 @@ public class FieldTargetingService {
         selectAllianceAutoRoutePose(
             alliance,
             useUpperRouteInBlueReference,
-            blueLowerAutoPoint2Pose,
-            blueUpperAutoPoint2Pose);
+            blueLowerCyclePoint2Pose,
+            blueUpperCyclePoint2Pose);
     Pose2d point3Pose =
         selectAllianceAutoRoutePose(
             alliance,
             useUpperRouteInBlueReference,
-            blueLowerAutoPoint3Pose,
-            blueUpperAutoPoint3Pose);
+            blueLowerCyclePoint3Pose,
+            blueUpperCyclePoint3Pose);
     Pose2d point4Pose =
         selectAllianceAutoRoutePose(
             alliance,
@@ -175,7 +196,11 @@ public class FieldTargetingService {
             blueLowerAutoPoint4Pose,
             blueUpperAutoPoint4Pose);
     Pose2d point5Pose =
-        selectDriverStationRetreatPose(alliance, startPose, driverStationRetreatMeters);
+        selectAllianceAutoRoutePose(
+            alliance,
+            useUpperRouteInBlueReference,
+            blueLowerAutoPoint5Pose,
+            blueUpperAutoPoint5Pose);
     String bumpReturnPathName =
         useUpperRouteInBlueReference ? blueUpperBumpReturnPathName : blueLowerBumpReturnPathName;
 
@@ -214,17 +239,6 @@ public class FieldTargetingService {
         : bluePose;
   }
 
-  private static Pose2d selectDriverStationRetreatPose(
-      Optional<Alliance> alliance, Pose2d startPose, double retreatMeters) {
-    double driverStationDirection = alliance.orElse(Alliance.Blue) == Alliance.Red ? 1.0 : -1.0;
-    double retreatedX =
-        MathUtil.clamp(
-            startPose.getX() + (driverStationDirection * retreatMeters),
-            0.0,
-            Constants.fieldLength);
-    return new Pose2d(retreatedX, startPose.getY(), startPose.getRotation());
-  }
-
   private static double getBlueReferenceY(Optional<Alliance> alliance, double fieldY) {
     return alliance.orElse(Alliance.Blue) == Alliance.Red ? Constants.fieldWidth - fieldY : fieldY;
   }
@@ -234,6 +248,12 @@ public class FieldTargetingService {
         pose.getX(),
         Constants.fieldWidth - pose.getY(),
         Rotation2d.fromRadians(-pose.getRotation().getRadians()));
+  }
+
+  private static Pose2d shiftBlueReferencePoseTowardDriverStationByCycle(
+      Pose2d pose, int cycleIndex) {
+    double shiftMeters = Math.max(0, cycleIndex) * competitionAutoCycleDriverStationShiftMeters;
+    return new Pose2d(pose.getX() - shiftMeters, pose.getY(), pose.getRotation());
   }
 
   static Pose2d mirrorBluePoseForRedAlliance(Pose2d pose) {

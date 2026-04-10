@@ -37,6 +37,22 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
+  void basicFeedRunsTopIndexerTowardShooterWhenReady() {
+    configureDefaultMechanismDirections();
+    FakeIndexersIO indexersIO = new FakeIndexersIO();
+    Shooter shooter = new ReadyShooter();
+    GamePieceCoordinator coordinator =
+        new GamePieceCoordinator(new Intake(new IntakeIO() {}), new Indexers(indexersIO), shooter);
+
+    assertTrue(shooter.isReadyToFire());
+
+    coordinator.applyBasicFeed(true);
+
+    assertEquals(-0.75, indexersIO.topOutput, 1e-9);
+    assertEquals(0.75, indexersIO.bottomOutput, 1e-9);
+  }
+
+  @Test
   void basicCollectRunsIntakeRollersBeforePivotCalibrationWhileIndexing() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
@@ -423,22 +439,44 @@ class GamePieceCoordinatorTest {
     }
   }
 
+  private static class ReadyShooter extends Shooter {
+    ReadyShooter() {
+      super(new ShooterIO() {});
+      setCalibrationModeEnabled(false);
+    }
+
+    @Override
+    public boolean isReadyToFire() {
+      return true;
+    }
+  }
+
   private static class FakeShooterIO implements ShooterIO {
     double pair1SetpointRadPerSec = 0.0;
     double pair2SetpointRadPerSec = 0.0;
+    double hoodSetpointRotations = ShooterConstants.defaultHoodRetractedPositionRotations;
+    double pair1MeasuredVelocityRadPerSec = 0.0;
+    double pair2MeasuredVelocityRadPerSec = 0.0;
 
     @Override
     public void updateInputs(ShooterIOInputs inputs) {
       inputs.pair1Connected = true;
       inputs.pair2Connected = true;
       inputs.hoodConnected = true;
-      inputs.hoodPositionRotations = ShooterConstants.defaultHoodRetractedPositionRotations;
+      inputs.pair1LeaderVelocityRadPerSec = pair1MeasuredVelocityRadPerSec;
+      inputs.pair2LeaderVelocityRadPerSec = pair2MeasuredVelocityRadPerSec;
+      inputs.hoodPositionRotations = hoodSetpointRotations;
     }
 
     @Override
     public void setWheelVelocitySetpoints(double pair1RadPerSec, double pair2RadPerSec) {
       pair1SetpointRadPerSec = pair1RadPerSec;
       pair2SetpointRadPerSec = pair2RadPerSec;
+    }
+
+    @Override
+    public void setHoodPositionSetpointRotations(double hoodPositionRotations) {
+      hoodSetpointRotations = hoodPositionRotations;
     }
   }
 }

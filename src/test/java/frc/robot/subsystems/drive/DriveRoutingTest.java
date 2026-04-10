@@ -8,6 +8,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.path.Waypoint;
+import com.pathplanner.lib.util.FlippingUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -38,6 +39,20 @@ class DriveRoutingTest {
         Constants.redHub.getX(),
         Drive.selectAllianceHubPose(Optional.of(Alliance.Red)).getX(),
         1e-9);
+  }
+
+  @Test
+  void driveConfiguresPathPlannerFieldFlippingToRobotFieldConstants() {
+    new Drive(
+        new GyroIO() {},
+        new ModuleIO() {},
+        new ModuleIO() {},
+        new ModuleIO() {},
+        new ModuleIO() {});
+
+    assertEquals(FlippingUtil.FieldSymmetry.kRotational, FlippingUtil.symmetryType);
+    assertEquals(Constants.fieldLength, FlippingUtil.fieldSizeX, 1e-9);
+    assertEquals(Constants.fieldWidth, FlippingUtil.fieldSizeY, 1e-9);
   }
 
   @Test
@@ -108,6 +123,20 @@ class DriveRoutingTest {
   }
 
   @Test
+  void followNamedPathWithHeadingReturnsCommand() {
+    Drive drive =
+        new Drive(
+            new GyroIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {});
+    var command =
+        drive.followNamedPathWithHeading("Depot", Rotation2d.kPi, DriveConstants.pathConstraints);
+    assertNotNull(command);
+  }
+
+  @Test
   void namedPathConstraintOverrideClampsStartingVelocity() throws Exception {
     PathConstraints constraints =
         new PathConstraints(2.0, 2.0, Math.toRadians(90.0), Math.toRadians(45.0));
@@ -117,7 +146,7 @@ class DriveRoutingTest {
     assertEquals(2.0, constrainedPath.getGlobalConstraints().maxVelocityMPS(), 1e-9);
     assertEquals(2.0, constrainedPath.getGlobalConstraints().maxAccelerationMPSSq(), 1e-9);
     assertEquals(2.0, constrainedPath.getIdealStartingState().velocityMPS(), 1e-9);
-    assertEquals(0.0, constrainedPath.getGoalEndState().velocityMPS(), 1e-9);
+    assertEquals(1.0, constrainedPath.getGoalEndState().velocityMPS(), 1e-9);
   }
 
   @Test
@@ -255,6 +284,7 @@ class DriveRoutingTest {
         1e-9);
     assertEquals(
         lowerPath.getGoalEndState().velocityMPS(), upperPath.getGoalEndState().velocityMPS(), 1e-9);
+    assertEquals(1.0, lowerPath.getGoalEndState().velocityMPS(), 1e-9);
     assertEquals(
         -lowerPath.getGoalEndState().rotation().getRadians(),
         upperPath.getGoalEndState().rotation().getRadians(),

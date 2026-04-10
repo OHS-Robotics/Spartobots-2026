@@ -15,6 +15,7 @@ import com.pathplanner.lib.path.IdealStartingState;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinding;
+import com.pathplanner.lib.util.FlippingUtil;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
@@ -203,6 +204,9 @@ public class Drive extends SubsystemBase {
     SparkOdometryThread.getInstance().start();
 
     // Configure AutoBuilder for PathPlanner
+    FlippingUtil.symmetryType = FlippingUtil.FieldSymmetry.kRotational;
+    FlippingUtil.fieldSizeX = Constants.fieldLength;
+    FlippingUtil.fieldSizeY = Constants.fieldWidth;
     AutoBuilder.configure(
         this::getPose,
         this::setPose,
@@ -701,6 +705,11 @@ public class Drive extends SubsystemBase {
     return Commands.defer(() -> buildNamedPathCommand(pathName, false, constraints), Set.of(this));
   }
 
+  public Command followNamedPathWithHeading(
+      String pathName, Rotation2d heading, PathConstraints constraints) {
+    return followNamedPathWithRotationOverride(pathName, constraints, () -> Optional.of(heading));
+  }
+
   public Command pathfindThenFollowNamedPath(String pathName) {
     return Commands.defer(() -> buildNamedPathCommand(pathName, true), Set.of(this));
   }
@@ -853,6 +862,16 @@ public class Drive extends SubsystemBase {
       double goalEndVelocity,
       Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
     return pathfindToPose(target, constraints, goalEndVelocity)
+        .beforeStarting(
+            () -> pathController.setRotationTargetOverride(rotationTargetOverrideSupplier))
+        .finallyDo(pathController::clearRotationTargetOverride);
+  }
+
+  private Command followNamedPathWithRotationOverride(
+      String pathName,
+      PathConstraints constraints,
+      Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
+    return followNamedPath(pathName, constraints)
         .beforeStarting(
             () -> pathController.setRotationTargetOverride(rotationTargetOverrideSupplier))
         .finallyDo(pathController::clearRotationTargetOverride);
