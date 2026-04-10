@@ -232,7 +232,7 @@ class ShooterTest {
   }
 
   @Test
-  void shooterSpinupReachesFullWheelCommandWithinHalfSecond() {
+  void shooterSpinupRampsWheelCommandOutsideCalibrationMode() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);
     shooter.setCalibrationModeEnabled(false);
@@ -245,7 +245,10 @@ class ShooterTest {
     assertTrue(io.pair1SetpointRadPerSec > 0.0);
     assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
 
-    followShooterCommand(io, shooter, 19);
+    followShooterCommand(io, shooter, 50);
+    assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
+
+    followShooterCommand(io, shooter, 50);
 
     assertEquals(shooter.getPair1WheelSetpointRadPerSec(), io.pair1SetpointRadPerSec, 1e-9);
     assertEquals(shooter.getPair2WheelSetpointRadPerSec(), io.pair2SetpointRadPerSec, 1e-9);

@@ -97,34 +97,20 @@ public class GamePieceCoordinator {
               true,
               shooter.isReadyToFire(),
               true /* Sensorless path: assume staged piece is present when feed is requested. */);
-      applyBasicShooterFeedOutputs(feedAllowed);
+      if (feedAllowed) {
+        indexers.setTargetTopIndexerSpeed(-BASIC_FEED_INDEXER_SPEED);
+        indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
+        indexers.updateIndexers();
+        recordMode("FEED");
+      } else {
+        indexers.stopIndexers();
+        recordMode("FEED_INTERLOCKED");
+      }
     } else {
       indexers.setTargetTopIndexerSpeed(0.0);
       indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
       indexers.updateIndexers();
       recordMode("MANUAL_FEED");
-    }
-  }
-
-  public void applyBasicFeedWhenShotWindowAvailable(boolean shotWindowAvailable) {
-    intake.stopIntake();
-    boolean feedAllowed =
-        ShooterFeedInterlock.shouldAdvanceToShooter(
-            true,
-            shotWindowAvailable,
-            true /* Sensorless path: assume staged piece is present when feed is requested. */);
-    applyBasicShooterFeedOutputs(feedAllowed);
-  }
-
-  private void applyBasicShooterFeedOutputs(boolean feedAllowed) {
-    if (feedAllowed) {
-      indexers.setTargetTopIndexerSpeed(-BASIC_FEED_INDEXER_SPEED);
-      indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
-      indexers.updateIndexers();
-      recordMode("FEED");
-    } else {
-      indexers.stopIndexers();
-      recordMode("FEED_INTERLOCKED");
     }
   }
 
@@ -219,9 +205,9 @@ public class GamePieceCoordinator {
             ? (shooterDemandFromAlign ? 1.0 : shooterDemandFromTriggerThrottle)
             : 1.0;
     shooter.setOperatorWheelThrottleScale(shooterThrottleScale);
-    // Keep teleop auto-aim on the same shooter spin-up curve as trigger demand so the wheel
-    // target does not jump when the hub solver updates every cycle.
-    shooter.setShotControlEnabled(shooterDemandEnabled);
+    // Hub align is an assist mode, so skip the soft teleop spool ramp and let the existing
+    // velocity ramp start accelerating the flywheel immediately.
+    shooter.setShotControlEnabled(shooterDemandEnabled, shooterDemandFromAlign);
   }
 
   private void recordMode(String mode) {

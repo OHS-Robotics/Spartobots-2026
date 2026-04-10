@@ -51,8 +51,7 @@ public final class ShooterConstants {
   public static final double defaultWheelSpeedScale = 1.0;
   public static final double defaultPair1Direction = 1.0;
   public static final double defaultPair2Direction = 1.0;
-  // Fast enough to reach full shot speed in under 0.5 seconds at the top end of the solver.
-  public static final double wheelCommandRampUpRadPerSecSquared = 1400.0;
+  public static final double wheelCommandRampUpRadPerSecSquared = 700.0;
   public static final double wheelCommandRampDownRadPerSecSquared = 120.0;
   // Release decel is intentionally gentler than the normal downward ramp so the wheels coast
   // down instead of braking hard when the operator lets go of shoot.
