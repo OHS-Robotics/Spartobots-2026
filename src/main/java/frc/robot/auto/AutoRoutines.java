@@ -37,6 +37,8 @@ public class AutoRoutines {
   private static final double competitionAutoMilestoneTranslationToleranceMeters = 0.20;
   private static final double competitionAutoMilestoneRotationToleranceRadians =
       Math.toRadians(8.0);
+  private static final double competitionAutoMovingShotHubAlignmentToleranceRadians =
+      Math.toRadians(5.0);
   private static final double competitionAutoFastVelocityMetersPerSecond =
       DriveConstants.maxSpeedMetersPerSec;
   private static final double competitionAutoIntakeVelocityMetersPerSecond = 1.0;
@@ -267,8 +269,13 @@ public class AutoRoutines {
                   buildShooterDemandFromAlignCommand("SHOOTING_ON_MOVE_TO_TRENCH"),
                   Commands.run(
                       () -> {
-                        hubTargetingService.updateAndGetAirtimeSeconds();
-                        gamePieceCoordinator.applyBasicFeed(true);
+                        double shotAirtimeSeconds =
+                            hubTargetingService.updateAndGetAirtimeSeconds();
+                        boolean aimedAtHub =
+                            drive.isAimedAtHub(
+                                shotAirtimeSeconds,
+                                competitionAutoMovingShotHubAlignmentToleranceRadians);
+                        gamePieceCoordinator.applyBasicFeedWhenShotWindowAvailable(aimedAtHub);
                       },
                       intake,
                       indexers))

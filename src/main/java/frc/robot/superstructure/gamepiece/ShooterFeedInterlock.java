@@ -4,8 +4,8 @@ public final class ShooterFeedInterlock {
   private ShooterFeedInterlock() {}
 
   public static boolean shouldAdvanceToShooter(
-      boolean feedModeRequested, boolean shooterReadyToFire, boolean hasStagedGamePiece) {
-    return feedModeRequested && shooterReadyToFire && hasStagedGamePiece;
+      boolean feedModeRequested, boolean shotWindowAvailable, boolean hasStagedGamePiece) {
+    return feedModeRequested && shotWindowAvailable && hasStagedGamePiece;
   }
 
   public static boolean shouldRunIndexerDuringManualFeed(boolean manualFeedRequested) {

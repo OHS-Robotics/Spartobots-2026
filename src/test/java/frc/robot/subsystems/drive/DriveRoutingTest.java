@@ -3,6 +3,7 @@ package frc.robot.subsystems.drive;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.path.PathConstraints;
@@ -14,6 +15,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
+import frc.robot.targeting.HubTargetingGeometry;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -92,6 +94,25 @@ class DriveRoutingTest {
     var command = drive.pathfindToTranslation(new Translation2d(2.0, 3.0));
     assertNotNull(command);
     assertEquals("DeferredCommand", command.getClass().getSimpleName());
+  }
+
+  @Test
+  void reportsHubAimAlignmentFromCurrentPose() {
+    Drive drive =
+        new Drive(
+            new GyroIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {},
+            new ModuleIO() {});
+    Translation2d robotTranslation = new Translation2d(2.0, 1.0);
+    Rotation2d hubAimRotation = solveHubAimRotation(robotTranslation, Constants.blueHub);
+
+    drive.setPose(new Pose2d(robotTranslation, hubAimRotation.plus(Rotation2d.fromDegrees(4.0))));
+    assertTrue(drive.isAimedAtHub(0.0, Math.toRadians(5.0)));
+
+    drive.setPose(new Pose2d(robotTranslation, hubAimRotation.plus(Rotation2d.fromDegrees(6.0))));
+    assertFalse(drive.isAimedAtHub(0.0, Math.toRadians(5.0)));
   }
 
   @Test
@@ -312,6 +333,16 @@ class DriveRoutingTest {
     Object value = object.get(key);
     assertNotNull(value, key);
     return ((Number) value).doubleValue();
+  }
+
+  private static Rotation2d solveHubAimRotation(Translation2d robotTranslation, Pose2d hubPose) {
+    Rotation2d rotation = Rotation2d.kZero;
+    for (int i = 0; i < 8; i++) {
+      rotation =
+          HubTargetingGeometry.getRobotRotationToAimAtHub(
+              new Pose2d(robotTranslation, rotation), hubPose);
+    }
+    return rotation;
   }
 
   private static void assertModuleSettingMatches(

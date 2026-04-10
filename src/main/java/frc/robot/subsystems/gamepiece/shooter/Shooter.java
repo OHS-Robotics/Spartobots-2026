@@ -124,7 +124,7 @@ public class Shooter extends SubsystemBase {
           false);
   private PredictedHubShot latestPredictedHubShot =
       new PredictedHubShot(false, Double.NaN, Double.NaN, Double.NaN, false);
-  private double wheelPowerRamp = 0.01; // amount increase per update, about 2 seconds
+  private double wheelPowerRamp = 0.05; // amount increase per update, about 0.4 seconds
   private double wheelPowerPercent = 0.0;
   private final NetworkTable subsystemTable =
       NetworkTablesUtil.domain(ShooterConstants.configTableName);

@@ -53,6 +53,37 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
+  void basicFeedWhenShotWindowAvailableRunsIndexersBeforeShooterReady() {
+    configureDefaultMechanismDirections();
+    FakeIndexersIO indexersIO = new FakeIndexersIO();
+    Shooter shooter = new Shooter(new ShooterIO() {});
+    shooter.setCalibrationModeEnabled(false);
+    GamePieceCoordinator coordinator =
+        new GamePieceCoordinator(new Intake(new IntakeIO() {}), new Indexers(indexersIO), shooter);
+
+    assertFalse(shooter.isReadyToFire());
+
+    coordinator.applyBasicFeedWhenShotWindowAvailable(true);
+
+    assertEquals(-0.75, indexersIO.topOutput, 1e-9);
+    assertEquals(0.75, indexersIO.bottomOutput, 1e-9);
+  }
+
+  @Test
+  void basicFeedWhenShotWindowUnavailableStopsIndexers() {
+    configureDefaultMechanismDirections();
+    FakeIndexersIO indexersIO = new FakeIndexersIO();
+    Shooter shooter = new ReadyShooter();
+    GamePieceCoordinator coordinator =
+        new GamePieceCoordinator(new Intake(new IntakeIO() {}), new Indexers(indexersIO), shooter);
+
+    coordinator.applyBasicFeedWhenShotWindowAvailable(false);
+
+    assertEquals(0.0, indexersIO.topOutput, 1e-9);
+    assertEquals(0.0, indexersIO.bottomOutput, 1e-9);
+  }
+
+  @Test
   void basicCollectRunsIntakeRollersBeforePivotCalibrationWhileIndexing() {
     configureDefaultMechanismDirections();
     FakeIntakeIO intakeIO = new FakeIntakeIO();
@@ -186,7 +217,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void shooterDemandFromAlignSkipsSoftSpinupRamp() {
+  void shooterDemandFromAlignUsesSameSoftSpinupRampAsTrigger() {
     FakeShooterIO alignIo = new FakeShooterIO();
     Shooter alignShooter = new Shooter(alignIo);
     alignShooter.setCalibrationModeEnabled(false);
@@ -215,8 +246,8 @@ class GamePieceCoordinatorTest {
     alignShooter.periodic();
     triggerShooter.periodic();
 
-    assertTrue(alignIo.pair1SetpointRadPerSec > triggerIo.pair1SetpointRadPerSec);
-    assertTrue(alignIo.pair2SetpointRadPerSec > triggerIo.pair2SetpointRadPerSec);
+    assertEquals(triggerIo.pair1SetpointRadPerSec, alignIo.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(triggerIo.pair2SetpointRadPerSec, alignIo.pair2SetpointRadPerSec, 1e-9);
 
     triggerDemandCommand.end(false);
   }

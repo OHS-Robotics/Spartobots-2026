@@ -739,6 +739,13 @@ public class Drive extends SubsystemBase {
         .andThen(alignToHub(() -> 0.0, () -> 0.0, shotAirtimeSecondsSupplier));
   }
 
+  public boolean isAimedAtHub(double shotAirtimeSeconds, double toleranceRadians) {
+    Rotation2d targetHeading = getHubAimRotation(shotAirtimeSeconds);
+    double headingErrorRadians =
+        Math.abs(MathUtil.angleModulus(getRotation().minus(targetHeading).getRadians()));
+    return headingErrorRadians <= toleranceRadians;
+  }
+
   public boolean isNearTranslation(Translation2d target, double toleranceMeters) {
     return getPose().getTranslation().getDistance(target) <= toleranceMeters;
   }
