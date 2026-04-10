@@ -249,7 +249,6 @@ public class RobotContainer {
             shooter,
             gamePieceCoordinator,
             hubTargetingService,
-            fieldTargetingService,
             autoAssistController)
         .configure();
 

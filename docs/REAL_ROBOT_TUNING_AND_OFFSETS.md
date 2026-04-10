@@ -28,6 +28,7 @@ Default tuning uses a single controller on USB 0. The most relevant bring-up con
 - Right trigger: shooter demand
 - Left trigger: manual feed plus indexers; the intake cycles between down and halfway up and pulses the rollers near the down end
 - `A`: toggle collect without indexers
+- Driver/operator right bumper: toggle collect without indexers
 - `B`: reverse intake/indexers
 - POV up/down: hood setpoint jog
 - POV left/right: intake pivot jog

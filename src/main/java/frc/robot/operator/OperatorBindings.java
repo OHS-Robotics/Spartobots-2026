@@ -9,7 +9,6 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.gamepiece.intake.Intake;
 import frc.robot.subsystems.gamepiece.shooter.Shooter;
 import frc.robot.superstructure.gamepiece.GamePieceCoordinator;
-import frc.robot.targeting.FieldTargetingService;
 import frc.robot.targeting.HubTargetingService;
 import java.util.function.DoubleSupplier;
 
@@ -27,7 +26,6 @@ public class OperatorBindings {
   private final Shooter shooter;
   private final GamePieceCoordinator gamePieceCoordinator;
   private final HubTargetingService hubTargetingService;
-  private final FieldTargetingService fieldTargetingService;
   private final AutoAssistController autoAssistController;
 
   public OperatorBindings(
@@ -38,7 +36,6 @@ public class OperatorBindings {
       Shooter shooter,
       GamePieceCoordinator gamePieceCoordinator,
       HubTargetingService hubTargetingService,
-      FieldTargetingService fieldTargetingService,
       AutoAssistController autoAssistController) {
     this.driverController = driverController;
     this.operatorController = operatorController;
@@ -47,7 +44,6 @@ public class OperatorBindings {
     this.shooter = shooter;
     this.gamePieceCoordinator = gamePieceCoordinator;
     this.hubTargetingService = hubTargetingService;
-    this.fieldTargetingService = fieldTargetingService;
     this.autoAssistController = autoAssistController;
   }
 
@@ -106,13 +102,6 @@ public class OperatorBindings {
                   autoAssistController.cancel();
                   drive.stop();
                 }));
-    eitherController(CommandXboxController::rightBumper)
-        .onTrue(
-            autoAssistController.scheduleAction(
-                "AutoAssist/DriveUnderTrench",
-                () -> {
-                  return fieldTargetingService.autoDriveUnderTrenchCommand(0.0);
-                }));
     eitherController(CommandXboxController::leftStick)
         .whileTrue(Commands.run(drive::stopWithX, drive));
 
@@ -123,6 +112,8 @@ public class OperatorBindings {
 
   private void configureOperatorBindings() {
     eitherController(CommandXboxController::a)
+        .or(driverController.rightBumper())
+        .or(operatorController.rightBumper())
         .toggleOnTrue(gamePieceCoordinator.basicCollectWhileHeldCommand(false));
     eitherController(CommandXboxController::b)
         .whileTrue(gamePieceCoordinator.basicReverseWhileHeldCommand());

@@ -1,6 +1,6 @@
 # Driver Controls
 
-The default layout supports either Xbox controller on USB port 0 or 1. Driver translation/rotation inputs and the mapped game-piece controls are mirrored across both controllers.
+The default layout supports either Xbox controller on USB port 0 or 1. Driver translation/rotation inputs and most game-piece controls are mirrored across both controllers. The driver and operator right bumpers are extra collect shortcuts.
 
 ## Default Controls
 
@@ -12,7 +12,7 @@ The default layout supports either Xbox controller on USB port 0 or 1. Driver tr
 | Right trigger | Hold shooter demand with trigger-based throttle scaling |
 | Left trigger | Hold manual feed plus indexers; the intake cycles between down and halfway up and pulses the rollers near the down end |
 | Left bumper | Cancel the active auto-assist |
-| Right bumper | Schedule `AutoAssist/DriveUnderTrench` |
+| Driver/operator right bumper | Toggle collect without indexers |
 | Left stick press | Hold X-lock on the swerve modules |
 | `A` | Toggle collect without indexers |
 | `B` | Hold reverse on intake and indexers |
