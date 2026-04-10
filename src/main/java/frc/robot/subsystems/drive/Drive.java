@@ -274,72 +274,78 @@ public class Drive extends SubsystemBase {
           NetworkTablesUtil.logPath("Drive/SwerveStates/SetpointsOptimized"),
           new SwerveModuleState[] {});
     }
-
-    // Update odometry
-    double[] sampleTimestamps =
-        modules[0].getOdometryTimestamps(); // All signals are sampled together
-    int sampleCount = sampleTimestamps.length;
-    boolean resyncGyro = gyroInputs.connected && !gyroWasConnected;
-    for (int i = 0; i < sampleCount; i++) {
-      // Read wheel positions and deltas from each module
-      SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
-      SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
-      for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
-        modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
-        moduleDeltas[moduleIndex] =
-            new SwerveModulePosition(
-                modulePositions[moduleIndex].distanceMeters
-                    - lastModulePositions[moduleIndex].distanceMeters,
-                modulePositions[moduleIndex].angle);
-        lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
-      }
-      Twist2d twist = kinematics.toTwist2d(moduleDeltas);
-
-      // Update gyro angle
-      if (gyroInputs.connected && !resyncGyro) {
-        Rotation2d measuredGyroRotation = gyroInputs.odometryYawPositions[i];
-        if (!gyroHasBeenInitialized) {
-          // Trust the first connected sample so startup and explicit pose resets can establish a
-          // baseline before jump detection kicks in.
-          rawGyroRotation = measuredGyroRotation;
-        } else {
-          double gyroJumpRadians =
-              Math.abs(
-                  MathUtil.angleModulus(measuredGyroRotation.minus(rawGyroRotation).getRadians()));
-          if (gyroJumpRadians > gyroResyncThresholdRadians) {
-            // The gyro likely reset or re-zeroed itself. Keep the current field frame and
-            // re-seed the gyro once this batch is done so teleop and auto do not flip.
-            resyncGyro = true;
-            rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
-          } else {
-            // Use the real gyro angle.
-            rawGyroRotation = measuredGyroRotation;
-          }
+    try {
+      // Update odometry
+      double[] sampleTimestamps =
+          modules[0].getOdometryTimestamps(); // All signals are sampled together
+      int sampleCount = sampleTimestamps.length;
+      boolean resyncGyro = gyroInputs.connected && !gyroWasConnected;
+      for (int i = 0; i < sampleCount; i++) {
+        // Read wheel positions and deltas from each module
+        SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
+        SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
+        for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+          modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
+          moduleDeltas[moduleIndex] =
+              new SwerveModulePosition(
+                  modulePositions[moduleIndex].distanceMeters
+                      - lastModulePositions[moduleIndex].distanceMeters,
+                  modulePositions[moduleIndex].angle);
+          lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
         }
-      } else {
-        // Use the angle delta from the kinematics and module deltas.
-        rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+        Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+
+        // Update gyro angle
+        if (gyroInputs.connected && gyroInputs.odometryYawPositions.length > i && !resyncGyro) {
+          Rotation2d measuredGyroRotation = gyroInputs.odometryYawPositions[i];
+          if (!gyroHasBeenInitialized) {
+            // Trust the first connected sample so startup and explicit pose resets can establish a
+            // baseline before jump detection kicks in.
+            rawGyroRotation = measuredGyroRotation;
+          } else {
+            double gyroJumpRadians =
+                Math.abs(
+                    MathUtil.angleModulus(measuredGyroRotation.minus(rawGyroRotation).getRadians()));
+            if (gyroJumpRadians > gyroResyncThresholdRadians) {
+              // The gyro likely reset or re-zeroed itself. Keep the current field frame and
+              // re-seed the gyro once this batch is done so teleop and auto do not flip.
+              resyncGyro = true;
+              rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+            } else {
+              // Use the real gyro angle.
+              rawGyroRotation = measuredGyroRotation;
+            }
+          }
+        } else {
+          // Use the angle delta from the kinematics and module deltas.
+          rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+        }
+
+        Logger.recordOutput("gyro test", rawGyroRotation);
+
+        // Apply update
+        poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
       }
 
-      Logger.recordOutput("gyro test", rawGyroRotation);
+      if (resyncGyro) {
+        gyroIO.setAngle(rawGyroRotation);
+      }
+      if (gyroInputs.connected && sampleCount > 0) {
+        gyroHasBeenInitialized = true;
+      }
+      gyroWasConnected = gyroInputs.connected;
 
-      // Apply update
-      poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
+      // Update gyro alert
+      gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
+
+      if (!isHubAimVectorLoggingEnabled() && wasHubAimVectorLoggingEnabled) {
+        clearHubAimLogs();
+      }
     }
-
-    if (resyncGyro) {
-      gyroIO.setAngle(rawGyroRotation);
-    }
-    if (gyroInputs.connected && sampleCount > 0) {
-      gyroHasBeenInitialized = true;
-    }
-    gyroWasConnected = gyroInputs.connected;
-
-    // Update gyro alert
-    gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
-
-    if (!isHubAimVectorLoggingEnabled() && wasHubAimVectorLoggingEnabled) {
-      clearHubAimLogs();
+    catch (Exception e) {
+      System.out.println("Gyro update threw an error:");
+      System.out.println(e);
+      e.printStackTrace();
     }
 
     determineOctant();
