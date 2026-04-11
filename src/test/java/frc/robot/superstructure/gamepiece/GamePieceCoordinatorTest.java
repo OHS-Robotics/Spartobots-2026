@@ -186,7 +186,7 @@ class GamePieceCoordinatorTest {
   }
 
   @Test
-  void shooterDemandFromAlignSkipsSoftSpinupRamp() {
+  void shooterDemandFromAlignMatchesTriggerSpinupInSim() {
     FakeShooterIO alignIo = new FakeShooterIO();
     Shooter alignShooter = new Shooter(alignIo);
     alignShooter.setCalibrationModeEnabled(false);
@@ -215,8 +215,8 @@ class GamePieceCoordinatorTest {
     alignShooter.periodic();
     triggerShooter.periodic();
 
-    assertTrue(alignIo.pair1SetpointRadPerSec > triggerIo.pair1SetpointRadPerSec);
-    assertTrue(alignIo.pair2SetpointRadPerSec > triggerIo.pair2SetpointRadPerSec);
+    assertEquals(alignIo.pair1SetpointRadPerSec, triggerIo.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(alignIo.pair2SetpointRadPerSec, triggerIo.pair2SetpointRadPerSec, 1e-9);
 
     triggerDemandCommand.end(false);
   }

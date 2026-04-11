@@ -135,19 +135,11 @@ class FieldTargetingServiceTest {
         FieldTargetingService.selectCompetitionAutoTargets(
             Optional.of(Alliance.Red), redLowerStart);
 
-    assertEquals(
-        Constants.blueTrenchBottomInner.getX() - 0.70, blueLowerTargets.point1Pose().getX(), 1e-9);
-    assertEquals(
-        Constants.blueTrenchBottomInner.getY() + 0.10, blueLowerTargets.point1Pose().getY(), 1e-9);
+    assertPoseDistanceFromHub(blueLowerTargets.point1Pose(), Constants.blueHub, 4.0);
     assertEquals(bluePoint5X, blueLowerTargets.point5Pose().getX(), 1e-9);
     assertEquals(blueLowerPoint5Y, blueLowerTargets.point5Pose().getY(), 1e-9);
 
-    assertEquals(
-        Constants.blueTrenchBottomInner.getX() - 0.70, blueUpperTargets.point1Pose().getX(), 1e-9);
-    assertEquals(
-        Constants.fieldWidth - (Constants.blueTrenchBottomInner.getY() + 0.10),
-        blueUpperTargets.point1Pose().getY(),
-        1e-9);
+    assertPoseDistanceFromHub(blueUpperTargets.point1Pose(), Constants.blueHub, 4.0);
     assertPoint5ToPoint1CanPathfind(blueLowerTargets);
     assertPoint5ToPoint1CanPathfind(blueUpperTargets);
     assertEquals("Bump Right In", blueLowerTargets.bumpReturnPathName());
@@ -169,14 +161,7 @@ class FieldTargetingServiceTest {
     assertMirroredAcrossFieldWidth(blueLowerTargets.point4Pose(), blueUpperTargets.point4Pose());
     assertMirroredAcrossFieldWidth(blueLowerTargets.point5Pose(), blueUpperTargets.point5Pose());
 
-    assertEquals(
-        Constants.fieldLength - (Constants.blueTrenchBottomInner.getX() - 0.70),
-        redMirroredLowerTargets.point1Pose().getX(),
-        1e-9);
-    assertEquals(
-        Constants.fieldWidth - (Constants.blueTrenchBottomInner.getY() + 0.10),
-        redMirroredLowerTargets.point1Pose().getY(),
-        1e-9);
+    assertPoseDistanceFromHub(redMirroredLowerTargets.point1Pose(), Constants.redHub, 4.0);
     assertEquals(
         Constants.fieldLength - bluePoint5X, redMirroredLowerTargets.point5Pose().getX(), 1e-9);
     assertEquals(
@@ -191,12 +176,7 @@ class FieldTargetingServiceTest {
         redMirroredLowerTargets.point4Pose().getY(),
         1e-9);
 
-    assertEquals(
-        Constants.fieldLength - (Constants.blueTrenchBottomInner.getX() - 0.70),
-        redLowerTargets.point1Pose().getX(),
-        1e-9);
-    assertEquals(
-        Constants.blueTrenchBottomInner.getY() + 0.10, redLowerTargets.point1Pose().getY(), 1e-9);
+    assertPoseDistanceFromHub(redLowerTargets.point1Pose(), Constants.redHub, 4.0);
     assertBumperClearOfRedSideCenterline(redLowerTargets.point2Pose());
     assertBumperClearOfRedSideCenterline(redLowerTargets.point3Pose());
     assertBumperClearOfLowerLaneMidline(redLowerTargets.point2Pose());
@@ -290,6 +270,14 @@ class FieldTargetingServiceTest {
     assertEquals(cycle0Pose.getY(), shiftedPose.getY(), 1e-9);
     assertEquals(
         cycle0Pose.getRotation().getRadians(), shiftedPose.getRotation().getRadians(), 1e-9);
+  }
+
+  private static void assertPoseDistanceFromHub(
+      Pose2d robotPose, Pose2d hubPose, double expectedDistanceMeters) {
+    assertEquals(
+        expectedDistanceMeters,
+        robotPose.getTranslation().getDistance(hubPose.getTranslation()),
+        1e-4);
   }
 
   private static void assertRedCycleXShift(

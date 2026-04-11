@@ -318,7 +318,7 @@ public class Shooter extends SubsystemBase {
   @Override
   public void periodic() {
     if (shotControlEnabled) {
-      if (calibrationModeEnabled) {
+      if (shouldUseFullWheelPowerTarget()) {
         wheelPowerPercent = 1.0;
       } else {
         wheelPowerPercent += wheelPowerRamp;
@@ -1959,6 +1959,10 @@ public class Shooter extends SubsystemBase {
     return calibrationModeEnabled
         ? targetRadPerSec
         : rampWheelVelocityCommand(currentRadPerSec, targetRadPerSec, shotControlEnabled);
+  }
+
+  private boolean shouldUseFullWheelPowerTarget() {
+    return calibrationModeEnabled || Constants.currentMode == Constants.Mode.SIM;
   }
 
   private double clampToHoodCalibrationRange(double hoodPositionRotations) {

@@ -232,7 +232,7 @@ class ShooterTest {
   }
 
   @Test
-  void shooterSpinupRampsWheelCommandOutsideCalibrationMode() {
+  void shooterSpinupUsesFullWheelPowerTargetInSim() {
     FakeShooterIO io = new FakeShooterIO();
     Shooter shooter = new Shooter(io);
     shooter.setCalibrationModeEnabled(false);
@@ -242,11 +242,12 @@ class ShooterTest {
     shooter.setShotControlEnabled(true);
     shooter.periodic();
 
-    assertTrue(io.pair1SetpointRadPerSec > 0.0);
-    assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
-
-    followShooterCommand(io, shooter, 50);
-    assertTrue(io.pair1SetpointRadPerSec < shooter.getPair1WheelSetpointRadPerSec());
+    double expectedFirstCycleSetpointRadPerSec =
+        Math.min(
+            shooter.getPair1WheelSetpointRadPerSec(),
+            ShooterConstants.wheelCommandRampUpRadPerSecSquared * 0.02);
+    assertEquals(expectedFirstCycleSetpointRadPerSec, io.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(expectedFirstCycleSetpointRadPerSec, io.pair2SetpointRadPerSec, 1e-9);
 
     followShooterCommand(io, shooter, 50);
 
@@ -255,11 +256,11 @@ class ShooterTest {
   }
 
   @Test
-  void shotControlCanSkipWheelPowerSoftRampForAuto() {
-    FakeShooterIO rampedIo = new FakeShooterIO();
-    Shooter rampedShooter = new Shooter(rampedIo);
-    rampedShooter.setCalibrationModeEnabled(false);
-    rampedShooter.updateHubShotSolution(
+  void shotControlSkipFlagMatchesDefaultSpinupBehaviorInSim() {
+    FakeShooterIO defaultIo = new FakeShooterIO();
+    Shooter defaultShooter = new Shooter(defaultIo);
+    defaultShooter.setCalibrationModeEnabled(false);
+    defaultShooter.updateHubShotSolution(
         new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
 
     FakeShooterIO fullPowerIo = new FakeShooterIO();
@@ -268,13 +269,13 @@ class ShooterTest {
     fullPowerShooter.updateHubShotSolution(
         new Pose2d(2.0, 2.0, Rotation2d.kZero), new Pose2d(6.0, 2.0, Rotation2d.kZero));
 
-    rampedShooter.setShotControlEnabled(true);
+    defaultShooter.setShotControlEnabled(true);
     fullPowerShooter.setShotControlEnabled(true, true);
-    rampedShooter.periodic();
+    defaultShooter.periodic();
     fullPowerShooter.periodic();
 
-    assertTrue(fullPowerIo.pair1SetpointRadPerSec > rampedIo.pair1SetpointRadPerSec);
-    assertTrue(fullPowerIo.pair2SetpointRadPerSec > rampedIo.pair2SetpointRadPerSec);
+    assertEquals(defaultIo.pair1SetpointRadPerSec, fullPowerIo.pair1SetpointRadPerSec, 1e-9);
+    assertEquals(defaultIo.pair2SetpointRadPerSec, fullPowerIo.pair2SetpointRadPerSec, 1e-9);
   }
 
   @Test
