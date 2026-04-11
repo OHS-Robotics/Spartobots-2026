@@ -97,21 +97,23 @@ public class GamePieceCoordinator {
               true,
               shooter.isReadyToFire(),
               true /* Sensorless path: assume staged piece is present when feed is requested. */);
-      if (feedAllowed) {
-        indexers.setTargetTopIndexerSpeed(-BASIC_FEED_INDEXER_SPEED);
-        indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
-        indexers.updateIndexers();
-        recordMode("FEED");
-      } else {
-        indexers.stopIndexers();
-        recordMode("FEED_INTERLOCKED");
-      }
+      applyBasicShooterFeedOutputs(feedAllowed);
     } else {
       indexers.setTargetTopIndexerSpeed(0.0);
       indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
       indexers.updateIndexers();
       recordMode("MANUAL_FEED");
     }
+  }
+
+  public void applyBasicFeedWhenShotWindowAvailable(boolean shotWindowAvailable) {
+    intake.stopIntake();
+    boolean feedAllowed =
+        ShooterFeedInterlock.shouldAdvanceToShooter(
+            true,
+            shotWindowAvailable,
+            true /* Sensorless path: assume staged piece is present when feed is requested. */);
+    applyBasicShooterFeedOutputs(feedAllowed);
   }
 
   public void applyBasicReverse() {
@@ -151,6 +153,18 @@ public class GamePieceCoordinator {
 
   public double getBasicFeedIndexerSpeed() {
     return BASIC_FEED_INDEXER_SPEED;
+  }
+
+  private void applyBasicShooterFeedOutputs(boolean feedAllowed) {
+    if (feedAllowed) {
+      indexers.setTargetTopIndexerSpeed(-BASIC_FEED_INDEXER_SPEED);
+      indexers.setTargetBottomIndexerSpeed(BASIC_FEED_BELT_SPEED);
+      indexers.updateIndexers();
+      recordMode("FEED");
+    } else {
+      indexers.stopIndexers();
+      recordMode("FEED_INTERLOCKED");
+    }
   }
 
   private void applyManualFeed(double throttle) {

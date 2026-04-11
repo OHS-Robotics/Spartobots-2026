@@ -33,7 +33,8 @@ public class FieldTargetingService {
   private static final String blueLowerBumpReturnPathName = "Bump Right In";
   private static final String blueUpperBumpReturnPathName = "Bump Left In";
   private static final double competitionAutoCenterlineBumperMarginMeters = 0.05;
-  private static final double competitionAutoPoint1BackMeters = 0.70;
+  private static final double competitionAutoPoint1HubDistanceMeters = 4.0;
+  private static final double competitionAutoPoint1BackMeters = 0.80;
   private static final double competitionAutoPoint1LeftMeters = 0.10;
   private static final double competitionAutoCycleDriverStationShiftMeters = 1.0;
   private static final double competitionAutoMaxBlueSideCenterX =
@@ -45,11 +46,16 @@ public class FieldTargetingService {
           - (DriveConstants.bumperWidthYMeters / 2.0)
           - competitionAutoCenterlineBumperMarginMeters;
   // Blue-reference points from the annotated auto map. Red variants are derived below.
-  private static final Pose2d blueLowerAutoPoint1Pose =
+  private static final Pose2d blueLowerAutoPoint1ReferencePose =
       new Pose2d(
           Constants.blueTrenchBottomInner.getX() - competitionAutoPoint1BackMeters,
           Constants.blueTrenchBottomInner.getY() + competitionAutoPoint1LeftMeters,
           Rotation2d.kZero);
+  private static final Pose2d blueLowerAutoPoint1Pose =
+      projectPoseToDistanceFromHub(
+          Constants.blueHub,
+          blueLowerAutoPoint1ReferencePose,
+          competitionAutoPoint1HubDistanceMeters);
   private static final Pose2d blueUpperAutoPoint1Pose =
       mirrorBluePoseAcrossFieldWidth(blueLowerAutoPoint1Pose);
   private static final Pose2d blueLowerAutoPoint2Pose =
@@ -266,6 +272,22 @@ public class FieldTargetingService {
         pose.getX(),
         Constants.fieldWidth - pose.getY(),
         Rotation2d.fromRadians(-pose.getRotation().getRadians()));
+  }
+
+  private static Pose2d projectPoseToDistanceFromHub(
+      Pose2d hubPose, Pose2d referencePose, double distanceMeters) {
+    Translation2d offsetFromHub = referencePose.getTranslation().minus(hubPose.getTranslation());
+    if (offsetFromHub.getNorm() <= 1e-9) {
+      return new Pose2d(
+          hubPose.getTranslation().minus(new Translation2d(distanceMeters, 0.0)),
+          referencePose.getRotation());
+    }
+
+    Translation2d projectedTranslation =
+        hubPose
+            .getTranslation()
+            .plus(offsetFromHub.times(distanceMeters / offsetFromHub.getNorm()));
+    return new Pose2d(projectedTranslation, referencePose.getRotation());
   }
 
   private static Pose2d shiftBlueReferencePoseTowardDriverStationByCycle(

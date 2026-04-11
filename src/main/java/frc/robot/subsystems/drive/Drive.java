@@ -829,6 +829,13 @@ public class Drive extends SubsystemBase {
         () -> DriveConstants.hubAlignLinearAccelerationLimitMetersPerSecSquared);
   }
 
+  public boolean isAimedAtHub(double shotAirtimeSeconds, double toleranceRadians) {
+    Rotation2d targetHeading = getHubAimRotation(shotAirtimeSeconds);
+    double headingErrorRadians =
+        Math.abs(MathUtil.angleModulus(getRotation().minus(targetHeading).getRadians()));
+    return headingErrorRadians <= toleranceRadians;
+  }
+
   private Command pathfindToTranslationWithRotationOverride(
       Translation2d target, Supplier<Optional<Rotation2d>> rotationTargetOverrideSupplier) {
     return pathfindToTranslationWithRotationOverride(
