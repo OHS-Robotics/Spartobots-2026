@@ -305,7 +305,8 @@ public class Drive extends SubsystemBase {
           } else {
             double gyroJumpRadians =
                 Math.abs(
-                    MathUtil.angleModulus(measuredGyroRotation.minus(rawGyroRotation).getRadians()));
+                    MathUtil.angleModulus(
+                        measuredGyroRotation.minus(rawGyroRotation).getRadians()));
             if (gyroJumpRadians > gyroResyncThresholdRadians) {
               // The gyro likely reset or re-zeroed itself. Keep the current field frame and
               // re-seed the gyro once this batch is done so teleop and auto do not flip.
@@ -341,8 +342,7 @@ public class Drive extends SubsystemBase {
       if (!isHubAimVectorLoggingEnabled() && wasHubAimVectorLoggingEnabled) {
         clearHubAimLogs();
       }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       System.out.println("Gyro update threw an error:");
       System.out.println(e);
       e.printStackTrace();

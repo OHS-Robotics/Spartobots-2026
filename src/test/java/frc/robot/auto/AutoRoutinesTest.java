@@ -53,8 +53,8 @@ class AutoRoutinesTest {
   }
 
   @Test
-  void competitionAutoRunsTwoCycles() {
-    assertEquals(2, AutoRoutines.getCompetitionAutoCycleCount());
+  void competitionAutoRunsOneCycle() {
+    assertEquals(1, AutoRoutines.getCompetitionAutoCycleCount());
   }
 
   @Test
